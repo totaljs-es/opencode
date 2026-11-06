@@ -118,3 +118,7 @@ The icon font is the one of `spa.min@20.css` (the Total.js icons, named `ti-...`
 ## Git in the Changes panel
 
 The top of the Changes panel shows the branch of the project and the files that git sees as changed (state, staged or not, at most 200), read with `git status --porcelain` through `Projects|git`. It only reads, with a timeout and a minimal environment, and shows nothing when the folder is not a git repository. The files of the session below it are still the ones that the agent changed, from the snapshots.
+
+## Terminal panel
+
+The Terminal button next to Changes opens a panel with every command that Totem ran in the session (`bash` calls with their state and output, as stored) and, above them, the commands running in the background, read again every two seconds while the panel is open, with a Stop link (`Sessions|jobs` and `Sessions|jobstop`). It is a record of what the agent ran, not a shell: an interactive terminal is phase 4.

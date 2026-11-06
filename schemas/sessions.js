@@ -323,3 +323,30 @@ NEWACTION('Sessions|todos', {
 		$.callback(items);
 	}
 });
+
+NEWACTION('Sessions|jobs', {
+	name: 'Background commands of a session',
+	summary: 'The commands that the agent started in the background in this session, with their state and the end of their output.',
+	params: '*id',
+	action: function($) {
+		$.callback(MODS.jobs.list($.params.id).map(job => ({ id: job.id, command: job.command, status: job.status, output: MODS.jobs.tail(job), dtcreated: job.dtcreated })));
+	}
+});
+
+NEWACTION('Sessions|jobstop', {
+	name: 'Stop a background command',
+	params: '*id',
+	input: '*job:String',
+	action: function($, model) {
+
+		var job = MODS.jobs.get($.params.id, model.job);
+
+		if (!job) {
+			$.invalid('@(Job not found)');
+			return;
+		}
+
+		MODS.jobs.stop(job);
+		$.success();
+	}
+});

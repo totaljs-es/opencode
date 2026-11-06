@@ -1650,6 +1650,10 @@ Test.push('redo, fork and background commands', async function(next) {
 	await idle(id);
 	check('the run ends while the command still runs', Date.now() - started < 15000 && Object.keys(MAIN.jobs).length === 1);
 	var job = MAIN.jobs[Object.keys(MAIN.jobs)[0]];
+	r = await api('sessions_jobs/' + id);
+	check('the jobs of a session are listed with their output', r.response.length === 1 && r.response[0].id === job.id && r.response[0].status === 'running' && /started/.test(r.response[0].output));
+	r = await api('sessions_jobs/' + sessionid);
+	check('another session has no jobs', r.response.length === 0);
 	check('the output of the job is read', job.status === 'running' && /started/.test(job.output));
 	check('the model gets the job id and its first output', requests[1].messages.some(m => m.role === 'tool' && /job j[0-9A-Za-z]+/.test(m.content) && /started/.test(m.content)));
 	check('the job tool lists it', requests[2].messages.some(m => m.role === 'tool' && m.content.indexOf(job.id) !== -1 && /running/.test(m.content)));
