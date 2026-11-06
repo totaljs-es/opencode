@@ -34,6 +34,16 @@ Design points:
 | `qwen3:4b` | Calls `read` and `edit` through the OpenAI-compatible endpoint, streams reasoning (stored as a collapsed `reasoning` part) and answers correctly. Slow on CPU (about 30 s for a read and an answer). After a rejected edit it tried again, which led to the rule above |
 | `qwen2.5:1.5b` | Did not call the tool and invented the content of the file. Too small to use tools reliably; the model catalogue (phase 3) should mark which models support tools |
 
+## Providers: what is verified
+
+| Provider kind | Verified |
+|---|---|
+| OpenAI-compatible (Ollama) | Real server, 2026-11-06: streaming, tool calls, reasoning, usage |
+| Anthropic | The request shape matches the official pages (checked 2026-11-06): `x-api-key`, `anthropic-version`, `max_tokens`, top-level `system`, `tools[].input_schema`, `tool_use` and `tool_result` blocks with all results of a turn in one user message, stream events, `/v1/models`. Exercised only against a simulator built from them. We send `anthropic-version: 2023-06-01`; the pages show a newer value in their examples and mark the header optional |
+| Gemini | Exercised only against a simulator. Not confirmed from the pages: `alt=sse`, the `x-goog-api-key` header, the role of function responses (`user` is sent), `pageSize` of the model list. `thoughtSignature` exists in the API and is sent back |
+
+Neither Anthropic nor Gemini has been run with a real key yet.
+
 ## The prompt
 
 Built in this order; each part is a file or a function, never a hidden string:

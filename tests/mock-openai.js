@@ -31,6 +31,66 @@ function words(res, text, done) {
 	}, 15);
 }
 
+// Anthropic stream: one event per line pair
+function sse(res, type, data) {
+	res.write('event: ' + type + '\ndata: ' + JSON.stringify(Object.assign({ type: type }, data)) + '\n\n');
+}
+
+function anthropic(res, payload) {
+
+	var last = payload.messages[payload.messages.length - 1];
+	var blocks = Array.isArray(last.content) ? last.content : [];
+	var result = blocks.find(b => b.type === 'tool_result');
+	var text = typeof(last.content) === 'string' ? last.content : '';
+
+	res.writeHead(200, { 'content-type': 'text/event-stream' });
+	sse(res, 'message_start', { message: { id: 'msg_1', role: 'assistant', usage: { input_tokens: 21, output_tokens: 1 } } });
+	sse(res, 'content_block_start', { index: 0, content_block: { type: 'text', text: '' } });
+
+	var reply = result ? ('Anthropic saw the result: ' + result.content) : (/file/.test(text) ? 'Let me read it.' : ('Anthropic echo: ' + text));
+	sse(res, 'content_block_delta', { index: 0, delta: { type: 'text_delta', text: reply } });
+	sse(res, 'content_block_stop', { index: 0 });
+
+	if (!result && /file/.test(text)) {
+		sse(res, 'content_block_start', { index: 1, content_block: { type: 'tool_use', id: 'toolu_1', name: 'read', input: {} } });
+		sse(res, 'content_block_delta', { index: 1, delta: { type: 'input_json_delta', partial_json: '{"path":' } });
+		sse(res, 'content_block_delta', { index: 1, delta: { type: 'input_json_delta', partial_json: '"a.txt"}' } });
+		sse(res, 'content_block_stop', { index: 1 });
+	}
+
+	sse(res, 'message_delta', { delta: { stop_reason: !result && /file/.test(text) ? 'tool_use' : 'end_turn' }, usage: { output_tokens: 9 } });
+	sse(res, 'message_stop', {});
+	res.end();
+}
+
+function gemini(res, payload) {
+
+	var last = payload.contents[payload.contents.length - 1];
+	var response = last.parts.find(p => p.functionResponse);
+	var text = last.parts[0].text || '';
+
+	res.writeHead(200, { 'content-type': 'text/event-stream' });
+
+	function send(parts, usage) {
+		var data = { candidates: [{ content: { role: 'model', parts: parts } }] };
+		if (usage)
+			data.usageMetadata = { promptTokenCount: 30, candidatesTokenCount: 7 };
+		res.write('data: ' + JSON.stringify(data) + '\n\n');
+	}
+
+	if (response)
+		send([{ text: 'Gemini saw ' + response.functionResponse.name + ': ' + response.functionResponse.response.output }], true);
+	else if (/file/.test(text)) {
+		send([{ text: 'Let me read it.' }]);
+		send([{ functionCall: { name: 'read', args: { path: 'a.txt' } }, thoughtSignature: 'sig-123' }], true);
+	} else
+		send([{ text: 'Gemini echo: ' + text }], true);
+
+	res.end();
+}
+
+exports.calls = [];
+
 exports.start = function(port, callback) {
 
 	var server = Http.createServer(function(req, res) {
@@ -38,6 +98,41 @@ exports.start = function(port, callback) {
 		var body = '';
 		req.on('data', c => body += c);
 		req.on('end', function() {
+
+			// Anthropic and Gemini: the key must arrive in their own header
+			if (req.url === '/v1/messages') {
+				if (req.headers['x-api-key'] !== 'test-key' || req.headers['anthropic-version'] !== '2023-06-01') {
+					res.statusCode = 401;
+					res.end('{"error":"bad key"}');
+					return;
+				}
+				var asked = JSON.parse(body);
+				exports.calls.push({ kind: 'anthropic', headers: req.headers, body: asked });
+				anthropic(res, asked);
+				return;
+			}
+
+			if (/^\/v1beta\/models\/[^/]+:streamGenerateContent/.test(req.url)) {
+				if (req.headers['x-goog-api-key'] !== 'test-key') {
+					res.statusCode = 403;
+					res.end('{"error":"bad key"}');
+					return;
+				}
+				var request = JSON.parse(body);
+				exports.calls.push({ kind: 'gemini', url: req.url, headers: req.headers, body: request });
+				gemini(res, request);
+				return;
+			}
+
+			if (req.url === '/v1/models?limit=100' && req.headers['anthropic-version']) {
+				res.end(JSON.stringify({ data: [{ id: 'claude-test', display_name: 'Claude Test', max_input_tokens: 200000 }] }));
+				return;
+			}
+
+			if (req.url === '/v1beta/models?pageSize=1000') {
+				res.end(JSON.stringify({ models: [{ name: 'models/gemini-test', displayName: 'Gemini Test', inputTokenLimit: 1048576, supportedGenerationMethods: ['generateContent'] }, { name: 'models/embed-test', supportedGenerationMethods: ['embedContent'] }] }));
+				return;
+			}
 
 			// Discovery endpoints of Ollama and of the catalogues
 			if (req.url === '/api/tags') {

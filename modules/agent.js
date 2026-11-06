@@ -130,6 +130,13 @@ function retryable(err) {
 	return typeof(err) === 'string' && /^(429|5\d\d)\b|ECONNRESET|ETIMEDOUT|ECONNREFUSED|socket hang up|network|fetch failed|Timeout/i.test(err);
 }
 
+// The signature that Gemini 3 asks to receive back with a function call
+function withsignature(call, signature) {
+	if (signature)
+		call.thoughtSignature = signature;
+	return call;
+}
+
 // Converts the stored parts of a session into the messages of the provider
 function history(messages, parts) {
 
@@ -178,7 +185,7 @@ function history(messages, parts) {
 			if (part.type === 'text')
 				content += part.data.text;
 			else if (part.type === 'tool') {
-				calls.push({ id: part.data.call, type: 'function', function: { name: part.data.tool, arguments: JSON.stringify(part.data.input || {}) } });
+				calls.push(withsignature({ id: part.data.call, type: 'function', function: { name: part.data.tool, arguments: JSON.stringify(part.data.input || {}) } }, part.data.thoughtSignature));
 				results.push({ role: 'tool', tool_call_id: part.data.call, content: part.data.error ? ('Error: ' + part.data.error) : (part.data.output || '') });
 			} else if (part.type === 'step')
 				flush();
@@ -347,7 +354,14 @@ function request(run, finish, fail) {
 		// The assistant message of this step for the next request
 		var msg = { role: 'assistant', content: output.content || null };
 		if (tools.length)
-			msg.tool_calls = tools.map(t => ({ id: t.id, type: 'function', function: { name: t.name, arguments: JSON.stringify(t.arguments || {}) } }));
+			msg.tool_calls = tools.map(t => withsignature({ id: t.id, type: 'function', function: { name: t.name, arguments: JSON.stringify(t.arguments || {}) } }, t.thoughtSignature));
+
+		// The signatures travel with the stored call so that the history can send them back
+		tools.forEach(function(t) {
+			var stored = run.parts[t.id];
+			if (stored && t.thoughtSignature)
+				stored.data.thoughtSignature = t.thoughtSignature;
+		});
 		run.messages.push(msg);
 
 		if (!tools.length) {

@@ -3,7 +3,8 @@
 
 exports.id = 'discovery';
 
-function request(method, address, key, body, timeout, callback) {
+// `key` is sent as a Bearer token; `extra` replaces it with the headers of providers that authenticate differently
+function request(method, address, key, body, timeout, callback, extra) {
 
 	var url;
 	try {
@@ -18,7 +19,9 @@ function request(method, address, key, body, timeout, callback) {
 	var headers = { accept: 'application/json', 'user-agent': 'Total.js Totem' };
 	var done = false;
 
-	if (key)
+	if (extra)
+		Object.assign(headers, extra);
+	else if (key)
 		headers.authorization = 'Bearer ' + key;
 
 	if (data) {
@@ -129,9 +132,39 @@ function openai(provider, callback) {
 	});
 }
 
+// Anthropic: GET /v1/models. Every Claude model can call tools.
+function anthropic(provider, callback) {
+	request('GET', provider.url.replace(/\/+$/, '') + '/v1/models?limit=100', null, null, 8000, function(err, json) {
+
+		if (err) {
+			callback(err);
+			return;
+		}
+
+		callback(null, (json.data || []).map(m => ({ id: m.id, name: m.display_name || m.id, context: m.max_input_tokens || null, tools: true, reasoning: null, free: false, size: null })));
+	}, { 'x-api-key': provider.key || '', 'anthropic-version': '2023-06-01' });
+}
+
+// Gemini: GET /v1beta/models. Only the models that can generate content are offered.
+function gemini(provider, callback) {
+	request('GET', provider.url.replace(/\/+$/, '') + '/v1beta/models?pageSize=1000', null, null, 8000, function(err, json) {
+
+		if (err) {
+			callback(err);
+			return;
+		}
+
+		var list = (json.models || []).filter(m => !m.supportedGenerationMethods || m.supportedGenerationMethods.indexOf('generateContent') !== -1);
+
+		callback(null, list.map(m => ({ id: (m.name || '').replace(/^models\//, ''), name: m.displayName || m.name, context: m.inputTokenLimit || null, tools: true, reasoning: typeof(m.thinking) === 'boolean' ? m.thinking : null, free: null, size: null })));
+	}, { 'x-goog-api-key': provider.key || '' });
+}
+
+var KINDS = { ollama: ollama, anthropic: anthropic, gemini: gemini };
+
 // callback(err, [{ id, name, context, tools, reasoning, free, size }]). Unknown values are null.
 exports.available = function(provider, callback) {
-	(provider.kind === 'ollama' ? ollama : openai)(provider, function(err, models) {
+	(KINDS[provider.kind] || openai)(provider, function(err, models) {
 		if (err)
 			callback(err);
 		else

@@ -540,6 +540,78 @@ Test.push('providers, discovery and model metadata', async function(next) {
 	next();
 });
 
+Test.push('Anthropic and Gemini', async function(next) {
+
+	var mock = require('./mock-openai');
+	var root = 'http://127.0.0.1:8111';
+
+	// The conversion of the conversation
+	var tools = [{ role: 'assistant', content: 'Looking.', tool_calls: [{ id: 'a', type: 'function', function: { name: 'read', arguments: '{"path":"x"}' } }, { id: 'b', type: 'function', function: { name: 'glob', arguments: '{"pattern":"*"}' } }] }, { role: 'tool', tool_call_id: 'a', content: 'one' }, { role: 'tool', tool_call_id: 'b', content: 'two' }];
+	var a = MODS.provider.toanthropic([{ role: 'system', content: 'SYS' }, { role: 'user', content: 'hi' }].concat(tools));
+	check('Anthropic: the system prompt is separate', a.system === 'SYS' && a.messages[0].role === 'user');
+	check('Anthropic: tool calls become tool_use blocks', a.messages[1].role === 'assistant' && a.messages[1].content[0].type === 'text' && a.messages[1].content[1].type === 'tool_use' && a.messages[1].content[1].input.path === 'x');
+	check('Anthropic: the results of one step go in one user message', a.messages.length === 3 && a.messages[2].content.length === 2 && a.messages[2].content[1].tool_use_id === 'b');
+
+	var g = MODS.provider.togemini([{ role: 'system', content: 'SYS' }, { role: 'user', content: 'hi' }].concat(tools));
+	check('Gemini: the system prompt is separate and the assistant is the model', g.system === 'SYS' && g.contents[1].role === 'model' && g.contents[1].parts[1].functionCall.name === 'read');
+	check('Gemini: results carry the name of their function', g.contents[2].parts.length === 2 && g.contents[2].parts[0].functionResponse.name === 'read' && g.contents[2].parts[1].functionResponse.name === 'glob');
+
+	var hist = MODS.provider.togemini([{ role: 'assistant', content: null, tool_calls: [{ id: 'a', type: 'function', thoughtSignature: 'SIG', function: { name: 'read', arguments: '{}' } }] }]);
+	check('Gemini: a stored signature goes back in its function call', hist.contents[0].parts[0].thoughtSignature === 'SIG');
+
+	// Discovery with the key in the header of each API
+	var r = await api('providers_available', { url: root, kind: 'anthropic', key: 'test-key' });
+	check('Anthropic models are listed with their context', r.response.length === 1 && r.response[0].id === 'claude-test' && r.response[0].context === 200000 && r.response[0].tools === true);
+	r = await api('providers_available', { url: root, kind: 'gemini', key: 'test-key' });
+	check('Gemini models are listed and only the ones that generate', r.response.length === 1 && r.response[0].id === 'gemini-test' && r.response[0].context === 1048576);
+
+	// A conversation with each provider
+	await api('providers_save', { name: 'Claude mock', url: root, kind: 'anthropic', key: 'test-key', models: ['claude-test'] });
+	await api('providers_save', { name: 'Gemini mock', url: root, kind: 'gemini', key: 'test-key', models: ['gemini-test'] });
+	await new Promise(resolve => setTimeout(resolve, 300));
+
+	for (var kind of ['anthropic', 'gemini']) {
+
+		var id = await session({ model: (kind === 'anthropic' ? 'claude-mock:claude-test' : 'gemini-mock:gemini-test') });
+		events.length = 0;
+		mock.calls.length = 0;
+		await api('sessions_prompt/' + id, { text: 'please read the file' });
+		await until(() => events.some(e => e.type === 'permission.ask') || events.some(e => e.type === 'session.status' && e.data.status === 'idle'));
+		await idle(id);
+
+		var calls = mock.calls.filter(c => c.kind === kind);
+		var label = kind === 'anthropic' ? 'Anthropic' : 'Gemini';
+		check(label + ': the conversation takes two requests with the key in its header', calls.length === 2);
+
+		if (kind === 'anthropic') {
+			check('Anthropic: system, tools with input_schema and max_tokens are sent', calls[0].body.system.indexOf('You are Totem') === 0 && calls[0].body.tools.length === 11 && !!calls[0].body.tools[0].input_schema && calls[0].body.max_tokens > 0);
+			check('Anthropic: the second request carries the tool result', calls[1].body.messages.some(m => Array.isArray(m.content) && m.content.some(b => b.type === 'tool_result' && b.tool_use_id === 'toolu_1')));
+		} else {
+			check('Gemini: system instruction and function declarations are sent', calls[0].body.systemInstruction.parts[0].text.indexOf('You are Totem') === 0 && calls[0].body.tools[0].functionDeclarations.length === 11 && JSON.stringify(calls[0].body.tools).indexOf('additionalProperties') === -1);
+			check('Gemini: the signature of the function call is sent back', calls[1].body.contents.some(c => c.role === 'model' && c.parts.some(p => p.functionCall && p.thoughtSignature === 'sig-123')));
+			check('Gemini: the second request carries the function response', calls[1].body.contents.some(c => c.parts.some(p => p.functionResponse && p.functionResponse.name === 'read')));
+		}
+
+		r = await api('sessions_messages/' + id);
+		var assistant = r.response.find(m => m.role === 'assistant');
+		var texts = assistant.parts.filter(p => p.type === 'text').map(p => p.data.text).join('|');
+		var tool = assistant.parts.find(p => p.type === 'tool');
+		var steps = assistant.parts.filter(p => p.type === 'step');
+		check(label + ': text and the tool call are parsed from the stream', texts.indexOf('Let me read it.') !== -1 && texts.indexOf(label + ' saw') !== -1 && tool && tool.data.tool === 'read');
+		check(label + ': the usage of every step is kept', steps[0].data.tokens && steps[0].data.tokens.input > 0 && steps[0].data.tokens.output > 0);
+	}
+
+	// A wrong key is a visible error
+	await api('providers_save', { name: 'Claude bad', url: root, kind: 'anthropic', key: 'wrong', models: ['claude-test'] });
+	await new Promise(resolve => setTimeout(resolve, 300));
+	var bad = await session({ model: 'claude-bad:claude-test' });
+	events.length = 0;
+	await api('sessions_prompt/' + bad, { text: 'hello' });
+	await until(() => events.some(e => e.type === 'session.status' && e.data.status === 'error'));
+	check('a rejected key ends the run with the error of the provider', events.some(e => e.type === 'error' && /401/.test(e.data.message)));
+	next();
+});
+
 Test.push('command line', async function(next) {
 
 	function cli(args) {

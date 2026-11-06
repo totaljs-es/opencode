@@ -16,7 +16,7 @@ FUNC.providers = function(callback) {
 				continue;
 			for (var model of item.models) {
 				var config = { url: item.url, key: key, model: model };
-				NEWAIMODEL(item.id + ':' + model, config, MODS.provider.openai);
+				NEWAIMODEL(item.id + ':' + model, config, MODS.provider.byKind(item.kind));
 				MAIN.modelmeta[item.id + ':' + model] = (item.meta && item.meta[model]) || {};
 			}
 		}

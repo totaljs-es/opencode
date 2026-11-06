@@ -12,7 +12,7 @@ Everything is local. The data folder (`config`: `data`, default `databases/` nex
 | **message** | `id`, `sessionid`, `role` (`user`, `assistant`), `model`, `cost`, `tokens`, `dtcreated` | NoSQL `messages` |
 | **part** | `id`, `messageid`, `sessionid`, `type`, `data`, `dtcreated` | NoSQL `parts` |
 | **permission rule** | `id`, `projectid` (or global), `tool`, `pattern`, `action` (`allow`, `ask`, `deny`) | NoSQL `permissions` |
-| **provider** | `id`, `name`, `url`, `kind` (`openai`, `ollama`, `openrouter`: how its models are listed), `key` (encrypted), `models[]` (the ones a session can use), `meta` (per model: `context`, `tools`, `reasoning`, `free`, `size`; unknown values are null), `disabled` | NoSQL `providers` |
+| **provider** | `id`, `name`, `url`, `kind` (`openai`, `ollama`, `openrouter`, `anthropic`, `gemini`: the request format and how its models are listed), `key` (encrypted), `models[]` (the ones a session can use), `meta` (per model: `context`, `tools`, `reasoning`, `free`, `size`; unknown values are null), `disabled` | NoSQL `providers` |
 | **snapshot** | `id`, `sessionid`, `messageid`, `path`, `existed`, `size`, `dtcreated` | NoSQL `snapshots` + a file per snapshot |
 | **todo** | `id`, `sessionid`, `text`, `status` | NoSQL `todos` |
 
@@ -42,7 +42,7 @@ Before a tool changes a file, `modules/snapshots.js` stores the previous content
 
 - `config` (native config file): port, data folder, default provider, limits.
 - `private/`: built-in catalogue of models, prompts and agent definitions (read-only, versioned).
-- Provider keys are stored encrypted with the application secret (`secret` in `config`; when empty, a random one is created once in `databases/secret.txt`). `Providers|save` writes them and `Providers|list` never returns them (only `haskey`). Phase 1 implements the `openai` kind (Chat Completions); the other parsers come in phase 3.
+- Provider keys are stored encrypted with the application secret (`secret` in `config`; when empty, a random one is created once in `databases/secret.txt`). `Providers|save` writes them and `Providers|list` never returns them (only `haskey`). Three request formats are implemented in `modules/provider.js`: Chat Completions (`openai`, `ollama`, `openrouter`), Anthropic Messages (`anthropic`) and Gemini generateContent (`gemini`). The conversation is kept in the Chat Completions format and converted for each API. Gemini signatures of function calls (`thoughtSignature`) are kept in the stored tool part and sent back.
 
 ## Retention
 
