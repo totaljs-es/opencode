@@ -11,6 +11,11 @@
 	.CLASS .msg-user { text-align: right; }
 	.CLASS .msg-user .bubble { background: var(--t-soft2); border-radius: 14px 14px 4px 14px; padding: 8px 14px; display: inline-block; max-width: 85%; text-align: left; white-space: pre-wrap; }
 	.CLASS .part { margin-bottom: 8px; }
+	.CLASS .part.live { white-space: pre-wrap; overflow-wrap: anywhere; }
+	.CLASS .part pre { background: var(--t-soft); color: inherit; border: 1px solid var(--t-border); border-radius: var(--radius, 6px); padding: 10px 12px; overflow: auto; font-size: 12px; }
+	.CLASS .part pre code, .CLASS .part code { background: transparent; color: inherit; }
+	.CLASS .part :not(pre) > code { background: var(--t-soft2); padding: 1px 5px; border-radius: 4px; }
+	.CLASS .scroll { overflow-anchor: none; }
 	.CLASS .reasoning { color: var(--t-muted); border-left: 3px solid var(--t-border); padding-left: 10px; font-size: 13px; }
 	.CLASS .reasoning summary { cursor: pointer; font-style: italic; }
 	.CLASS .tool { border: 1px solid var(--t-border); border-radius: var(--radius, 6px); padding: 6px 10px; font-size: 13px; background: var(--t-soft); }
@@ -110,7 +115,7 @@
 							<div class="bubble">{{ p.data.text }}</div>
 							{{ fi }}
 							{{ if p.type === 'text' && m.role !== 'user' }}
-							<div class="part" data-part="{{ p.id }}">{{ p.data.text | markdown({ wrap: false }) }}</div>
+							<div class="part{{ if p.live }} live{{ fi }}" data-part="{{ p.id }}">{{ if p.live }}{{ p.data.text }}{{ else }}{{ p.data.text | markdown({ wrap: false }) }}{{ fi }}</div>
 							{{ fi }}
 							{{ if p.type === 'file' }}
 							<div class="files">
@@ -482,7 +487,7 @@
 				}
 
 				if (part.type === 'text')
-					el.html(Thelpers.markdown(part.data.text, { wrap: false }));
+					el.text(part.data.text);
 				else if (part.type === 'reasoning')
 					el.find('.rtext').text(part.data.text);
 			});
@@ -546,6 +551,7 @@
 				case 'part.created':
 					var m = find(data.part.messageid);
 					if (m && !parts[data.part.id]) {
+						data.part.live = data.part.type === 'text';
 						parts[data.part.id] = data.part;
 						m.parts.push(data.part);
 						redraw();
@@ -557,6 +563,14 @@
 					if (part) {
 						part.data.text += data.text;
 						streamed(data.partid);
+					}
+					break;
+
+				case 'part.closed':
+					// The text was shown as plain lines while it arrived; now it is drawn once as Markdown
+					if (parts[data.partid] && parts[data.partid].live) {
+						parts[data.partid].live = false;
+						redraw();
 					}
 					break;
 
