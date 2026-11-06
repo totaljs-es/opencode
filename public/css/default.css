@@ -64,3 +64,6 @@ html, body { height: 100%; margin: 0; }
 .provi-ollama { --i: url(/img/providers/ollama.svg); }
 .provi-openai { --i: url(/img/providers/openai.svg); }
 .provi-openrouter { --i: url(/img/providers/openrouter.svg); }
+.provi-groq { --i: url(/img/providers/groq.svg); }
+.provi-llamacpp { --i: url(/img/providers/llamacpp.svg); }
+.provi-together { --i: url(/img/providers/together.svg); }
