@@ -57,3 +57,7 @@ Text read from files, web pages or MCP servers is untrusted. The base prompt say
 ## Audit
 
 Every tool call, permission decision and file change is a stored part with its time, so "what did the agent do" is answered from the session, not from memory.
+
+## Totem as an MCP server
+
+Off by default (`$mcp : false`). The framework accepts every caller of its MCP route unless the application replaces `Total.mcp.auth`, so Totem does: a request with an `Origin` header is refused (a web page cannot drive it), a token is compared as a Bearer token with the same blocking of repeated failures as the login, and without a token only a caller that reaches `localhost` from this computer is accepted. Only sessions and projects are exposed; a prompt over MCP cannot change `autoaccept`, so file changes and commands still ask the person.

@@ -42,3 +42,7 @@ Plan and Build modes, formatters after edits, `/init` and the secret-file rule w
 ## Reasoning of Claude and Gemini
 
 The level of the interface becomes a budget of tokens: Claude `thinking: { type: "enabled", budget_tokens }` (2048, 8192, 16384; `max_tokens` grows by the budget), Gemini 2.5 `thinkingConfig.thinkingBudget` (1024, 8192, 24576; "none" is 0, or 128 in Pro, which cannot be switched off), Gemini 3 `thinkingLevel` (low or high). The thoughts arrive as reasoning parts. Claude asks for its signed thinking block to return with the tool call of the same turn, so the block is kept in the messages of the run (not stored: a new prompt does not need it). Only models known to think get the setting: Claude by `capabilities.thinking` of its model list, or by family. Checked against simulators only: the newest Claude models may want adaptive thinking instead of a budget, so the first real key has to confirm it.
+
+## MCP server
+
+The eight actions that other agents need (projects, sessions, prompt, diff) are marked `mcp: true`; nothing of the agent's own tools is. Totem sets its own `Total.mcp.auth` because the default of the framework is `$.success(ADMIN)` for everyone.

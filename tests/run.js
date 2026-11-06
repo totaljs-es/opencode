@@ -1812,6 +1812,66 @@ Test.push('reasoning of Claude and Gemini', async function(next) {
 	next();
 });
 
+Test.push('Totem as an MCP server', async function(next) {
+
+	var base = 'http://127.0.0.1:' + PORT + '/$mcp/';
+
+	// Off in the config; the test switches it on like an owner would and lets the framework read the config again
+	check('the MCP server is off by default', CONF.$mcp === false && !Total.mcp.route);
+	CONF.$mcp = true;
+	EMIT('configure');
+	await new Promise(resolve => setTimeout(resolve, 300));
+
+	function rpc(method, params, headers) {
+		return new Promise(function(resolve) {
+			var builder = RESTBuilder.POST(base, { jsonrpc: '2.0', id: 1, method: method, params: params || {} }).header('content-type', 'application/json').header('accept', 'application/json, text/event-stream');
+			Object.keys(headers || {}).forEach(key => builder.header(key, headers[key]));
+			builder.exec((err, response, output) => resolve({ err: err, response: response, status: output && output.status }));
+		});
+	}
+
+	var r = await rpc('initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'test', version: '1' } });
+	check('the MCP endpoint answers a program of this computer', r.response && r.response.result && r.response.result.serverInfo !== undefined || (r.response && r.response.result));
+
+	r = await rpc('tools/list');
+	var names = ((r.response && r.response.result && r.response.result.tools) || []).map(t => t.name);
+	check('the sessions and the projects are tools', ['Projects_list', 'Sessions_list', 'Sessions_create', 'Sessions_read', 'Sessions_messages', 'Sessions_prompt', 'Sessions_abort', 'Sessions_diff'].every(n => names.indexOf(n) !== -1));
+	check('the tools of the agent (files, commands) are not exposed', !names.some(n => /^Tools_/.test(n)) && names.indexOf('Permissions_reply') === -1 && names.indexOf('Providers_save') === -1 && names.length === 8);
+
+	r = await rpc('tools/call', { name: 'Projects_list', arguments: {} });
+	var text = r.response && r.response.result && r.response.result.content && r.response.result.content[0].text;
+	check('a tool call returns the data', !!text && text.indexOf(projectid) !== -1);
+
+	r = await rpc('tools/call', { name: 'Sessions_create', arguments: { input: { projectid: projectid, model: 'fake', name: 'From MCP' } } });
+	var created = JSON.parse(r.response.result.content[0].text);
+	check('a session is created with its name', created.name === 'From MCP' && created.projectid === projectid);
+
+	script = [{ content: 'Answered over MCP.' }];
+	events.length = 0;
+	r = await rpc('tools/call', { name: 'Sessions_prompt', arguments: { params: { id: created.id }, input: { text: 'hello from another agent', mode: 'plan' } } });
+	await idle(created.id);
+	var read = await api('sessions_read/' + created.id);
+	r = await api('sessions_messages/' + created.id);
+	check('a prompt over MCP runs the agent, in the mode that was asked', read.response.mode === 'plan' && r.response.some(m => m.role === 'assistant' && m.parts.some(p => p.type === 'text' && p.data.text === 'Answered over MCP.')));
+	await api('sessions_remove/' + created.id);
+
+	// A web page is refused, with or without a token
+	r = await rpc('tools/list', {}, { origin: 'https://evil.example' });
+	check('a request that comes from a web page is refused', r.status === 401 || (r.response && r.response.error && r.response.error.code === -32001));
+
+	CONF.token = 'secret-token';
+	r = await rpc('tools/list');
+	check('with a token, a call without it is refused', r.status === 401 || (r.response && r.response.error && r.response.error.code === -32001));
+	r = await rpc('tools/list', {}, { authorization: 'Bearer wrong' });
+	check('and a wrong one', r.status === 401 || (r.response && r.response.error && r.response.error.code === -32001));
+	r = await rpc('tools/list', {}, { authorization: 'Bearer secret-token' });
+	check('the token as a Bearer token is accepted', !!(r.response && r.response.result && r.response.result.tools));
+	CONF.token = '';
+	CONF.$mcp = false;
+	EMIT('configure');
+	next();
+});
+
 Test.push('cleanup', async function(next) {
 	var r = await api('projects_remove/' + projectid);
 	check('removing a project removes its sessions', r.response.success === true);

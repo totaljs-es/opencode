@@ -1,5 +1,7 @@
 NEWACTION('Projects|list', {
 	name: 'List projects',
+	summary: 'Lists the folders that Totem works in (id, name, path).',
+	mcp: true,
 	action: async function($) {
 		var items = await NOSQL('projects').find().sort('dtopened_desc').promise($);
 		$.callback(items);

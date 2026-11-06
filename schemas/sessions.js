@@ -1,5 +1,7 @@
 NEWACTION('Sessions|list', {
 	name: 'List sessions of a project',
+	summary: 'Lists the sessions of a project, newest first.',
+	mcp: true,
 	query: '*projectid',
 	action: async function($) {
 		var items = await NOSQL('sessions').find().where('projectid', $.query.projectid).sort('dtupdated_desc').promise($);
@@ -25,11 +27,13 @@ NEWACTION('Sessions|list', {
 
 NEWACTION('Sessions|create', {
 	name: 'Create a session',
+	summary: 'Creates a session in a project. The model is one of the models that Totem lists (provider:model).',
+	mcp: true,
 	input: '*projectid:String, name:String, model:String, autoaccept:Boolean, reasoning:String',
 	action: async function($, model) {
 		await NOSQL('projects').read().where('id', model.projectid).error(404).promise($);
 		// A name given by the user stays; without one the session is named after its first prompt
-		var name = (typeof($.body && $.body.name) === 'string' ? model.name : '').trim().substring(0, 80);
+		var name = (typeof(($.body || model).name) === 'string' ? model.name : '').trim().substring(0, 80);
 		var item = { id: UID(), projectid: model.projectid, name: name || 'New session', named: !!name, model: model.model || '', status: 'idle', autoaccept: !!model.autoaccept, reasoning: model.reasoning || '', maxsteps: CONF.maxsteps, dtcreated: NOW, dtupdated: NOW };
 		await NOSQL('sessions').insert(item).promise($);
 		$.callback(item);
@@ -60,6 +64,8 @@ NEWACTION('Sessions|update', {
 
 NEWACTION('Sessions|read', {
 	name: 'Read a session',
+	summary: 'Reads a session: its status, model and mode.',
+	mcp: true,
 	params: '*id',
 	action: async function($) {
 		var item = await NOSQL('sessions').read().where('id', $.params.id).error(404).promise($);
@@ -87,6 +93,8 @@ NEWACTION('Sessions|remove', {
 
 NEWACTION('Sessions|messages', {
 	name: 'Messages of a session with their parts',
+	summary: 'Reads the messages of a session with their parts (text, reasoning, tool calls with their output).',
+	mcp: true,
 	params: '*id',
 	action: async function($) {
 		var id = $.params.id;
@@ -106,6 +114,8 @@ NEWACTION('Sessions|messages', {
 
 NEWACTION('Sessions|prompt', {
 	name: 'Send a prompt to the agent',
+	summary: 'Sends a prompt to the agent of a session and returns at once; read the session to follow it. A change of files or a command asks the person at the Totem screen unless the session auto-accepts edits. The session can be in mode plan (reads only) or build.',
+	mcp: true,
 	params: '*id',
 	input: '*text:String, model:String, autoaccept:Boolean, reasoning:String, mode:String, attachments:[Object]',
 	action: async function($, model) {
@@ -126,7 +136,7 @@ NEWACTION('Sessions|prompt', {
 		if ($.body && $.body.autoaccept !== undefined)
 			session.autoaccept = !!model.autoaccept;
 
-		if ($.body && $.body.mode !== undefined)
+		if (($.body || model).mode !== undefined)
 			session.mode = model.mode === 'plan' ? 'plan' : 'build';
 
 		if ($.body && $.body.reasoning !== undefined)
@@ -189,6 +199,8 @@ NEWACTION('Sessions|prompt', {
 
 NEWACTION('Sessions|abort', {
 	name: 'Stop the agent',
+	summary: 'Stops the agent of a session.',
+	mcp: true,
 	params: '*id',
 	action: function($) {
 		MODS.agent.abort($.params.id);
@@ -199,6 +211,8 @@ NEWACTION('Sessions|abort', {
 
 NEWACTION('Sessions|diff', {
 	name: 'Files changed by the agent in a session',
+	summary: 'Lists the files that the agent changed in a session, each with its patch.',
+	mcp: true,
 	params: '*id',
 	action: async function($) {
 		var session = await NOSQL('sessions').read().where('id', $.params.id).error(404).promise($);

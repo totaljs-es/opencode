@@ -3,6 +3,10 @@ version                     : 0.0.1
 $api                        : /api/
 $tmsmaxsize                 : 0
 
+// Totem as an MCP server (POST /$mcp/): other agents can list projects and sessions and send prompts. Off by default. With a token it asks for
+// `Authorization: Bearer <token>`; without one only programs of this computer (localhost) are accepted, never a web page.
+$mcp                        : false
+
 // A random secret is generated and saved in the data folder on first start when empty
 secret                      :
 

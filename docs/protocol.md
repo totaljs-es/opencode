@@ -65,5 +65,5 @@ Ordering: events of one session are sent in order. A client that reconnects call
 
 ## External interface
 
-- `POST /$mcp/` (Total.js MCP) is available when `CONF.$mcp` is set, for actions marked `mcp: true`. The agent's file and shell tools are not marked.
+- `POST /$mcp/` (Total.js MCP) is available when `$mcp : true` is set in `config` (off by default). It exposes eight actions marked `mcp: true`: `Projects|list` and `Sessions|list`, `create`, `read`, `messages`, `prompt` (it also takes `mode`), `abort` and `diff`, named `Sessions_prompt` and so on. The tools of the agent (files, commands), permissions and providers are not exposed. A prompt that changes files or runs a command still asks the person in the Totem screen. Auth is Totem's own (`definitions/auth.js`): a request with an `Origin` header (a web page) is refused; with `token` set the caller sends `Authorization: Bearer <token>`; without a token only localhost callers on this computer are accepted.
 - A headless call for scripts: `POST /api/sessions_prompt/{id}` with a token header, then polling `Sessions|read` or listening to the WebSocket. The `totem run` command ([delivery](delivery.md)) uses exactly this.
