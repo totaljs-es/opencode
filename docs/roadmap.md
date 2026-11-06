@@ -29,7 +29,10 @@ Pages in `docs/`, the repository skeleton, `AGENTS.md`, the conventions check. *
 
 Status: snapshots, per-session diff, undo, auto-accept, `AGENTS.md`, skills, patch/fetch/todo/ask tools, retry, two levels of compaction, secret scanning, the changes panel, shortcuts (`Esc` stops, `Alt+D` toggles changes), `totem` and `totem run` are in code with tests. Not done yet: git status in the interface, terminal output panel, a full dark theme, translations, and shipping the Total.js conventions skills with Totem. The week of real use has not happened.
 
-## Phase 3: breadth
+## Phase 3: breadth (in progress)
+
+Done: provider templates, detection of Ollama, llama.cpp and LM Studio on this computer, full model lists with context window, tool, reasoning and free flags (Ollama through `/api/show`, catalogues through `/models`), a model without tool support gets a request without tools, the context window of the model sets the compaction limit, token usage per step with a counter in the session bar. Pending: the Anthropic and Gemini request formats and parsers, cost counters, reasoning mode controls, sub-agents, custom commands, MCP client and server, attachments, split diff, the Forge documentation search tool.
+
 
 - All five provider parsers, model catalogue, reasoning mode, token and cost counters.
 - Sub-agents, custom commands, MCP client and server, attachments, split diff.

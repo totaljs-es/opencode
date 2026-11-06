@@ -107,7 +107,9 @@ function summarize(run, callback) {
 
 function compact(run, callback) {
 
-	var limit = CONF.contextlimit;
+	// The window of the model when it is known, with room for the answer; otherwise the configured limit
+	var meta = (MAIN.modelmeta && MAIN.modelmeta[run.model]) || {};
+	var limit = meta.context ? Math.floor(meta.context * 0.8) : CONF.contextlimit;
 
 	if (estimate(run.messages) <= limit) {
 		callback();
@@ -290,7 +292,10 @@ function request(run, finish, fail) {
 
 	var ai = AIMODEL(run.model);
 	ai.payload.messages = [{ role: 'system', content: system(run) }].concat(run.messages);
-	ai.payload.tools = exports.definitions();
+
+	// A model that is known not to support tools only chats: the request without tools is better than an error
+	var meta = (MAIN.modelmeta && MAIN.modelmeta[run.model]) || {};
+	ai.payload.tools = meta.tools === false ? [] : exports.definitions();
 	run.ai = ai;
 
 	ai.stream(function(e) {

@@ -32,6 +32,10 @@ exports.install = function() {
 	ROUTE('+API    ?    +providers_save             --> Providers|save');
 	ROUTE('+API    ?    -providers_remove/{id}      --> Providers|remove');
 	ROUTE('+API    ?    -providers_models           --> Providers|models');
+	ROUTE('+API    ?    -providers_catalog          --> Providers|catalog');
+	ROUTE('+API    ?    -providers_templates        --> Providers|templates');
+	ROUTE('+API    ?    -providers_detect           --> Providers|detect');
+	ROUTE('+API    ?    +providers_available        --> Providers|available');
 
 	// Events
 	ROUTE('+SOCKET ?', socket);

@@ -10,6 +10,14 @@ function chunk(res, delta, finish) {
 	res.write('data: ' + JSON.stringify({ choices: [{ index: 0, delta: delta, finish_reason: finish || null }] }) + '\n\n');
 }
 
+// The end of a stream, with the usage when the client asked for it
+function end(res, payload) {
+	chunk(res, {}, 'stop');
+	if (payload.stream_options && payload.stream_options.include_usage)
+		res.write('data: ' + JSON.stringify({ choices: [], usage: { prompt_tokens: 12, completion_tokens: 5, total_tokens: 17 } }) + '\n\n');
+	res.end('data: [DONE]\n\n');
+}
+
 function words(res, text, done) {
 	var arr = text.split(' ');
 	var index = 0;
@@ -30,6 +38,27 @@ exports.start = function(port, callback) {
 		var body = '';
 		req.on('data', c => body += c);
 		req.on('end', function() {
+
+			// Discovery endpoints of Ollama and of the catalogues
+			if (req.url === '/api/tags') {
+				res.end(JSON.stringify({ models: [{ name: 'tiny:1b', size: 1000 }, { name: 'big:7b', size: 5000 }] }));
+				return;
+			}
+
+			if (req.url === '/api/show') {
+				var which = JSON.parse(body).model;
+				res.end(JSON.stringify(which === 'big:7b' ? { capabilities: ['completion', 'tools', 'thinking'], model_info: { 'llama.context_length': 32768 } } : { capabilities: ['completion'], model_info: { 'llama.context_length': 8192 } }));
+				return;
+			}
+
+			if (req.url === '/v1/models') {
+				res.end(JSON.stringify({ data: [
+					{ id: 'free-model:free', name: 'Free Model', context_length: 65536, pricing: { prompt: '0', completion: '0' }, supported_parameters: ['tools', 'reasoning', 'temperature'] },
+					{ id: 'paid-model', name: 'Paid Model', context_length: 128000, pricing: { prompt: '0.000001', completion: '0.000002' }, supported_parameters: ['temperature'] },
+					{ id: 'plain-model' }
+				] }));
+				return;
+			}
 
 			if (req.url !== '/v1/chat/completions') {
 				res.statusCode = 404;
@@ -53,18 +82,12 @@ exports.start = function(port, callback) {
 			res.writeHead(200, { 'content-type': 'text/event-stream' });
 
 			if (last.role === 'tool' && /Written|Task list/.test(last.content)) {
-				words(res, 'Done. ' + last.content, function() {
-					chunk(res, {}, 'stop');
-					res.end('data: [DONE]\n\n');
-				});
+				words(res, 'Done. ' + last.content, () => end(res, payload));
 				return;
 			}
 
 			if (last.role === 'tool') {
-				words(res, 'I read the file. It has ' + (last.content.split('\n').length) + ' lines.', function() {
-					chunk(res, {}, 'stop');
-					res.end('data: [DONE]\n\n');
-				});
+				words(res, 'I read the file. It has ' + (last.content.split('\n').length) + ' lines.', () => end(res, payload));
 				return;
 			}
 
@@ -98,10 +121,7 @@ exports.start = function(port, callback) {
 				return;
 			}
 
-			words(res, 'Hello from the mock model. You said: ' + (user ? user.content : ''), function() {
-				chunk(res, {}, 'stop');
-				res.end('data: [DONE]\n\n');
-			});
+			words(res, 'Hello from the mock model. You said: ' + (user ? user.content : ''), () => end(res, payload));
 		});
 	});
 

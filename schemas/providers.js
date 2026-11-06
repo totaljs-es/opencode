@@ -5,6 +5,7 @@ NEWACTION('Providers|list', {
 		for (var item of items) {
 			item.haskey = !!item.key;
 			delete item.key;
+			delete item.meta;
 		}
 		$.callback(items);
 	}
@@ -12,7 +13,7 @@ NEWACTION('Providers|list', {
 
 NEWACTION('Providers|save', {
 	name: 'Save a provider',
-	input: 'id:String, *name:String, *url:String, key:String, models:[String], disabled:Boolean',
+	input: 'id:String, *name:String, *url:String, kind:String, key:String, models:[String], meta:Object, disabled:Boolean',
 	action: async function($, model) {
 
 		var item = model.id ? await NOSQL('providers').read().where('id', model.id).promise($) : null;
@@ -22,11 +23,19 @@ NEWACTION('Providers|save', {
 			return;
 		}
 
-		var data = { name: model.name, url: model.url, models: model.models || [], disabled: !!model.disabled, dtupdated: NOW };
+		var data = { name: model.name, url: model.url, kind: model.kind || 'openai', models: model.models || [], meta: model.meta || {}, disabled: !!model.disabled, dtupdated: NOW };
 
 		// An empty key keeps the stored one: the interface never receives it
 		if (model.key)
 			data.key = FUNC.encryptkey(model.key);
+
+		// Metadata that the form did not send is kept, but only for the models that remain
+		if (item && item.meta) {
+			for (var key in item.meta) {
+				if (!data.meta[key] && data.models.indexOf(key) !== -1)
+					data.meta[key] = item.meta[key];
+			}
+		}
 
 		if (item)
 			await NOSQL('providers').modify(data).where('id', item.id).promise($);
@@ -55,6 +64,63 @@ NEWACTION('Providers|models', {
 	name: 'Models that can be used in a session',
 	action: function($) {
 		var items = Object.keys(F.aimodels).sort();
+		$.callback(items);
+	}
+});
+
+
+NEWACTION('Providers|templates', {
+	name: 'Providers that can be added',
+	action: function($) {
+		$.callback(MAIN.templates);
+	}
+});
+
+NEWACTION('Providers|detect', {
+	name: 'Local servers found on this computer',
+	action: function($) {
+		MODS.discovery.detect(MAIN.templates, (err, found) => $.callback(found));
+	}
+});
+
+NEWACTION('Providers|available', {
+	name: 'All the models that a provider offers',
+	input: 'id:String, url:String, kind:String, key:String',
+	action: async function($, model) {
+
+		var provider = { url: model.url, kind: model.kind || 'openai', key: model.key || '' };
+
+		// Editing a saved provider: the stored key is used when no key is typed
+		if (model.id) {
+			var item = await NOSQL('providers').read().where('id', model.id).promise($);
+			if (item) {
+				provider.url = provider.url || item.url;
+				provider.kind = model.kind || item.kind || 'openai';
+				provider.key = provider.key || FUNC.decryptkey(item.key);
+			}
+		}
+
+		if (!provider.url) {
+			$.invalid('@(The URL is required)');
+			return;
+		}
+
+		MODS.discovery.available(provider, function(err, models) {
+			if (err)
+				$.invalid(FUNC.plain(typeof(err) === 'string' ? err : 'Error'));
+			else
+				$.callback(models);
+		});
+	}
+});
+
+NEWACTION('Providers|catalog', {
+	name: 'Models of the providers with what each one can do',
+	action: function($) {
+		var items = Object.keys(F.aimodels).sort().map(function(id) {
+			var meta = MAIN.modelmeta[id] || {};
+			return { id: id, name: meta.name || id, context: meta.context || null, tools: meta.tools === undefined ? null : meta.tools, reasoning: meta.reasoning === undefined ? null : meta.reasoning, free: meta.free === undefined ? null : meta.free };
+		});
 		$.callback(items);
 	}
 });

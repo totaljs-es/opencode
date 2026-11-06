@@ -4,6 +4,7 @@ FUNC.providers = function(callback) {
 	NOSQL('providers').find().callback(function(err, response) {
 
 		MAIN.secrets = [];
+		MAIN.modelmeta = {};
 
 		for (var item of (response || [])) {
 
@@ -16,6 +17,7 @@ FUNC.providers = function(callback) {
 			for (var model of item.models) {
 				var config = { url: item.url, key: key, model: model };
 				NEWAIMODEL(item.id + ':' + model, config, MODS.provider.openai);
+				MAIN.modelmeta[item.id + ':' + model] = (item.meta && item.meta[model]) || {};
 			}
 		}
 		callback && callback();

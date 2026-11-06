@@ -15,6 +15,7 @@
 | Read-only tools are one list in `modules/agent.js` | Visible, and no property that the framework does not define |
 | The model sees flattened arguments (`{ path, offset }`); the loop wraps them in `input` before calling the action | Fewer mistakes from small models, shorter prompts |
 | `grep` and `glob` use the system `rg` when present and a built-in search otherwise | Works in a minimal Docker image and in native builds |
+| Model lists come from the provider itself (`/api/tags` + `/api/show` for Ollama, `/models` for catalogues), not from a list bundled in Totem | A bundled list gets old; the provider knows its own models, context windows and prices |
 | MIT licence, same holder as the other `totaljs-es` repositories | No inherited attribution: no code from the earlier prototype is copied |
 
 ## Open

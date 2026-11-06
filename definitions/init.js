@@ -12,6 +12,7 @@ ON('ready', function() {
 	}
 
 	MAIN.base = Total.Fs.readFileSync(PATH.private('prompts/base.txt'), 'utf8');
+	MAIN.templates = Total.Fs.readFileSync(PATH.private('providers.json'), 'utf8').parseJSON();
 
 	FUNC.providers();
 

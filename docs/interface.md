@@ -21,7 +21,7 @@ Three plugins, mounted by the shell `views/index.html` with `page` components na
 |---|---|---|
 | `projects` | `index.html`, `form.html` | Projects and their sessions; open a folder; new session; forget a project; opens Settings |
 | `chat` | `index.html` | Messages with parts (text as Markdown, tool calls with input and output), permission questions, prompt box, model picker, stop; subscribes to the session over WebSocket and renders events |
-| `settings` | `index.html`, `form.html` | Providers: list, add, edit, remove; the API key is write-only |
+| `settings` | `index.html`, `form.html` | Providers: look for servers on this computer and add them with their models, add from a template (Ollama, llama.cpp, LM Studio, OpenRouter, OpenAI...), load the full model list of a provider with search and Tools / Free filters, choose the models; the API key is write-only |
 
 The login page (`views/login.html`) is used only when `token` is set in `config`.
 

@@ -7,7 +7,7 @@ exports.id = 'provider';
 exports.openai = function(ai, callback) {
 
 	var config = ai.config;
-	var payload = { model: config.model, messages: ai.payload.messages, stream: true };
+	var payload = { model: config.model, messages: ai.payload.messages, stream: true, stream_options: { include_usage: true } };
 
 	if (ai.payload.tools && ai.payload.tools.length)
 		payload.tools = ai.payload.tools;
@@ -44,8 +44,35 @@ exports.openai = function(ai, callback) {
 			ai.options.stream && ai.options.stream(e);
 		});
 
-		res.on('data', chunk => parser.write(chunk));
-		res.on('end', () => done(null, parser.end()));
+		// The usage of the request arrives in the last chunk: the parser of the framework does not keep it
+		var usage = null;
+		var tail = '';
+
+		res.on('data', function(chunk) {
+
+			parser.write(chunk);
+
+			tail += chunk.toString('utf8');
+			var lines = tail.split('\n');
+			tail = lines.pop();
+
+			for (var line of lines) {
+				if (line.indexOf('data:') === 0 && line.indexOf('"usage"') !== -1) {
+					try {
+						var u = JSON.parse(line.substring(5).trim()).usage;
+						if (u && (u.prompt_tokens || u.completion_tokens))
+							usage = { input: u.prompt_tokens || 0, output: u.completion_tokens || 0 };
+					} catch (e) {}
+				}
+			}
+		});
+
+		res.on('end', function() {
+			var output = parser.end();
+			if (usage)
+				output.usage = usage;
+			done(null, output);
+		});
 		res.on('error', err => done(err.message));
 	});
 

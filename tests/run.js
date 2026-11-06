@@ -486,6 +486,60 @@ Test.push('real provider over HTTP', async function(next) {
 	next();
 });
 
+Test.push('providers, discovery and model metadata', async function(next) {
+
+	var base = 'http://127.0.0.1:8111/v1';
+	var r = await api('providers_templates');
+	var ids = r.response.map(t => t.id);
+	check('templates cover local servers and remote catalogues', ['ollama', 'llamacpp', 'lmstudio', 'openrouter', 'openai'].every(id => ids.indexOf(id) !== -1) && r.response.find(t => t.id === 'ollama').local === true);
+
+	r = await api('providers_available', { url: base, kind: 'ollama' });
+	var tiny = r.response.find(m => m.id === 'tiny:1b');
+	var big = r.response.find(m => m.id === 'big:7b');
+	check('Ollama models come with capabilities and context', r.response.length === 2 && tiny.tools === false && big.tools === true && big.reasoning === true && big.context === 32768 && tiny.context === 8192);
+
+	r = await api('providers_available', { url: base, kind: 'openrouter' });
+	var free = r.response.find(m => m.id === 'free-model:free');
+	var paid = r.response.find(m => m.id === 'paid-model');
+	var plain = r.response.find(m => m.id === 'plain-model');
+	check('catalogue models say if they are free and support tools', free.free === true && free.tools === true && free.reasoning === true && free.context === 65536 && paid.free === false && paid.tools === false);
+	check('unknown values stay null', plain.tools === null && plain.free === null && plain.context === null);
+
+	// Detection on this computer: the local templates point to the mock (Ollama) or to a closed port
+	var saved = MAIN.templates;
+	MAIN.templates = saved.map(t => t.local ? Object.assign({}, t, { url: t.id === 'ollama' ? base : 'http://127.0.0.1:1/v1' }) : t);
+	r = await api('providers_detect');
+	MAIN.templates = saved;
+	check('detection finds the servers that answer and skips the others', r.response.length === 1 && r.response[0].template.id === 'ollama' && r.response[0].models.length === 2);
+
+	r = await api('providers_save', { name: 'Local mock', url: base, kind: 'ollama', models: ['tiny:1b', 'big:7b'], meta: { 'tiny:1b': { id: 'tiny:1b', context: 8192, tools: false }, 'big:7b': { id: 'big:7b', context: 32768, tools: true, reasoning: true } } });
+	check('a provider is saved with the metadata of its models', r.response && r.response.success === true);
+	await new Promise(resolve => setTimeout(resolve, 200));
+
+	r = await api('providers_catalog');
+	var entry = r.response.find(m => m.id === 'local-mock:tiny:1b');
+	check('the catalogue lists the models with what they can do', entry && entry.tools === false && entry.context === 8192 && r.response.find(m => m.id === 'local-mock:big:7b').reasoning === true);
+
+	var mock = require('./mock-openai');
+	var id = await session({ model: 'local-mock:tiny:1b' });
+	events.length = 0;
+	mock.requests.length = 0;
+	await api('sessions_prompt/' + id, { text: 'hello without tools' });
+	await idle(id);
+	check('a model without tool support gets a request without tools', mock.requests.length === 1 && mock.requests[0].tools === undefined);
+
+	r = await api('sessions_messages/' + id);
+	var step = r.response.find(m => m.role === 'assistant').parts.find(p => p.type === 'step');
+	check('the usage of the request is kept in the step', step.data.tokens && step.data.tokens.input === 12 && step.data.tokens.output === 5);
+
+	id = await session({ model: 'local-mock:big:7b' });
+	mock.requests.length = 0;
+	await api('sessions_prompt/' + id, { text: 'hello with tools' });
+	await idle(id);
+	check('a model with tool support gets the tools', mock.requests[0].tools && mock.requests[0].tools.length === 11);
+	next();
+});
+
 Test.push('command line', async function(next) {
 
 	function cli(args) {

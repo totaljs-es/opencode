@@ -1,0 +1,167 @@
+// Finds the models that a provider offers, with what each one can do (context window, tools, reasoning, free).
+// Local servers (Ollama, llama.cpp, LM Studio) are probed on this computer. Remote catalogues (OpenRouter) list their models publicly.
+
+exports.id = 'discovery';
+
+function request(method, address, key, body, timeout, callback) {
+
+	var url;
+	try {
+		url = new URL(address);
+	} catch (e) {
+		callback('@(Invalid URL)');
+		return;
+	}
+
+	var lib = url.protocol === 'https:' ? Total.Https : Total.Http;
+	var data = body ? JSON.stringify(body) : null;
+	var headers = { accept: 'application/json', 'user-agent': 'Total.js Totem' };
+	var done = false;
+
+	if (key)
+		headers.authorization = 'Bearer ' + key;
+
+	if (data) {
+		headers['content-type'] = 'application/json';
+		headers['content-length'] = Buffer.byteLength(data);
+	}
+
+	function finish(err, json) {
+		if (!done) {
+			done = true;
+			callback(err, json);
+		}
+	}
+
+	var req = lib.request({ protocol: url.protocol, hostname: url.hostname, port: url.port, path: url.pathname + url.search, method: method, headers: headers, timeout: timeout }, function(res) {
+		var text = '';
+		res.on('data', chunk => text += chunk);
+		res.on('end', function() {
+			if (res.statusCode >= 400) {
+				finish('{0}'.format(res.statusCode));
+				return;
+			}
+			try {
+				finish(null, JSON.parse(text));
+			} catch (e) {
+				finish('@(The server did not answer with JSON)');
+			}
+		});
+	});
+
+	req.on('timeout', () => req.destroy(new Error('timeout')));
+	req.on('error', err => finish(err.message));
+	req.end(data);
+}
+
+exports.request = request;
+
+function root(url) {
+	return url.replace(/\/+$/, '').replace(/\/v1$/, '');
+}
+
+function number(value) {
+	var n = parseFloat(value);
+	return isNaN(n) ? null : n;
+}
+
+// Ollama: the list of installed models, then the capabilities and the context of each one
+function ollama(provider, callback) {
+
+	var base = root(provider.url);
+
+	request('GET', base + '/api/tags', null, null, 4000, function(err, json) {
+
+		if (err) {
+			callback(err);
+			return;
+		}
+
+		var items = (json.models || []).slice(0, 100);
+
+		items.wait(function(item, next) {
+			request('POST', base + '/api/show', null, { model: item.name }, 4000, function(err, info) {
+				var caps = (info && info.capabilities) || null;
+				var context = null;
+				if (info && info.model_info) {
+					for (var key in info.model_info) {
+						if (/\.context_length$/.test(key))
+							context = info.model_info[key];
+					}
+				}
+				item.meta = { id: item.name, name: item.name, context: context, tools: caps ? caps.indexOf('tools') !== -1 : null, reasoning: caps ? caps.indexOf('thinking') !== -1 : null, free: true, size: item.size || null };
+				next();
+			});
+		}, function() {
+			callback(null, items.map(item => item.meta));
+		});
+	});
+}
+
+// OpenAI-compatible servers: GET /models. OpenRouter and vLLM add the context and the supported parameters.
+function openai(provider, callback) {
+
+	request('GET', provider.url.replace(/\/+$/, '') + '/models', provider.key, null, 8000, function(err, json) {
+
+		if (err) {
+			callback(err);
+			return;
+		}
+
+		var list = json.data || json.models || [];
+
+		callback(null, list.map(function(m) {
+
+			var params = m.supported_parameters;
+			var price = m.pricing ? number(m.pricing.prompt) : null;
+			var context = m.context_length || m.max_model_len || (m.meta && m.meta.n_ctx_train) || (m.top_provider && m.top_provider.context_length) || null;
+
+			return {
+				id: m.id || m.name,
+				name: m.name || m.id,
+				context: context,
+				tools: params ? params.indexOf('tools') !== -1 : null,
+				reasoning: params ? (params.indexOf('reasoning') !== -1 || params.indexOf('include_reasoning') !== -1) : null,
+				free: price === null ? null : price === 0,
+				size: null
+			};
+		}));
+	});
+}
+
+// callback(err, [{ id, name, context, tools, reasoning, free, size }]). Unknown values are null.
+exports.available = function(provider, callback) {
+	(provider.kind === 'ollama' ? ollama : openai)(provider, function(err, models) {
+		if (err)
+			callback(err);
+		else
+			callback(null, models.sort((a, b) => a.id.localeCompare(b.id)));
+	});
+};
+
+// The local servers that answer on this computer: [{ template, models }]
+exports.detect = function(templates, callback) {
+
+	var found = [];
+
+	templates.filter(t => t.local).wait(function(template, next) {
+
+		var provider = { url: template.url, kind: template.kind, key: '' };
+		var started = Date.now();
+
+		// A short probe: a closed port refuses at once, a server that does not answer is not worth waiting for
+		request('GET', root(template.url) + (template.kind === 'ollama' ? '/api/tags' : '/v1/models'), null, null, 1200, function(err) {
+
+			if (err) {
+				next();
+				return;
+			}
+
+			exports.available(provider, function(err, models) {
+				found.push({ template: template, models: err ? [] : models, ms: Date.now() - started });
+				next();
+			});
+		});
+
+	}, () => callback(null, found));
+};

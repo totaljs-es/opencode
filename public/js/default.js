@@ -12,6 +12,18 @@ ON('online', function(is) {
 		PLUGINS.chat.online();
 });
 
+// Tokens used by the model in a session, from the steps of its messages
+Thelpers.tokens = function(items) {
+	var total = 0;
+	(items || []).forEach(function(m) {
+		(m.parts || []).forEach(function(p) {
+			if (p.type === 'step' && p.data && p.data.tokens)
+				total += (p.data.tokens.input || 0) + (p.data.tokens.output || 0);
+		});
+	});
+	return total ? (total.format(0) + ' tokens') : '';
+};
+
 Thelpers.shortpath = function(path) {
 	if (!path)
 		return '';

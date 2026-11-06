@@ -1,20 +1,48 @@
-<ui-component name="miniform" path="common.form2" config="if:~PATH~;icon:ti ti-server;autofocus:true;reload:?/reload;scrollbar:0;submit:?/submit;width:520" class="hidden" plugin="~PATH~">
+<ui-component name="miniform" path="common.form2" config="if:~PATH~;icon:ti ti-server;autofocus:true;reload:?/reload;scrollbar:1;submit:?/submit;width:620" class="hidden" plugin="~PATH~">
 	<div class="padding">
+		<ui-bind path="?.help" config="show;template" class="block help mb10 hidden"><script type="text/html">{{ value }}</script></ui-bind>
 		<div class="m">
-			<ui-component name="input" path="?.name" config="required:1;placeholder:@(For example OpenRouter)">@(Name)</ui-component>
+			<ui-component name="input" path="?.name" config="required:1">@(Name)</ui-component>
 		</div>
 		<div class="m">
-			<ui-component name="input" path="?.url" config="required:1;type:url;placeholder:@(https://openrouter.ai/api/v1)">@(Base URL)</ui-component>
-			<div class="help">@(The address that ends before /chat/completions. Ollama: http://127.0.0.1:11434/v1)</div>
+			<ui-component name="input" path="?.url" config="required:1;type:url">@(Base URL)</ui-component>
+			<div class="help">@(The address that ends before /chat/completions.)</div>
 		</div>
 		<div class="m">
 			<ui-component name="input" path="?.key" config="type:password;placeholder:@(Leave empty to keep the saved key)">@(API key)</ui-component>
 			<div class="help">@(It is stored encrypted on this computer and never shown again.)</div>
 		</div>
 		<div class="m">
-			<ui-component name="input" path="?.models" config="required:1;type:tags;placeholder:@(Type a model id and press enter)">@(Models)</ui-component>
+			<ui-component name="input" path="?.models" config="required:1;type:tags;placeholder:@(Type a model id and press enter)">@(Models you can use)</ui-component>
 		</div>
-		<ui-component name="input" path="?.disabled" config="type:checkbox">@(Disabled)</ui-component>
+
+		<div class="b mb5"><i class="ti ti-list-search mr5"></i>@(Available models)</div>
+		<div class="mb10" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+			<button class="exec" data-exec="?/load"><i class="ti ti-refresh"></i>@(Load the list from the provider)</button>
+			<div style="flex:1;min-width:160px"><ui-component name="input" path="?.q" config="placeholder:@(Search)"></ui-component></div>
+			<ui-component name="input" path="?.onlytools" config="type:checkbox">@(Tools)</ui-component>
+			<ui-component name="input" path="?.onlyfree" config="type:checkbox">@(Free)</ui-component>
+		</div>
+		<ui-bind path="?.shown" config="template" class="block">
+			<script type="text/html">
+				{{ if value && !value.length }}<div class="gray mb10">@(Nothing to show. Load the list, or change the filters.)</div>{{ fi }}
+				<div style="max-height:260px;overflow:auto;border:1px solid #E0E0E0;border-radius:6px">
+				{{ foreach m in value }}
+				<div class="exec" data-exec="?/toggle" data-id="{{ m.id }}" style="padding:4px 10px;cursor:pointer;display:flex;gap:8px;align-items:center;border-bottom:1px solid rgba(0,0,0,0.05)">
+					<i class="ti ti-{{ if m.selected }}square-check green{{ else }}square{{ fi }}"></i>
+					<span class="hellip" style="flex:1">{{ m.id }}</span>
+					{{ if m.tools }}<span class="badge badge-small" title="@(Can call tools)">@(tools)</span>{{ fi }}
+					{{ if m.reasoning }}<span class="badge badge-small" title="@(Can think before answering)">@(thinks)</span>{{ fi }}
+					{{ if m.free }}<span class="badge badge-small" style="background:#27AE60">@(free)</span>{{ fi }}
+					{{ if m.context }}<span class="gray fs11">{{ m.context | context }}</span>{{ fi }}
+				</div>
+				{{ end }}
+				</div>
+			</script>
+		</ui-bind>
+		<ui-bind path="?.hidden" config="template" class="block"><script type="text/html">{{ if value }}<div class="gray fs12 mt5">@(Showing the first 100.) {{ value }} @(more match: refine the search.)</div>{{ fi }}</script></ui-bind>
+
+		<div class="mt10"><ui-component name="input" path="?.disabled" config="type:checkbox">@(Disabled)</ui-component></div>
 	</div>
 	<nav>
 		<ui-component name="validate" path="?">
@@ -26,14 +54,87 @@
 
 <script>
 
+	Thelpers.context = function(value) {
+		return value >= 1000000 ? ((value / 1000000).floor(1) + 'M') : (value >= 1000 ? (Math.round(value / 1000) + 'k') : value);
+	};
+
 	PLUGIN(function(exports) {
+
+		var all = [];
+		var metas = {};
 
 		exports.reload = function(com) {
 			com.reconfigure({ title: exports.model.id ? '@(Update provider)' : '@(Add a provider)' });
+			all = [];
+			metas = {};
+			exports.set('shown', []);
+			exports.set('hidden', 0);
+			exports.set('q', '');
+			exports.set('onlytools', false);
+			exports.set('onlyfree', false);
+
+			if (!exports.watching) {
+				exports.watching = true;
+				exports.watch('q', exports.filter);
+				exports.watch('onlytools', exports.filter);
+				exports.watch('onlyfree', exports.filter);
+			}
+		};
+
+		// The models that match the search and the filters (the first 100) with their selection
+		exports.filter = function() {
+
+			var model = exports.model;
+			var q = (model.q || '').toLowerCase();
+			var chosen = model.models || [];
+			var list = all.filter(function(m) {
+				if (model.onlytools && !m.tools)
+					return false;
+				if (model.onlyfree && !m.free)
+					return false;
+				return !q || m.id.toLowerCase().indexOf(q) !== -1;
+			});
+
+			exports.set('hidden', Math.max(list.length - 100, 0));
+			exports.set('shown', list.slice(0, 100).map(function(m) {
+				return Object.assign({}, m, { selected: chosen.indexOf(m.id) !== -1 });
+			}));
+		};
+
+		// Asks the provider for all its models; the typed key or the saved one is used
+		exports.load = function() {
+			var form = exports.form;
+			exports.tapi('providers_available ERROR', { id: form.id, url: form.url, kind: form.kind, key: form.key }, function(models) {
+				all = models;
+				models.forEach(m => metas[m.id] = m);
+				exports.filter();
+			});
+		};
+
+		exports.toggle = function(el) {
+			var id = ATTRD(el);
+			var chosen = (exports.model.models || []).slice();
+			var index = chosen.indexOf(id);
+			if (index === -1)
+				chosen.push(id);
+			else
+				chosen.splice(index, 1);
+			exports.set('models', chosen);
+			exports.filter();
 		};
 
 		exports.submit = function(hide) {
-			exports.tapi('providers_save ERROR', exports.form, function() {
+			var form = CLONE(exports.form);
+			form.meta = {};
+			(form.models || []).forEach(function(id) {
+				if (metas[id])
+					form.meta[id] = metas[id];
+			});
+			delete form.q;
+			delete form.shown;
+			delete form.hidden;
+			delete form.help;
+			exports.tapi('providers_save ERROR', form, function() {
 				hide();
 				PLUGINS.formsettings && PLUGINS.formsettings.refresh();
 				PLUGINS.chat && PLUGINS.chat.models();

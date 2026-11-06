@@ -2,6 +2,21 @@
 	<div class="padding">
 		<div class="b mb10"><i class="ti ti-plug-connected mr5"></i>@(Providers)</div>
 		<div class="help mb10">@(A provider is any server with an OpenAI-compatible API: OpenRouter, OpenAI, Ollama, LM Studio... Prompts go only to the providers you add here.)</div>
+		<div class="mb10">
+			<button class="exec" data-exec="?/detect"><i class="ti ti-radar"></i>@(Look for servers on this computer)</button>
+		</div>
+		<ui-bind path="?.found" config="template" class="block">
+			<script type="text/html">
+				{{ if value && !value.length }}<div class="mb10 gray">@(No Ollama, llama.cpp or LM Studio server answered on this computer.)</div>{{ fi }}
+				{{ foreach f in value }}
+				<div class="mb5" style="border:1px dashed #27AE60;border-radius:6px;padding:8px 10px;display:flex;gap:8px;align-items:center">
+					<i class="ti ti-device-desktop green"></i>
+					<div style="flex:1;min-width:0"><b>{{ f.template.name }}</b> <span class="gray fs12">{{ f.template.url }} &middot; {{ f.models.length }} @(models)</span></div>
+					<button class="exec" data-exec="?/addfound" data-id="{{ f.template.id }}">@(Add)</button>
+				</div>
+				{{ end }}
+			</script>
+		</ui-bind>
 		<ui-bind path="?.items" config="template" class="block">
 			<script type="text/html">
 				{{ if !value || !value.length }}<div class="mb10">@(No providers yet.)</div>{{ fi }}
@@ -30,6 +45,8 @@
 
 	PLUGIN(function(exports) {
 
+		var templates = {};
+
 		exports.reload = function() {
 			exports.refresh();
 		};
@@ -40,9 +57,46 @@
 			});
 		};
 
-		exports.create = function() {
-			SET('formprovider @default', { name: '', url: '', key: '', models: [] });
-			SET('common.form2', 'formprovider');
+		// Templates of known providers: the choice prefills the form
+		exports.create = function(el) {
+			exports.tapi('providers_templates', function(templates) {
+				var opt = {};
+				opt.element = el;
+				opt.align = 'left';
+				opt.items = templates.map(function(t) {
+					return { id: t.id, name: t.name + (t.local ? ' (@(this computer))' : ''), icon: t.local ? 'ti ti-device-desktop' : 'ti ti-cloud' };
+				});
+				opt.items.push('-');
+				opt.items.push({ id: '', name: '@(Other, OpenAI-compatible)', icon: 'ti ti-plug' });
+				opt.callback = function(item) {
+					var t = templates.findItem('id', item.id) || { name: '', url: '', kind: 'openai', help: '' };
+					SET('formprovider @default', { name: t.name, url: t.url, kind: t.kind, key: '', models: [], help: t.help, keyrequired: t.keyrequired });
+					SET('common.form2', 'formprovider');
+				};
+				SETTER('menu/show', opt);
+			});
+		};
+
+		exports.detect = function() {
+			exports.tapi('providers_detect', function(found) {
+				exports.set('found', found);
+				templates = {};
+				found.forEach(f => templates[f.template.id] = f);
+			});
+		};
+
+		// Adds a detected server with all its models and what each one can do
+		exports.addfound = function(el) {
+			var f = templates[ATTRD(el)];
+			if (!f)
+				return;
+			var meta = {};
+			f.models.forEach(m => meta[m.id] = m);
+			exports.tapi('providers_save ERROR', { name: f.template.name, url: f.template.url, kind: f.template.kind, models: f.models.map(m => m.id), meta: meta }, function() {
+				SETTER('notify/success', '@(Added:) ' + f.template.name);
+				exports.refresh();
+				PLUGINS.chat && PLUGINS.chat.models();
+			});
 		};
 
 		exports.edit = function(el) {
@@ -51,6 +105,7 @@
 			if (item) {
 				var data = CLONE(item);
 				data.key = '';
+				data.kind = data.kind || 'openai';
 				SET('formprovider @reset', data);
 				SET('common.form2', 'formprovider');
 			}

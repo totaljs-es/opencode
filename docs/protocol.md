@@ -21,6 +21,10 @@ Routes use the `+API` style of the conventions (`$api` is `/api/`), each to an a
 | `-sessions_diff/{id}` | `Sessions\|diff` | Files changed in the session: `{ path, status, additions, deletions, patch }` |
 | `+permissions_reply/{id}` | `Permissions\|reply` | Answer a pending permission question |
 | `-providers`, `+providers_save`, `-providers_remove/{id}`, `-providers_models` | `Providers\|...` | Providers (the key is write-only) and the models that a session can use |
+| `-providers_templates` | `Providers\|templates` | Known providers (`private/providers.json`): Ollama, llama.cpp, LM Studio, OpenRouter, OpenAI, Groq, Mistral, DeepSeek, Together |
+| `-providers_detect` | `Providers\|detect` | Local servers that answer on this computer, with their models |
+| `+providers_available` | `Providers\|available` | Every model that a provider offers (`url`, `kind`, `key`, or `id` of a saved provider) with `context`, `tools`, `reasoning`, `free` |
+| `-providers_catalog` | `Providers\|catalog` | The models that a session can use, with what each can do |
 | `-permissions`, `-permissions_remove/{id}` | `Permissions\|...` | Permission rules of a project |
 | `+login`, `+logout` | `Account\|...` | Sign in with the access token (only when `token` is set) |
 
