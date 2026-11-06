@@ -1,0 +1,10 @@
+node_modules/
+databases/
+tmp/
+logs/
+*.log
+.DS_Store
+index.js.json
+index.js.map
+index.pid
+public/ui-*

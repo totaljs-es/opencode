@@ -52,7 +52,7 @@ NEWACTION('Tools|read', {
 
 Notes:
 
-- `toAITool()` produces arguments nested as `input` / `query` / `params`. The loop flattens them for the model (tools use `input` only) and wraps them back before calling `ACTION()`.
+- `toAITool()` produces arguments nested as `input` / `query` / `params`. The loop flattens them for the model (tools use `input` only). `ACTION(name, payload)` receives the flat payload as the input.
 - Field comments after `//` are the argument descriptions the model sees.
 - Tools are **not** exposed through `/$mcp/` by default. File and shell tools behind a network endpoint are a risk; `mcp: true` is a per-tool setting that stays off until someone turns it on.
 - Whether a tool is read-only is not an action property of the framework. The loop keeps it in one list in `modules/agent.js` (design).

@@ -1,0 +1,15 @@
+{
+	"name": "totem",
+	"version": "0.0.1",
+	"description": "Total.js Totem: an AI coding environment written as a Total.js 5 application",
+	"main": "index.js",
+	"private": true,
+	"license": "MIT",
+	"scripts": {
+		"start": "node index.js 8000",
+		"test": "node tests/run.js"
+	},
+	"dependencies": {
+		"total5": "beta"
+	}
+}

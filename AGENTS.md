@@ -7,3 +7,9 @@ Total.js Totem is an AI coding environment written as a Total.js 5 application. 
 - Use CONF and the native config file for settings; do not add environment overrides.
 - The running application never reads `docs/`.
 - When a page in `docs/` and the code disagree, resolve it in the same change.
+
+## Commands
+
+- `npm install`, then `node index.js 8000` to run.
+- `npm test` runs `tests/run.js`: it starts the application in the same process with a disposable data folder and a scripted model. `ready` is emitted before the server accepts requests, so tests wait for the API.
+- `node <conventions>/tools/check.js .` checks the files against the conventions.

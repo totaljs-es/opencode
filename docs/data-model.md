@@ -12,7 +12,7 @@ Everything is local. The data folder (`config`: `data`, default `databases/` nex
 | **message** | `id`, `sessionid`, `role` (`user`, `assistant`), `model`, `cost`, `tokens`, `dtcreated` | NoSQL `messages` |
 | **part** | `id`, `messageid`, `sessionid`, `type`, `data`, `dtcreated` | NoSQL `parts` |
 | **permission rule** | `id`, `projectid` (or global), `tool`, `pattern`, `action` (`allow`, `ask`, `deny`) | NoSQL `permissions` |
-| **provider** | `id`, `name`, `kind` (parser), `url`, `key` (encrypted), `models[]`, `enabled` | settings file |
+| **provider** | `id`, `name`, `url`, `key` (encrypted), `models[]`, `disabled` | NoSQL `providers` |
 | **snapshot** | `id`, `sessionid`, `messageid`, `files[]` (path, hash, blob id) | NoSQL `snapshots` + FILESTORAGE blobs |
 | **todo** | `id`, `sessionid`, `text`, `status` | NoSQL `todos` |
 
@@ -41,7 +41,7 @@ Before a tool changes a file, `modules/snapshots.js` stores the previous content
 
 - `config` (native config file): port, data folder, default provider, limits.
 - `private/`: built-in catalogue of models, prompts and agent definitions (read-only, versioned).
-- Provider keys are stored encrypted with a key derived from the application secret in `config`. They are written only by the settings action and never returned to the interface.
+- Provider keys are stored encrypted with the application secret (`secret` in `config`; when empty, a random one is created once in `databases/secret.txt`). `Providers|save` writes them and `Providers|list` never returns them (only `haskey`). Phase 1 implements the `openai` kind (Chat Completions); the other parsers come in phase 3.
 
 ## Retention
 

@@ -1,0 +1,15 @@
+name                        : Total.js Totem
+version                     : 0.0.1
+$api                        : /api/
+$tmsmaxsize                 : 0
+
+// A random secret is generated and saved in the data folder on first start when empty
+secret                      :
+
+// When set, every request must send it (header x-token or the cookie created by /auth/)
+token                       :
+
+// Agent limits
+maxsteps          (Number)  : 50
+bashtimeout       (Number)  : 120000
+maxoutput         (Number)  : 30000
