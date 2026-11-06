@@ -25,6 +25,13 @@ Three plugins, mounted by the shell `views/index.html` with `page` components na
 
 The login page (`views/login.html`) is used only when `token` is set in `config`.
 
+## Design
+
+- **IntranetCSS** (the component `intranetcss`) provides the base: `message`, `badge`, `caption`, `listing`, `toolbar`. Totem adds `public/css/default.css` with a few variables and its own buttons (`tbtn`, not `btn`, which jComponent already defines).
+- **Dark theme.** IntranetCSS styles the class `ui-dark` of the body, which `APPEARANCE({ dark })` switches. Settings has Auto (follows the system), Light and Dark; the choice is kept in the browser.
+- **Logo.** `assets/` keeps the sources. `public/img/totem-light.svg` (dark greens, for a light background) and `totem-dark.svg` (light greens) are shown with the class of the theme. The favicon and the app icons use the dark tile.
+- **Provider icons.** `public/img/providers/*.svg` are drawn as a mask in the colour of the text, so they work in both themes. See `SOURCE.md` there.
+
 ## Screens (plugins)
 
 | Plugin | Shows | Notes |

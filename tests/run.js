@@ -799,6 +799,80 @@ Test.push('MCP client', async function(next) {
 	next();
 });
 
+Test.push('Total.js knowledge: conventions and Forge', async function(next) {
+
+	var TJS = Total.Path.join(TMP, 'tjs');
+	Total.Fs.mkdirSync(Total.Path.join(TJS, 'schemas'), { recursive: true });
+	Total.Fs.writeFileSync(Total.Path.join(TJS, 'package.json'), JSON.stringify({ name: 'app', dependencies: { total5: 'beta' } }));
+
+	check('a project that depends on total5 is a Total.js project', MODS.instructions.istotaljs(TJS) === true && MODS.instructions.istotaljs(PROJECT) === false);
+
+	// Forge comes with Totem for Total.js projects only, and the project can replace it
+	check('Forge is a server of Total.js projects', MODS.mcpclient.servers(TJS).forge.url === 'https://forge.totaljs.es/mcp/');
+	check('other projects do not get it', MODS.mcpclient.servers(PROJECT).forge === undefined);
+	CONF.forge = false;
+	check('it can be switched off in the config', MODS.mcpclient.servers(TJS).forge === undefined);
+	CONF.forge = true;
+	Total.Fs.mkdirSync(Total.Path.join(TJS, '.totem'), { recursive: true });
+	Total.Fs.writeFileSync(Total.Path.join(TJS, '.totem/mcp.json'), JSON.stringify({ servers: { forge: { url: 'http://127.0.0.1:8111/mcp' } } }));
+	check('a project replaces a built-in server by name', MODS.mcpclient.servers(TJS).forge.url === 'http://127.0.0.1:8111/mcp');
+	Total.Fs.unlinkSync(Total.Path.join(TJS, '.totem/mcp.json'));
+
+	// The skill of the conventions
+	var names = MODS.instructions.skills(TJS).map(s => s.name);
+	check('the conventions skill comes with Totem for Total.js projects', names.indexOf('totaljs-conventions') !== -1 && MODS.instructions.skills(PROJECT).map(s => s.name).indexOf('totaljs-conventions') === -1);
+	check('the skill tells where Forge is', MODS.instructions.skill(TJS, 'totaljs-conventions').indexOf('forge__Forge_search') !== -1);
+	Total.Fs.mkdirSync(Total.Path.join(TJS, '.claude/skills/totaljs-conventions'), { recursive: true });
+	Total.Fs.writeFileSync(Total.Path.join(TJS, '.claude/skills/totaljs-conventions/SKILL.md'), '---\nname: totaljs-conventions\ndescription: Our own rules\n---\nOwn body\n');
+	check('a skill of the project with the same name wins', MODS.instructions.skills(TJS).find(s => s.name === 'totaljs-conventions').description === 'Our own rules');
+	Total.Fs.rmSync(Total.Path.join(TJS, '.claude'), { recursive: true });
+
+	// The check of the conventions on what the tools write
+	var user = { id: 'agent', sa: true, root: TJS, sessionid: 'x', projectid: projectid };
+	var bad = "var fs = require('fs');\n\nNEWACTION('Bad/list', {\n\tname: 'List',\n\taction: function($) {\n\t\t$.callback([]);\n\t}\n});\n";
+	var out = await ACTION('Tools|write', { path: 'schemas/bad.js', content: bad }).user(user).promise();
+	check('a file that breaks the conventions comes back with the findings', /node-require/.test(out) && /name-separator/.test(out) && out.indexOf('Written schemas/bad.js') === 0);
+
+	out = await ACTION('Tools|write', { path: 'schemas/good.js', content: "NEWACTION('Good|list', {\n\tname: 'List',\n\taction: function($) {\n\t\t$.callback([]);\n\t}\n});\n" }).user(user).promise();
+	check('a file that follows them has no findings', out.indexOf('conventions') === -1);
+
+	out = await ACTION('Tools|edit', { path: 'schemas/good.js', oldstring: '$.callback([]);', newstring: "var os = require('os');" }).user(user).promise();
+	check('an edit is checked too', /node-require/.test(out));
+
+	out = await ACTION('Tools|patch', { patch: ['*** Begin Patch', '*** Add File: schemas/patched.js', "+var path = require('path');", '*** End Patch'].join('\n') }).user(user).promise();
+	check('a patch is checked too', /node-require/.test(out) && /patched\.js/.test(out));
+
+	out = await ACTION('Tools|write', { path: 'plain.js', content: bad }).user({ id: 'agent', sa: true, root: PROJECT, sessionid: 'x', projectid: projectid }).promise();
+	check('a project that is not Total.js is left alone', out.indexOf('conventions') === -1);
+
+	CONF.conventions = false;
+	out = await ACTION('Tools|write', { path: 'schemas/bad2.js', content: bad }).user(user).promise();
+	check('the check can be switched off in the config', out.indexOf('conventions') === -1);
+	CONF.conventions = true;
+
+	// The prompt of a session in a Total.js project, and the question before Forge starts
+	var opened = await api('projects_open', { path: TJS });
+	var id = await api('sessions_create', { projectid: opened.response.id, model: 'fake' }).then(r => r.response.id);
+	events.length = 0;
+	requests.length = 0;
+	script = [{ content: 'Hello.' }];
+
+	var rejected = setInterval(function() {
+		events.filter(e => e.type === 'permission.ask').forEach(e => api('permissions_reply/' + e.data.id, { reply: 'reject' }));
+	}, 30);
+
+	await api('sessions_prompt/' + id, { text: 'hi' });
+	await idle(id);
+	clearInterval(rejected);
+
+	var system = requests[0].messages[0].content;
+	check('the skills of the project include the conventions', system.indexOf('- totaljs-conventions:') !== -1);
+	var ask = events.find(e => e.type === 'permission.ask' && e.data.tool === 'mcp-start');
+	check('Forge asks before it starts and says where it goes', !!ask && ask.data.patterns[0].indexOf('forge: https://forge.totaljs.es/mcp/') === 0);
+	check('refusing Forge adds no tools', requests[0].tools.map(t => t.function.name).filter(n => /^forge__/.test(n)).length === 0);
+	next();
+});
+
 Test.push('command line', async function(next) {
 
 	function cli(args) {

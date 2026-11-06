@@ -150,7 +150,7 @@ NEWACTION('Tools|write', {
 		MODS.snapshots.before($.user, model.path, path);
 		Total.Fs.mkdirSync(Total.Path.dirname(path), { recursive: true });
 		Total.Fs.writeFileSync(path, model.content, 'utf8');
-		$.callback('Written {0} ({1} lines)'.format(model.path, model.content.split('\n').length));
+		$.callback('Written {0} ({1} lines)'.format(model.path, model.content.split('\n').length) + MODS.conventions.review(path, model.content));
 	}
 });
 
@@ -189,7 +189,7 @@ NEWACTION('Tools|edit', {
 		text = text.split(model.oldstring).join(model.newstring);
 		MODS.snapshots.before($.user, model.path, path);
 		Total.Fs.writeFileSync(path, text, 'utf8');
-		$.callback('Edited {0} ({1} replacement{2})'.format(model.path, count, count > 1 ? 's' : ''));
+		$.callback('Edited {0} ({1} replacement{2})'.format(model.path, count, count > 1 ? 's' : '') + MODS.conventions.review(path, text));
 	}
 });
 
@@ -266,6 +266,7 @@ NEWACTION('Tools|patch', {
 		}
 
 		var summary = [];
+		var review = '';
 
 		for (var change of plan.changes) {
 			MODS.snapshots.before($.user, change.path, change.full);
@@ -276,9 +277,11 @@ NEWACTION('Tools|patch', {
 				Total.Fs.writeFileSync(change.full, change.content, 'utf8');
 			}
 			summary.push('{0} {1}'.format(change.kind, change.path));
+			if (change.kind !== 'delete')
+				review += MODS.conventions.review(change.full, change.content);
 		}
 
-		$.callback(summary.join('\n'));
+		$.callback(summary.join('\n') + review);
 	}
 });
 

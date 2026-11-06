@@ -1,32 +1,35 @@
 <style>
-	.CLASS { height: 100vh; display: flex; flex-direction: column; background: var(--bg, #F8F8F8); }
-	.CLASS .top { padding: 12px; border-bottom: 1px solid var(--border, #E0E0E0); display: flex; align-items: center; gap: 8px; }
-	.CLASS .top b { flex: 1; font-size: 15px; }
+	.CLASS { height: 100vh; display: flex; flex-direction: column; }
+	.CLASS .top { padding: 12px 14px; border-bottom: 1px solid var(--t-border); display: flex; align-items: center; gap: 10px; }
+	.CLASS .top b { flex: 1; font-size: 15px; letter-spacing: 0.2px; }
 	.CLASS .list { flex: 1; overflow: auto; padding: 8px 0; }
-	.CLASS .project { padding: 8px 12px; cursor: pointer; display: flex; align-items: center; gap: 8px; }
-	.CLASS .project:hover { background: rgba(0,0,0,0.04); }
-	.CLASS .project .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: bold; }
-	.CLASS .project .path { font-size: 11px; color: #888; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-	.CLASS .session { padding: 5px 12px 5px 34px; cursor: pointer; display: flex; gap: 6px; align-items: center; }
-	.CLASS .session:hover { background: rgba(0,0,0,0.04); }
-	.CLASS .session.selected { background: rgba(0,0,0,0.08); font-weight: bold; }
+	.CLASS .project { padding: 7px 14px; cursor: pointer; display: flex; align-items: center; gap: 10px; }
+	.CLASS .project:hover { background: var(--t-soft); }
+	.CLASS .project .name { font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.CLASS .project .path { font-size: 11px; color: var(--t-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.CLASS .project .more { opacity: 0; color: var(--t-muted); }
+	.CLASS .project:hover .more { opacity: 1; }
+	.CLASS .session { margin: 1px 8px 1px 28px; padding: 5px 10px; border-radius: var(--radius, 6px); cursor: pointer; display: flex; gap: 8px; align-items: center; font-size: 13px; }
+	.CLASS .session:hover { background: var(--t-soft); }
+	.CLASS .session.selected { background: var(--t-soft2); font-weight: bold; }
 	.CLASS .session .running { color: #E67E22; }
 	.CLASS .session span.title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-	.CLASS .foot { padding: 8px 12px; border-top: 1px solid var(--border, #E0E0E0); }
+	.CLASS .foot { padding: 10px 14px; border-top: 1px solid var(--t-border); display: flex; gap: 8px; }
+	.CLASS .empty-note { padding: 20px 16px; color: var(--t-muted); text-align: center; }
 </style>
 
 <ui-plugin class="CLASS">
 
 	<div class="top">
-		<img src="/img/totem.svg" alt="" width="24" height="24" />
+		<img class="logo-light" src="/img/totem-light.svg" alt="" width="28" height="28" /><img class="logo-dark" src="/img/totem-dark.svg" alt="" width="28" height="28" />
 		<b>Totem</b>
-		<button class="exec" data-exec="?/open" title="@(Open a folder)"><i class="ti ti-folder-plus"></i></button>
+		<button class="tbtn tbtn-icon exec" data-exec="?/open" title="@(Open a folder)" aria-label="@(Open a folder)"><i class="ti ti-folder-plus"></i></button>
 	</div>
 
 	<div class="list">
 		<ui-component name="empty" path="?.items" config="parent:auto">
 			<script type="text/html">
-				<div class="padding">@(No projects yet. Open a folder to start.)</div>
+				<div class="empty-note"><i class="ti ti-folder-plus" style="font-size:28px"></i><div class="mt10">@(No projects yet. Open a folder to start.)</div></div>
 			</script>
 			<ui-bind path="?.items" config="template" class="block">
 				<script type="text/html">
@@ -37,7 +40,7 @@
 							<div class="name">{{ m.name }}</div>
 							<div class="path">{{ m.path | shortpath }}</div>
 						</div>
-						<span class="exec" data-exec="?/menu" data-prevent="true" title="@(Options)"><i class="ti ti-dots"></i></span>
+						<span class="exec more" data-exec="?/menu" data-prevent="true" title="@(Options)"><i class="ti ti-dots"></i></span>
 					</div>
 					{{ if m.sessions }}
 					{{ foreach s in m.sessions }}
@@ -54,7 +57,7 @@
 	</div>
 
 	<div class="foot">
-		<button class="exec" data-exec="?/settings"><i class="ti ti-settings"></i>@(Settings)</button>
+		<button class="tbtn exec" data-exec="?/settings" style="flex:1"><i class="ti ti-settings"></i>@(Settings)</button>
 	</div>
 
 </ui-plugin>

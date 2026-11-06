@@ -1,5 +1,55 @@
+/* Totem. The components come from IntranetCSS (panel, toolbar, listing, message, badge). The dark theme is the class ui-dark on the body,
+   switched with APPEARANCE() in js/default.js. These variables follow it. */
+
+:root {
+	--t-border: #E0E0E0;
+	--t-soft: rgba(0,0,0,0.045);
+	--t-soft2: rgba(0,0,0,0.085);
+	--t-muted: #858585;
+	--t-side: #F7F8F7;
+	--t-card: #FFFFFF;
+	--t-add: rgba(46,160,67,0.16);
+	--t-del: rgba(248,81,73,0.16);
+	--t-brand: #3F8F2A;
+}
+
+.ui-dark {
+	--t-border: #3C3C3C;
+	--t-soft: rgba(255,255,255,0.06);
+	--t-soft2: rgba(255,255,255,0.12);
+	--t-muted: #9A9A9A;
+	--t-side: #262826;
+	--t-card: #2A2C2A;
+	--t-add: rgba(46,160,67,0.3);
+	--t-del: rgba(248,81,73,0.3);
+	--t-brand: #66B639;
+}
+
 html, body { height: 100%; margin: 0; }
 .app { display: flex; height: 100vh; }
-.app > aside { width: 290px; flex: 0 0 290px; border-right: 1px solid var(--border, #E0E0E0); overflow: hidden; }
+.app > aside { width: 290px; flex: 0 0 290px; border-right: 1px solid var(--t-border); overflow: hidden; background: var(--t-side); }
 .app > main { flex: 1; min-width: 0; overflow: hidden; }
-.login { max-width: 340px; margin: 18vh auto 0; padding: 20px; }
+.login { max-width: 340px; margin: 16vh auto 0; padding: 20px; text-align: center; }
+.login .field { text-align: left; }
+
+/* The logo has a version for each theme */
+.logo-dark { display: none; }
+.ui-dark .logo-light { display: none; }
+.ui-dark .logo-dark { display: inline-block; }
+
+/* Buttons that match the toolbar of IntranetCSS */
+.tbtn { appearance: none; -webkit-appearance: none; outline: 0; border: 1px solid var(--t-border); background: var(--t-card); color: inherit; border-radius: var(--radius, 6px); height: 30px; padding: 0 12px; font-size: 13px; line-height: 28px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; vertical-align: middle; white-space: nowrap; }
+.tbtn:hover { background: var(--t-soft); }
+.tbtn:active { background: var(--t-soft2); }
+.tbtn:disabled { opacity: 0.5; cursor: not-allowed; }
+.tbtn i { font-size: 15px; }
+.tbtn-icon { width: 30px; padding: 0; justify-content: center; }
+.tbtn-primary { background: var(--t-brand); border-color: var(--t-brand); color: #FFF; }
+.tbtn-primary:hover { background: var(--t-brand); filter: brightness(1.1); }
+.tbtn-small { height: 24px; line-height: 22px; padding: 0 8px; font-size: 12px; }
+
+/* The icon of a provider: a mask, so that it takes the color of the text in both themes */
+.prov { display: inline-block; width: 20px; height: 20px; flex: 0 0 20px; vertical-align: middle; background-color: currentColor; -webkit-mask: var(--i) center / contain no-repeat; mask: var(--i) center / contain no-repeat; }
+.prov.mono { -webkit-mask: none; mask: none; background: var(--t-soft2); border-radius: 5px; text-align: center; font-size: 12px; font-weight: bold; line-height: 20px; }
+.prov-large { width: 28px; height: 28px; flex-basis: 28px; }
+.prov-large.mono { line-height: 28px; font-size: 14px; }

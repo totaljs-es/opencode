@@ -14,7 +14,7 @@
 	<link href="https://cdn.componentator.com/spa.min@20.css" rel="stylesheet" />
 	<script src="https://cdn.componentator.com/spa.min@20.js"></script>
 	<script src="@{REPO.ui}"></script>
-	@{import('meta', 'head', 'default.css', 'favicon.ico')}
+	@{import('meta', 'head', 'default.js', 'default.css', 'favicon.ico')}
 </head>
 <body class="invisible">
 
@@ -22,7 +22,7 @@
 	<ui-component name="exec"></ui-component>
 
 	<div class="login">
-		<img src="/img/totem.svg" alt="" width="56" height="56" />
+		<img class="logo-light" src="/img/totem-light.svg" alt="" width="64" height="64" /><img class="logo-dark" src="/img/totem-dark.svg" alt="" width="64" height="64" />
 		<h2>@{CONF.name}</h2>
 		<ui-component name="enter" config="exec:login" path="login">
 			<ui-component name="input" path="login.token" config="type:password;required:1;autofocus:1;placeholder:@(Access token)">@(Token)</ui-component>

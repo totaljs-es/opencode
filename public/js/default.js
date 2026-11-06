@@ -49,3 +49,49 @@ Thelpers.diffhtml = function(patch) {
 		return '<span' + (type ? (' class="' + type + '"') : '') + '>' + Thelpers.encode(line || ' ') + '</span>';
 	}).join('');
 };
+
+// Theme: "auto" follows the system, "light" and "dark" are the choice of the user. The class ui-dark of the body is the one of IntranetCSS.
+var THEME = {};
+
+THEME.mode = function() {
+	try {
+		return localStorage.getItem('totemtheme') || 'auto';
+	} catch (e) {
+		return 'auto';
+	}
+};
+
+THEME.apply = function(mode) {
+
+	mode = mode || THEME.mode();
+
+	try {
+		localStorage.setItem('totemtheme', mode);
+	} catch (e) {}
+
+	var dark = mode === 'dark' || (mode === 'auto' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+	APPEARANCE({ color: dark ? '#66B639' : '#3F8F2A', dark: dark });
+	SET('common.theme', mode);
+};
+
+ON('ready', function() {
+
+	THEME.apply();
+
+	if (window.matchMedia) {
+		window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function() {
+			if (THEME.mode() === 'auto')
+				THEME.apply('auto');
+		});
+	}
+});
+
+// The icon of a provider (public/img/providers). A provider without one gets its initial.
+var PROVICONS = { openai: 1, anthropic: 1, gemini: 1, mistral: 1, ollama: 1, deepseek: 1, openrouter: 1, lmstudio: 1 };
+
+Thelpers.provicon = function(icon, name, large) {
+	var css = 'prov' + (large ? ' prov-large' : '');
+	if (icon && PROVICONS[icon])
+		return '<span class="' + css + '" style="--i:url(/img/providers/' + icon + '.svg)"></span>';
+	return '<span class="' + css + ' mono">' + Thelpers.encode((name || '?').substring(0, 1).toUpperCase()) + '</span>';
+};

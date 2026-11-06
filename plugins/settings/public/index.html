@@ -1,18 +1,28 @@
 <ui-component name="miniform" path="common.form" config="if:~PATH~;icon:ti ti-settings;title:@(Settings);reload:?/reload;scrollbar:1;width:620" class="hidden" plugin="~PATH~">
 	<div class="padding">
-		<div class="b mb10"><i class="ti ti-plug-connected mr5"></i>@(Providers)</div>
+		<div class="caption mb10"><label><i class="ti ti-palette"></i>@(Appearance)</label></div>
+		<ui-bind path="common.theme" config="template" class="block mb10">
+			<script type="text/html">
+				<div style="display:flex;gap:8px">
+					<button class="tbtn exec{{ if value === 'auto' }} tbtn-primary{{ fi }}" data-exec="?/theme" data-mode="auto"><i class="ti ti-device-desktop"></i>@(Auto)</button>
+					<button class="tbtn exec{{ if value === 'light' }} tbtn-primary{{ fi }}" data-exec="?/theme" data-mode="light"><i class="ti ti-sun"></i>@(Light)</button>
+					<button class="tbtn exec{{ if value === 'dark' }} tbtn-primary{{ fi }}" data-exec="?/theme" data-mode="dark"><i class="ti ti-moon"></i>@(Dark)</button>
+				</div>
+			</script>
+		</ui-bind>
+		<div class="caption mb10"><label><i class="ti ti-plug-connected"></i>@(Providers)</label></div>
 		<div class="help mb10">@(A provider is any server with an OpenAI-compatible API: OpenRouter, OpenAI, Ollama, LM Studio... Prompts go only to the providers you add here.)</div>
 		<div class="mb10">
-			<button class="exec" data-exec="?/detect"><i class="ti ti-radar"></i>@(Look for servers on this computer)</button>
+			<button class="tbtn exec" data-exec="?/detect"><i class="ti ti-radar"></i>@(Look for servers on this computer)</button>
 		</div>
 		<ui-bind path="?.found" config="template" class="block">
 			<script type="text/html">
 				{{ if value && !value.length }}<div class="mb10 gray">@(No Ollama, llama.cpp or LM Studio server answered on this computer.)</div>{{ fi }}
 				{{ foreach f in value }}
-				<div class="mb5" style="border:1px dashed #27AE60;border-radius:6px;padding:8px 10px;display:flex;gap:8px;align-items:center">
-					<i class="ti ti-device-desktop green"></i>
-					<div style="flex:1;min-width:0"><b>{{ f.template.name }}</b> <span class="gray fs12">{{ f.template.url }} &middot; {{ f.models.length }} @(models)</span></div>
-					<button class="exec" data-exec="?/addfound" data-id="{{ f.template.id }}">@(Add)</button>
+				<div class="message message-success mb5" style="display:flex;gap:10px;align-items:center;font-size:13px">
+					{{ f.template.icon | provicon(f.template.name, true) }}
+					<div style="flex:1;min-width:0"><b>{{ f.template.name }}</b> <span class="fs12" style="opacity:0.8">{{ f.template.url }} &middot; {{ f.models.length }} @(models)</span></div>
+					<button class="tbtn tbtn-small tbtn-primary exec" data-exec="?/addfound" data-id="{{ f.template.id }}"><i class="ti ti-plus"></i>@(Add)</button>
 				</div>
 				{{ end }}
 			</script>
@@ -21,11 +31,11 @@
 			<script type="text/html">
 				{{ if !value || !value.length }}<div class="mb10">@(No providers yet.)</div>{{ fi }}
 				{{ foreach m in value }}
-				<div class="exec mb5" data-exec="?/edit" data-id="{{ m.id }}" style="cursor:pointer;border:1px solid #E0E0E0;border-radius:6px;padding:8px 10px;display:flex;gap:8px;align-items:center">
-					<i class="ti ti-server"></i>
+				<div class="exec mb5" data-exec="?/edit" data-id="{{ m.id }}" style="cursor:pointer;border:1px solid var(--t-border);border-radius:var(--radius,6px);padding:8px 10px;display:flex;gap:10px;align-items:center">
+					{{ m.icon | provicon(m.name, true) }}
 					<div style="flex:1;min-width:0">
-						<b>{{ m.name }}</b>{{ if m.disabled }} <span class="badge badge-small">@(disabled)</span>{{ fi }}
-						<div class="gray fs12 hellip">{{ m.url }} &middot; {{ m.models.length }} @(models){{ if m.haskey }} &middot; <i class="ti ti-key"></i>{{ fi }}</div>
+						<b>{{ m.name }}</b>{{ if m.disabled }} <span class="badge badge-small badge-silver">@(disabled)</span>{{ fi }}
+						<div class="fs12 hellip" style="color:var(--t-muted)">{{ m.url }} &middot; {{ m.models.length }} @(models){{ if m.haskey }} &middot; <i class="ti ti-key"></i>{{ fi }}</div>
 					</div>
 					<span class="exec" data-exec="?/remove" data-prevent="true" data-id="{{ m.id }}" title="@(Remove)"><i class="ti ti-trash red"></i></span>
 				</div>
@@ -33,7 +43,7 @@
 			</script>
 		</ui-bind>
 		<div class="mt10">
-			<button class="exec" data-exec="?/create"><i class="ti ti-plus-circle"></i>@(Add a provider)</button>
+			<button class="tbtn exec" data-exec="?/create"><i class="ti ti-plus-circle"></i>@(Add a provider)</button>
 		</div>
 	</div>
 	<nav>
@@ -70,11 +80,15 @@
 				opt.items.push({ id: '', name: '@(Other, OpenAI-compatible)', icon: 'ti ti-plug' });
 				opt.callback = function(item) {
 					var t = templates.findItem('id', item.id) || { name: '', url: '', kind: 'openai', help: '' };
-					SET('formprovider @default', { name: t.name, url: t.url, kind: t.kind, key: '', models: [], help: t.help, keyrequired: t.keyrequired });
+					SET('formprovider @default', { name: t.name, url: t.url, kind: t.kind, icon: t.icon || t.id || '', key: '', models: [], help: t.help, keyrequired: t.keyrequired });
 					SET('common.form2', 'formprovider');
 				};
 				SETTER('menu/show', opt);
 			});
+		};
+
+		exports.theme = function(el) {
+			THEME.apply(el.attrd('mode'));
 		};
 
 		exports.detect = function() {
@@ -92,7 +106,7 @@
 				return;
 			var meta = {};
 			f.models.forEach(m => meta[m.id] = m);
-			exports.tapi('providers_save ERROR', { name: f.template.name, url: f.template.url, kind: f.template.kind, models: f.models.map(m => m.id), meta: meta }, function() {
+			exports.tapi('providers_save ERROR', { name: f.template.name, url: f.template.url, kind: f.template.kind, icon: f.template.icon, models: f.models.map(m => m.id), meta: meta }, function() {
 				SETTER('notify/success', '@(Added:) ' + f.template.name);
 				exports.refresh();
 				PLUGINS.chat && PLUGINS.chat.models();

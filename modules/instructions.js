@@ -28,6 +28,16 @@ function frontmatter(text) {
 
 exports.frontmatter = frontmatter;
 
+// A Total.js 5 project depends on total5. The knowledge that Totem brings for Total.js applies only to them.
+exports.istotaljs = function(root) {
+	try {
+		var json = JSON.parse(Total.Fs.readFileSync(Total.Path.join(root, 'package.json'), 'utf8'));
+		return !!((json.dependencies && json.dependencies.total5) || (json.devDependencies && json.devDependencies.total5));
+	} catch (e) {
+		return false;
+	}
+};
+
 exports.text = function(root) {
 	var text = read(Total.Path.join(root, 'AGENTS.md')) || read(Total.Path.join(root, 'CLAUDE.md'));
 	return text.length > MAXTEXT ? (text.substring(0, MAXTEXT) + '\n[truncated]') : text;
@@ -37,9 +47,13 @@ exports.text = function(root) {
 exports.skills = function(root) {
 
 	var found = {};
+	var dirs = SKILLS.map(base => Total.Path.join(root, base));
 
-	for (var base of SKILLS) {
-		var dir = Total.Path.join(root, base);
+	// The skills that come with Totem for Total.js projects come last: a skill of the project with the same name wins
+	if (exports.istotaljs(root))
+		dirs.push(PATH.private('skills'));
+
+	for (var dir of dirs) {
 		var names;
 		try {
 			names = Total.Fs.readdirSync(dir);

@@ -4,6 +4,7 @@ NEWACTION('Providers|list', {
 		var items = await NOSQL('providers').find().promise($);
 		for (var item of items) {
 			item.haskey = !!item.key;
+			item.icon = item.icon || item.id;
 			delete item.key;
 			delete item.meta;
 		}
@@ -13,7 +14,7 @@ NEWACTION('Providers|list', {
 
 NEWACTION('Providers|save', {
 	name: 'Save a provider',
-	input: 'id:String, *name:String, *url:String, kind:String, key:String, models:[String], meta:Object, disabled:Boolean',
+	input: 'id:String, *name:String, *url:String, kind:String, icon:String, key:String, models:[String], meta:Object, disabled:Boolean',
 	action: async function($, model) {
 
 		var item = model.id ? await NOSQL('providers').read().where('id', model.id).promise($) : null;
@@ -23,7 +24,7 @@ NEWACTION('Providers|save', {
 			return;
 		}
 
-		var data = { name: model.name, url: model.url, kind: model.kind || 'openai', models: model.models || [], meta: model.meta || {}, disabled: !!model.disabled, dtupdated: NOW };
+		var data = { name: model.name, url: model.url, kind: model.kind || 'openai', icon: model.icon || '', models: model.models || [], meta: model.meta || {}, disabled: !!model.disabled, dtupdated: NOW };
 
 		// An empty key keeps the stored one: the interface never receives it
 		if (model.key)

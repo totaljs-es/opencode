@@ -1,0 +1,5 @@
+{
+	"servers": {
+		"forge": { "url": "https://forge.totaljs.es/mcp/", "builtin": "Total.js documentation (read-only)" }
+	}
+}

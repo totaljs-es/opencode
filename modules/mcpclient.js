@@ -11,13 +11,22 @@ exports.id = 'mcpclient';
 
 var VERSION = '2025-06-18';
 
+// The servers of the project, plus the ones that come with Totem for Total.js projects (Forge). The project can replace one by name.
 exports.servers = function(root) {
-	try {
-		var json = JSON.parse(Total.Fs.readFileSync(Total.Path.join(root, '.totem/mcp.json'), 'utf8'));
-		return json.servers || {};
-	} catch (e) {
-		return {};
+
+	var servers = {};
+
+	if (CONF.forge !== false && MODS.instructions.istotaljs(root)) {
+		try {
+			Object.assign(servers, JSON.parse(Total.Fs.readFileSync(PATH.private('mcp.json'), 'utf8')).servers);
+		} catch (e) {}
 	}
+
+	try {
+		Object.assign(servers, JSON.parse(Total.Fs.readFileSync(Total.Path.join(root, '.totem/mcp.json'), 'utf8')).servers || {});
+	} catch (e) {}
+
+	return servers;
 };
 
 function label(config) {

@@ -1,6 +1,6 @@
 <ui-component name="miniform" path="common.form2" config="if:~PATH~;icon:ti ti-server;autofocus:true;reload:?/reload;scrollbar:1;submit:?/submit;width:620" class="hidden" plugin="~PATH~">
 	<div class="padding">
-		<ui-bind path="?.help" config="show;template" class="block help mb10 hidden"><script type="text/html">{{ value }}</script></ui-bind>
+		<ui-bind path="?.help" config="show;template" class="block mb10 hidden"><script type="text/html"><div class="message" style="font-size:13px">{{ value }}</div></script></ui-bind>
 		<div class="m">
 			<ui-component name="input" path="?.name" config="required:1">@(Name)</ui-component>
 		</div>
@@ -18,7 +18,7 @@
 
 		<div class="b mb5"><i class="ti ti-list-search mr5"></i>@(Available models)</div>
 		<div class="mb10" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-			<button class="exec" data-exec="?/load"><i class="ti ti-refresh"></i>@(Load the list from the provider)</button>
+			<button class="tbtn exec" data-exec="?/load"><i class="ti ti-refresh"></i>@(Load the list from the provider)</button>
 			<div style="flex:1;min-width:160px"><ui-component name="input" path="?.q" config="placeholder:@(Search)"></ui-component></div>
 			<ui-component name="input" path="?.onlytools" config="type:checkbox">@(Tools)</ui-component>
 			<ui-component name="input" path="?.onlyfree" config="type:checkbox">@(Free)</ui-component>
@@ -26,14 +26,14 @@
 		<ui-bind path="?.shown" config="template" class="block">
 			<script type="text/html">
 				{{ if value && !value.length }}<div class="gray mb10">@(Nothing to show. Load the list, or change the filters.)</div>{{ fi }}
-				<div style="max-height:260px;overflow:auto;border:1px solid #E0E0E0;border-radius:6px">
+				<div style="max-height:260px;overflow:auto;border:1px solid var(--t-border);border-radius:var(--radius,6px)">
 				{{ foreach m in value }}
-				<div class="exec" data-exec="?/toggle" data-id="{{ m.id }}" style="padding:4px 10px;cursor:pointer;display:flex;gap:8px;align-items:center;border-bottom:1px solid rgba(0,0,0,0.05)">
+				<div class="exec" data-exec="?/toggle" data-id="{{ m.id }}" style="padding:4px 10px;cursor:pointer;display:flex;gap:8px;align-items:center;border-bottom:1px solid var(--t-border)">
 					<i class="ti ti-{{ if m.selected }}square-check green{{ else }}square{{ fi }}"></i>
 					<span class="hellip" style="flex:1">{{ m.id }}</span>
 					{{ if m.tools }}<span class="badge badge-small" title="@(Can call tools)">@(tools)</span>{{ fi }}
 					{{ if m.reasoning }}<span class="badge badge-small" title="@(Can think before answering)">@(thinks)</span>{{ fi }}
-					{{ if m.free }}<span class="badge badge-small" style="background:#27AE60">@(free)</span>{{ fi }}
+					{{ if m.free }}<span class="badge badge-small badge-green">@(free)</span>{{ fi }}
 					{{ if m.context }}<span class="gray fs11">{{ m.context | context }}</span>{{ fi }}
 				</div>
 				{{ end }}
@@ -134,6 +134,9 @@
 			delete form.shown;
 			delete form.hidden;
 			delete form.help;
+			delete form.keyrequired;
+			delete form.onlytools;
+			delete form.onlyfree;
 			exports.tapi('providers_save ERROR', form, function() {
 				hide();
 				PLUGINS.formsettings && PLUGINS.formsettings.refresh();

@@ -1,70 +1,66 @@
 <style>
 	.CLASS { height: 100vh; display: flex; flex-direction: column; }
-	.CLASS .bar { padding: 10px 16px; border-bottom: 1px solid var(--border, #E0E0E0); display: flex; gap: 10px; align-items: center; }
+	.CLASS .bar { padding: 10px 16px; border-bottom: 1px solid var(--t-border); display: flex; gap: 10px; align-items: center; min-height: 52px; }
 	.CLASS .bar b { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-	.CLASS .bar .status { font-size: 12px; color: #888; }
-	.CLASS .bar .status.running { color: #E67E22; }
-	.CLASS .bar .status.error { color: #C0392B; }
-	.CLASS .scroll { flex: 1; overflow: auto; padding: 16px; }
+	.CLASS .meter { font-size: 12px; color: var(--t-muted); white-space: nowrap; }
+	.CLASS .layout { flex: 1; display: flex; min-height: 0; }
+	.CLASS .layout .col { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+	.CLASS .scroll { flex: 1; overflow: auto; padding: 18px 16px; }
 	.CLASS .inner { max-width: 860px; margin: 0 auto; }
-	.CLASS .msg { margin-bottom: 18px; }
-	.CLASS .msg-user .bubble { background: rgba(0,0,0,0.06); border-radius: 10px; padding: 8px 12px; display: inline-block; max-width: 100%; white-space: pre-wrap; }
+	.CLASS .msg { margin-bottom: 20px; }
 	.CLASS .msg-user { text-align: right; }
+	.CLASS .msg-user .bubble { background: var(--t-soft2); border-radius: 14px 14px 4px 14px; padding: 8px 14px; display: inline-block; max-width: 85%; text-align: left; white-space: pre-wrap; }
 	.CLASS .part { margin-bottom: 8px; }
-	.CLASS .reasoning { color: #888; border-left: 3px solid #DDD; padding-left: 10px; font-size: 13px; }
+	.CLASS .reasoning { color: var(--t-muted); border-left: 3px solid var(--t-border); padding-left: 10px; font-size: 13px; }
 	.CLASS .reasoning summary { cursor: pointer; font-style: italic; }
-	.CLASS .tool { border: 1px solid var(--border, #E0E0E0); border-radius: 8px; padding: 6px 10px; font-size: 13px; background: rgba(0,0,0,0.02); }
+	.CLASS .tool { border: 1px solid var(--t-border); border-radius: var(--radius, 6px); padding: 6px 10px; font-size: 13px; background: var(--t-soft); }
 	.CLASS .tool summary { cursor: pointer; display: flex; gap: 8px; align-items: center; }
 	.CLASS .tool pre { margin: 6px 0 0; max-height: 260px; overflow: auto; white-space: pre-wrap; font-size: 12px; }
 	.CLASS .tool .st-done { color: #27AE60; }
-	.CLASS .tool .st-error, .CLASS .tool .st-denied { color: #C0392B; }
+	.CLASS .tool .st-error, .CLASS .tool .st-denied { color: #D63A32; }
 	.CLASS .tool .st-running, .CLASS .tool .st-pending { color: #E67E22; }
-	.CLASS .ask { border: 2px solid #E67E22; border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; }
-	.CLASS .ask code { display: block; margin: 6px 0; white-space: pre-wrap; }
-	.CLASS .empty { text-align: center; color: #888; margin-top: 18vh; }
-	.CLASS .compose { border-top: 1px solid var(--border, #E0E0E0); padding: 10px 16px; }
+	.CLASS .ask { margin-bottom: 12px; font-size: 13px; }
+	.CLASS .ask b { font-size: 14px; }
+	.CLASS .ask code { display: block; margin: 8px 0; white-space: pre-wrap; background: var(--t-soft); padding: 6px 8px; border-radius: var(--radius, 6px); }
+	.CLASS .ask .row2 { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+	.CLASS .ask.question { border-color: #3498DB; color: inherit; }
+	.CLASS .ask input[type=text] { flex: 1; min-width: 160px; height: 30px; padding: 0 10px; border: 1px solid var(--t-border); border-radius: var(--radius, 6px); background: var(--t-card); color: inherit; }
+	.CLASS .empty { text-align: center; color: var(--t-muted); margin-top: 16vh; }
+	.CLASS .empty img { opacity: 0.9; margin-bottom: 14px; }
+	.CLASS .chips { max-width: 860px; margin: 0 auto 6px; padding: 0 16px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+	.CLASS .chip { cursor: pointer; border: 1px solid var(--t-border); border-radius: 12px; padding: 1px 10px; font-size: 12px; }
+	.CLASS .chip:hover { background: var(--t-soft); }
+	.CLASS .todos { max-width: 860px; margin: 0 auto 8px; padding: 0 16px; font-size: 13px; }
+	.CLASS .todos div { padding: 1px 0; }
+	.CLASS .todos .completed { color: var(--t-muted); text-decoration: line-through; }
+	.CLASS .todos .in_progress { font-weight: bold; }
+	.CLASS .compose { border-top: 1px solid var(--t-border); padding: 10px 16px 14px; }
 	.CLASS .compose .row { max-width: 860px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 	.CLASS .compose .grow { flex: 1 1 220px; min-width: 160px; }
-	.CLASS .compose .model { width: 220px; }
-	.CLASS .layout { flex: 1; display: flex; min-height: 0; }
-	.CLASS .layout .col { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-	.CLASS .side { width: 380px; flex: 0 0 380px; border-left: 1px solid var(--border, #E0E0E0); overflow: auto; padding: 12px; }
-	.CLASS .file { margin-bottom: 10px; border: 1px solid var(--border, #E0E0E0); border-radius: 8px; overflow: hidden; }
-	.CLASS .file summary { cursor: pointer; padding: 6px 10px; display: flex; gap: 8px; align-items: center; background: rgba(0,0,0,0.03); }
+	.CLASS .compose .model { width: 230px; }
+	.CLASS .note { text-align: center; font-size: 12px; color: var(--t-muted); margin: 10px 0; }
+	.CLASS .undo { font-size: 12px; margin-top: 4px; }
+	.CLASS .side { width: 380px; flex: 0 0 380px; border-left: 1px solid var(--t-border); overflow: auto; padding: 12px; background: var(--t-side); }
+	.CLASS .file { margin-bottom: 10px; border: 1px solid var(--t-border); border-radius: var(--radius, 6px); overflow: hidden; background: var(--t-card); }
+	.CLASS .file summary { cursor: pointer; padding: 6px 10px; display: flex; gap: 8px; align-items: center; background: var(--t-soft); }
 	.CLASS .file summary b { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	.CLASS .file pre { margin: 0; padding: 6px 0; overflow: auto; font-size: 12px; max-height: 360px; }
 	.CLASS .file pre span { display: block; padding: 0 10px; white-space: pre; }
-	.CLASS .file pre .add { background: rgba(46,160,67,0.18); }
-	.CLASS .file pre .del { background: rgba(248,81,73,0.18); }
-	.CLASS .file pre .hunk { color: #888; background: rgba(0,0,0,0.04); }
+	.CLASS .file pre .add { background: var(--t-add); }
+	.CLASS .file pre .del { background: var(--t-del); }
+	.CLASS .file pre .hunk { color: var(--t-muted); background: var(--t-soft); }
 	.CLASS .plus { color: #27AE60; }
-	.CLASS .minus { color: #C0392B; }
-	.CLASS .undo { font-size: 12px; margin-top: 4px; }
-	.CLASS .note { text-align: center; font-size: 12px; color: #888; margin: 10px 0; }
-	.CLASS .chips { max-width: 860px; margin: 0 auto 6px; padding: 0 16px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
-	.CLASS .chip { cursor: pointer; border: 1px solid var(--border, #D0D0D0); border-radius: 12px; padding: 1px 10px; font-size: 12px; }
-	.CLASS .chip:hover { background: rgba(0,0,0,0.06); }
-	.CLASS .todos { max-width: 860px; margin: 0 auto 8px; font-size: 13px; }
-	.CLASS .todos div { padding: 1px 0; }
-	.CLASS .todos .completed { color: #888; text-decoration: line-through; }
-	.CLASS .todos .in_progress { font-weight: bold; }
-	.CLASS .ask.question { border-color: #3498DB; }
-	@media (prefers-color-scheme: dark) {
-		.CLASS .msg-user .bubble { background: rgba(255,255,255,0.12); }
-		.CLASS .tool { background: rgba(255,255,255,0.04); }
-		.CLASS .file summary { background: rgba(255,255,255,0.06); }
-		.CLASS .file pre .hunk { background: rgba(255,255,255,0.06); }
-	}
+	.CLASS .minus { color: #D63A32; }
 </style>
 
 <ui-plugin class="CLASS">
 
 	<div class="bar">
 		<b><ui-bind path="?.session" config="template" class="block"><script type="text/html">{{ if value }}{{ value.name }}{{ else }}@(No session){{ fi }}</script></ui-bind></b>
-		<ui-bind path="?.status" config="template" class="status"><script type="text/html"><span class="status {{ value }}">{{ value }}</span></script></ui-bind>
-		<ui-bind path="?.status" config="show:value === 'running'" class="hidden"><button class="exec" data-exec="?/abort" title="@(Stop, Esc)"><i class="ti ti-player-stop"></i>@(Stop)</button></ui-bind>
-		<ui-bind path="?.items" config="template" class="inline"><script type="text/html"><span class="status" title="@(Tokens used in this session)">{{ value | tokens }}</span></script></ui-bind>
-		<button class="exec" data-exec="?/changes" title="@(Files changed by Totem)"><i class="ti ti-git-compare"></i>@(Changes)<ui-bind path="?.files" config="template" class="inline"><script type="text/html">{{ if value && value.length }} ({{ value.length }}){{ fi }}</script></ui-bind></button>
+		<ui-bind path="?.status" config="template" class="inline"><script type="text/html"><span class="badge badge-small{{ if value === 'running' }} badge-orange{{ fi }}{{ if value === 'error' }} badge-red{{ fi }}{{ if value === 'idle' }} badge-silver{{ fi }}{{ if value === 'aborted' }} badge-gray{{ fi }}">{{ value }}</span></script></ui-bind>
+		<ui-bind path="?.status" config="show:value === 'running'" class="hidden"><button class="tbtn exec" data-exec="?/abort" title="@(Stop, Esc)"><i class="ti ti-player-stop"></i>@(Stop)</button></ui-bind>
+		<ui-bind path="?.items" config="template" class="inline"><script type="text/html"><span class="meter" title="@(Tokens used in this session)">{{ value | tokens }}</span></script></ui-bind>
+		<button class="tbtn exec" data-exec="?/changes" title="@(Files changed by Totem, Alt+D)"><i class="ti ti-git-compare"></i>@(Changes)<ui-bind path="?.files" config="template" class="inline"><script type="text/html">{{ if value && value.length }} ({{ value.length }}){{ fi }}</script></ui-bind></button>
 	</div>
 
 	<div class="layout">
@@ -76,7 +72,7 @@
 			<ui-bind path="?.items" config="template" class="block">
 				<script type="text/html">
 					{{ if !value || !value.length }}
-					<div class="empty"><i class="ti ti-message" style="font-size:40px"></i><div class="mt10">@(Ask Totem to read, change or run something in this project.)</div></div>
+					<div class="empty"><img class="logo-light" src="/img/totem-light.svg" alt="" width="72" height="72" /><img class="logo-dark" src="/img/totem-dark.svg" alt="" width="72" height="72" /><div>@(Ask Totem to read, change or run something in this project.)</div></div>
 					{{ fi }}
 					{{ foreach m in value }}
 					<div class="msg msg-{{ m.role }}">
@@ -113,12 +109,14 @@
 			<ui-bind path="?.asks" config="template" class="block">
 				<script type="text/html">
 					{{ foreach a in value }}
-					<div class="ask">
+					<div class="message message-alert ask">
 						<b><i class="ti ti-shield-question"></i> @(Totem wants to use) {{ a.tool }}</b>
 						<code>{{ a.text }}</code>
-						<button class="exec" data-exec="?/reply" data-id="{{ a.id }}" data-reply="once"><i class="ti ti-check"></i>@(Allow once)</button>
-						<button class="exec" data-exec="?/reply" data-id="{{ a.id }}" data-reply="always"><i class="ti ti-checks"></i>@(Always allow)</button>
-						<button class="exec" data-exec="?/reply" data-id="{{ a.id }}" data-reply="reject"><i class="ti ti-x"></i>@(Reject)</button>
+						<div class="row2">
+							<button class="tbtn tbtn-primary exec" data-exec="?/reply" data-id="{{ a.id }}" data-reply="once"><i class="ti ti-check"></i>@(Allow once)</button>
+							<button class="tbtn exec" data-exec="?/reply" data-id="{{ a.id }}" data-reply="always"><i class="ti ti-checks"></i>@(Always allow)</button>
+							<button class="tbtn exec" data-exec="?/reply" data-id="{{ a.id }}" data-reply="reject"><i class="ti ti-x"></i>@(Reject)</button>
+						</div>
 					</div>
 					{{ end }}
 				</script>
@@ -127,14 +125,14 @@
 			<ui-bind path="?.questions" config="template" class="block">
 				<script type="text/html">
 					{{ foreach q in value }}
-					<div class="ask question">
+					<div class="message ask question">
 						<b><i class="ti ti-help-circle"></i> {{ q.text }}</b>
 						<div class="mt10">
 							{{ foreach o in q.options }}
-							<button class="exec" data-exec="?/answer" data-id="{{ q.id }}" data-answer="{{ o }}">{{ o }}</button>
+							<button class="tbtn exec" data-exec="?/answer" data-id="{{ q.id }}" data-answer="{{ o }}">{{ o }}</button>
 							{{ end }}
 						</div>
-						<div class="mt10" style="display:flex;gap:8px"><input type="text" class="answertext" data-id="{{ q.id }}" placeholder="@(Type an answer)" style="flex:1" /><button class="exec" data-exec="?/answer" data-id="{{ q.id }}" data-custom="1">@(Answer)</button></div>
+						<div class="row2 mt10"><input type="text" class="answertext" data-id="{{ q.id }}" placeholder="@(Type an answer)" /><button class="tbtn tbtn-primary exec" data-exec="?/answer" data-id="{{ q.id }}" data-custom="1">@(Answer)</button></div>
 					</div>
 					{{ end }}
 				</script>
@@ -170,7 +168,7 @@
 				<div class="model"><ui-component name="input" path="?.model" config="placeholder:@(Model);dirsource:?.models;dirempty:@(Add a provider in Settings)"></ui-component></div>
 				<ui-bind path="?.thinks" config="show:value" class="hidden"><ui-component name="input" path="?.reasoning" config="placeholder:@(Reasoning);dirsource:?.efforts"></ui-component></ui-bind>
 				<ui-component name="input" path="?.autoaccept" config="type:checkbox">@(Auto-accept edits)</ui-component>
-				<button name="send" class="exec" data-exec="?/send"><i class="ti ti-send"></i>@(Send)</button>
+				<button name="send" class="tbtn tbtn-primary exec" data-exec="?/send"><i class="ti ti-send"></i>@(Send)</button>
 			</div>
 		</ui-component>
 	</div>

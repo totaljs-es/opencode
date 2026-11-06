@@ -108,6 +108,14 @@ Tools from MCP servers (stdio and HTTP) are registered at session start by `modu
 
 A file `.totem/commands/<name>.md` with a `description` and a prompt becomes `/name arguments`. `$ARGUMENTS` in the prompt is replaced by the arguments. The conversation shows what the user typed; the model receives the expanded text, also in later turns. The chat shows the commands of the project as chips above the prompt box. Text that starts with `/` but is not a command of the project is sent as it is.
 
+## Knowledge for Total.js projects
+
+In a project that depends on `total5` Totem adds three things, each one switched off with `forge : false` or `conventions : false` in the `config`:
+
+1. **The conventions skill** (`private/skills/totaljs-conventions`): the rules of the conventions in short form and how to look things up. A skill of the project with the same name replaces it.
+2. **Forge as an MCP server** (`private/mcp.json`): the tools `forge__Forge_search`, `forge__Forge_page`, `forge__Forge_verify_api`, `forge__Forge_source` and three more of https://forge.totaljs.es/mcp/ (read only, no account). Like every MCP server it asks before it starts, and the question says where it goes; the searches are sent to that site. A project replaces it by declaring a server named `forge`.
+3. **The check of the conventions on every file that `write`, `edit` and `patch` produce** (`private/conventions/check.js`, a copy of `tools/check.js` of the conventions repository): the findings come back in the result of the tool so that the model corrects them. Projects that do not depend on `total5` are not checked.
+
 ## MCP servers (implemented)
 
 The tools of MCP servers declared in `.totem/mcp.json` (`command` and `args` for stdio, `url` and `headers` for HTTP) join the tools of the agent as `server__tool`. A project file can start a program, so each server asks first (`mcp-start`), and each of its tools asks before it runs. The programs stop when the run ends. The sub-agents do not get MCP tools. Totem does not expose its own tools as an MCP server.

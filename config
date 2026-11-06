@@ -16,3 +16,7 @@ maxoutput         (Number)  : 30000
 contextlimit      (Number)  : 100000
 retries           (Number)  : 3
 retrybase         (Number)  : 1000
+
+// The knowledge that Totem brings to Total.js 5 projects: the documentation of Forge (asks before it starts) and the check of the conventions
+forge                       : true
+conventions                 : true
