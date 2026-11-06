@@ -10,6 +10,12 @@
 	.CLASS .msg { margin-bottom: 20px; }
 	.CLASS .msg-user { text-align: right; }
 	.CLASS .msg-user .bubble { background: var(--t-soft2); border-radius: 14px 14px 4px 14px; padding: 8px 14px; display: inline-block; max-width: 85%; text-align: left; white-space: pre-wrap; }
+	.CLASS .waiting { display: flex; gap: 5px; padding: 6px 2px 14px; }
+	.CLASS .waiting span { width: 7px; height: 7px; border-radius: 50%; background: var(--t-muted); opacity: 0.3; animation: totemwait 1.2s infinite ease-in-out; }
+	.CLASS .waiting span:nth-child(2) { animation-delay: 0.2s; }
+	.CLASS .waiting span:nth-child(3) { animation-delay: 0.4s; }
+	@keyframes totemwait { 0%, 80%, 100% { opacity: 0.25; transform: scale(0.8); } 40% { opacity: 1; transform: scale(1.1); } }
+	@media (prefers-reduced-motion: reduce) { .CLASS .waiting span { animation: none; opacity: 0.6; } }
 	.CLASS .part { margin-bottom: 8px; }
 	.CLASS .part.live { white-space: pre-wrap; overflow-wrap: anywhere; }
 	.CLASS .part pre { background: var(--t-soft); color: inherit; border: 1px solid var(--t-border); border-radius: var(--radius, 6px); padding: 10px 12px; overflow: auto; font-size: 12px; }
@@ -147,6 +153,8 @@
 					{{ end }}
 				</script>
 			</ui-bind>
+
+			<ui-bind path="?.status" config="show:value === 'running'" class="hidden"><div class="waiting" role="status" aria-label="@(Totem is working)"><span></span><span></span><span></span></div></ui-bind>
 
 			<ui-bind path="?.asks" config="template" class="block">
 				<script type="text/html">
