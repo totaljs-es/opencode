@@ -44,6 +44,10 @@ Design points:
 
 Neither Anthropic nor Gemini has been run with a real key yet.
 
+## Vague requests
+
+The base prompt tells the agent to use the `ask` tool when it does not know what to build or what it is for, and to work without asking when the request is clear. With `qwen3:4b` the request "quiero hacer un componente jcomponent" now ends in a question with options (counter, form, list, other), and "create the file public/js/sum.js with a function sum(a, b)" goes straight to `write`. Small models may not follow it.
+
 ## The prompt
 
 Built in this order; each part is a file or a function, never a hidden string:
