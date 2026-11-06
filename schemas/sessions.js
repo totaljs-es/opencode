@@ -12,7 +12,7 @@ NEWACTION('Sessions|create', {
 	input: '*projectid:String, name:String, model:String, autoaccept:Boolean',
 	action: async function($, model) {
 		await NOSQL('projects').read().where('id', model.projectid).error(404).promise($);
-		var item = { id: UID(), projectid: model.projectid, name: model.name || '@(New session)', model: model.model || '', status: 'idle', autoaccept: !!model.autoaccept, maxsteps: CONF.maxsteps, dtcreated: NOW, dtupdated: NOW };
+		var item = { id: UID(), projectid: model.projectid, name: model.name || 'New session', model: model.model || '', status: 'idle', autoaccept: !!model.autoaccept, maxsteps: CONF.maxsteps, dtcreated: NOW, dtupdated: NOW };
 		await NOSQL('sessions').insert(item).promise($);
 		$.callback(item);
 	}

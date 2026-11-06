@@ -1,0 +1,46 @@
+@{layout('')}
+@{title(config.name)}
+
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<meta name="robots" content="noindex" />
+	<link href="https://cdn.componentator.com/spa.min@20.css" rel="stylesheet" />
+	<script src="https://cdn.componentator.com/spa.min@20.js"></script>
+	<script src="@{REPO.ui}"></script>
+	@{import('meta', 'head', 'default.css', 'favicon.ico')}
+</head>
+<body class="invisible">
+
+	<ui-component name="errorhandler"></ui-component>
+	<ui-component name="exec"></ui-component>
+
+	<div class="login">
+		<h2>@{CONF.name}</h2>
+		<ui-component name="enter" config="exec:login" path="login">
+			<ui-component name="input" path="login.token" config="type:password;required:1;autofocus:1;placeholder:@(Access token)">@(Token)</ui-component>
+			<div class="mt10">
+				<button class="exec" data-exec="login"><i class="ti ti-check-circle"></i>@(Sign in)</button>
+			</div>
+		</ui-component>
+	</div>
+
+	<script>
+
+		DEF.api = '@{CONF.$api}';
+
+		function login() {
+			TAPI('login ERROR', { token: login.token }, function() {
+				location.href = '/';
+			});
+		}
+
+		var login = {};
+		$('body').rclass('invisible', 200);
+
+	</script>
+
+</body>
+</html>

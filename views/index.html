@@ -1,0 +1,64 @@
+@{layout('')}
+@{title(config.name)}
+
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<meta name="robots" content="noindex" />
+	<link href="https://cdn.componentator.com/spa.min@20.css" rel="stylesheet" />
+	<script src="https://cdn.componentator.com/spa.min@20.js"></script>
+	<script src="@{REPO.ui}"></script>
+	@{import('meta', 'head', 'default.js', 'default.css', 'favicon.ico')}
+</head>
+<body class="invisible">
+
+	<ui-component name="exec"></ui-component>
+	<ui-component name="errorhandler"></ui-component>
+	<ui-component name="locale" config="requests:1"></ui-component>
+	<ui-component name="markdown"></ui-component>
+	<ui-component name="websocket" config="url:@{CONF.$api}"></ui-component>
+
+	<ui-component name="LAZY loading" config="style:2"></ui-component>
+	<ui-component name="LAZY menu" config="style:2"></ui-component>
+	<ui-component name="LAZY directory" config="placeholder:@(Search)"></ui-component>
+	<ui-component name="LAZY notify" config="position:bottom right"></ui-component>
+	<ui-component name="LAZY approve"></ui-component>
+	<ui-component name="LAZY clipboard"></ui-component>
+	<ui-component name="LAZY icons"></ui-component>
+
+	<div class="app">
+		<aside>
+			<ui-component name="page" path="common.projects" config="if:projects;url:/_projects/index.html;reload:?/reload" class="hidden"></ui-component>
+		</aside>
+		<main>
+			<ui-component name="page" path="common.chat" config="if:chat;url:/_chat/index.html;reload:?/reload" class="hidden"></ui-component>
+		</main>
+	</div>
+
+	<ui-component name="importer" path="common.form" config="if:formproject;url:/_projects/form.html"></ui-component>
+	<ui-component name="importer" path="common.form" config="if:formsettings;url:/_settings/index.html"></ui-component>
+	<ui-component name="importer" path="common.form2" config="if:formprovider;url:/_settings/form.html"></ui-component>
+
+	<script>
+
+		ENVIRONMENT('totem');
+
+		var common = {};
+		var user = null;
+
+		common.projects = 'projects';
+		common.chat = 'chat';
+		common.projectid = null;
+		common.sessionid = null;
+
+		DEF.api = '@{CONF.$api}';
+		DEF.versionhtml = '@{CONF.version}';
+
+		$('body').rclass('invisible', 200);
+
+	</script>
+
+</body>
+</html>

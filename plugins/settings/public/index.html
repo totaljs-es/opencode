@@ -1,0 +1,71 @@
+<ui-component name="miniform" path="common.form" config="if:~PATH~;icon:ti ti-settings;title:@(Settings);reload:?/reload;scrollbar:1;width:620" class="hidden" plugin="~PATH~">
+	<div class="padding">
+		<div class="b mb10"><i class="ti ti-plug-connected mr5"></i>@(Providers)</div>
+		<div class="help mb10">@(A provider is any server with an OpenAI-compatible API: OpenRouter, OpenAI, Ollama, LM Studio... Prompts go only to the providers you add here.)</div>
+		<ui-bind path="?.items" config="template" class="block">
+			<script type="text/html">
+				{{ if !value || !value.length }}<div class="mb10">@(No providers yet.)</div>{{ fi }}
+				{{ foreach m in value }}
+				<div class="exec mb5" data-exec="?/edit" data-id="{{ m.id }}" style="cursor:pointer;border:1px solid #E0E0E0;border-radius:6px;padding:8px 10px;display:flex;gap:8px;align-items:center">
+					<i class="ti ti-server"></i>
+					<div style="flex:1;min-width:0">
+						<b>{{ m.name }}</b>{{ if m.disabled }} <span class="badge badge-small">@(disabled)</span>{{ fi }}
+						<div class="gray fs12 hellip">{{ m.url }} &middot; {{ m.models.length }} @(models){{ if m.haskey }} &middot; <i class="ti ti-key"></i>{{ fi }}</div>
+					</div>
+					<span class="exec" data-exec="?/remove" data-prevent="true" data-id="{{ m.id }}" title="@(Remove)"><i class="ti ti-trash red"></i></span>
+				</div>
+				{{ end }}
+			</script>
+		</ui-bind>
+		<div class="mt10">
+			<button class="exec" data-exec="?/create"><i class="ti ti-plus-circle"></i>@(Add a provider)</button>
+		</div>
+	</div>
+	<nav>
+		<button name="cancel">@(Close)</button>
+	</nav>
+</ui-component>
+
+<script>
+
+	PLUGIN(function(exports) {
+
+		exports.reload = function() {
+			exports.refresh();
+		};
+
+		exports.refresh = function() {
+			exports.tapi('providers', function(response) {
+				exports.set('items', response);
+			});
+		};
+
+		exports.create = function() {
+			SET('formprovider @default', { name: '', url: '', key: '', models: [] });
+			SET('common.form2', 'formprovider');
+		};
+
+		exports.edit = function(el) {
+			var id = ATTRD(el);
+			var item = (exports.model.items || []).findItem('id', id);
+			if (item) {
+				var data = CLONE(item);
+				data.key = '';
+				SET('formprovider @reset', data);
+				SET('common.form2', 'formprovider');
+			}
+		};
+
+		exports.remove = function(el) {
+			var id = ATTRD(el);
+			SETTER('approve/show', '@(Remove this provider?)', ':ti ti-trash: @(Remove)', function() {
+				exports.tapi('providers_remove/' + id + ' ERROR', function() {
+					exports.refresh();
+					PLUGINS.chat && PLUGINS.chat.models();
+				});
+			});
+		};
+
+	});
+
+</script>

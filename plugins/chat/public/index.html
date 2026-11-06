@@ -1,0 +1,269 @@
+<style>
+	.CLASS { height: 100vh; display: flex; flex-direction: column; }
+	.CLASS .bar { padding: 10px 16px; border-bottom: 1px solid var(--border, #E0E0E0); display: flex; gap: 10px; align-items: center; }
+	.CLASS .bar b { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.CLASS .bar .status { font-size: 12px; color: #888; }
+	.CLASS .bar .status.running { color: #E67E22; }
+	.CLASS .bar .status.error { color: #C0392B; }
+	.CLASS .scroll { flex: 1; overflow: auto; padding: 16px; }
+	.CLASS .inner { max-width: 860px; margin: 0 auto; }
+	.CLASS .msg { margin-bottom: 18px; }
+	.CLASS .msg-user .bubble { background: rgba(0,0,0,0.06); border-radius: 10px; padding: 8px 12px; display: inline-block; max-width: 100%; white-space: pre-wrap; }
+	.CLASS .msg-user { text-align: right; }
+	.CLASS .part { margin-bottom: 8px; }
+	.CLASS .reasoning { color: #888; font-style: italic; border-left: 3px solid #DDD; padding-left: 10px; font-size: 13px; }
+	.CLASS .tool { border: 1px solid var(--border, #E0E0E0); border-radius: 8px; padding: 6px 10px; font-size: 13px; background: rgba(0,0,0,0.02); }
+	.CLASS .tool summary { cursor: pointer; display: flex; gap: 8px; align-items: center; }
+	.CLASS .tool pre { margin: 6px 0 0; max-height: 260px; overflow: auto; white-space: pre-wrap; font-size: 12px; }
+	.CLASS .tool .st-done { color: #27AE60; }
+	.CLASS .tool .st-error, .CLASS .tool .st-denied { color: #C0392B; }
+	.CLASS .tool .st-running, .CLASS .tool .st-pending { color: #E67E22; }
+	.CLASS .ask { border: 2px solid #E67E22; border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; }
+	.CLASS .ask code { display: block; margin: 6px 0; white-space: pre-wrap; }
+	.CLASS .empty { text-align: center; color: #888; margin-top: 18vh; }
+	.CLASS .compose { border-top: 1px solid var(--border, #E0E0E0); padding: 10px 16px; }
+	.CLASS .compose .row { max-width: 860px; margin: 0 auto; display: flex; gap: 8px; align-items: center; }
+	.CLASS .compose .grow { flex: 1; }
+	.CLASS .compose .model { width: 220px; }
+</style>
+
+<ui-plugin class="CLASS">
+
+	<div class="bar">
+		<b><ui-bind path="?.session" config="template" class="block"><script type="text/html">{{ if value }}{{ value.name }}{{ else }}@(No session){{ fi }}</script></ui-bind></b>
+		<ui-bind path="?.status" config="template" class="status"><script type="text/html"><span class="status {{ value }}">{{ value }}</span></script></ui-bind>
+		<ui-bind path="?.status" config="show:value === 'running'" class="hidden"><button class="exec" data-exec="?/abort" title="@(Stop)"><i class="ti ti-player-stop"></i>@(Stop)</button></ui-bind>
+	</div>
+
+	<div class="scroll" id="chatscroll">
+		<div class="inner">
+
+			<ui-bind path="?.items" config="template" class="block">
+				<script type="text/html">
+					{{ if !value || !value.length }}
+					<div class="empty"><i class="ti ti-message" style="font-size:40px"></i><div class="mt10">@(Ask Totem to read, change or run something in this project.)</div></div>
+					{{ fi }}
+					{{ foreach m in value }}
+					<div class="msg msg-{{ m.role }}">
+						{{ foreach p in m.parts }}
+							{{ if p.type === 'text' && m.role === 'user' }}
+							<div class="bubble">{{ p.data.text }}</div>
+							{{ fi }}
+							{{ if p.type === 'text' && m.role !== 'user' }}
+							<div class="part">{{ p.data.text | markdown({ wrap: false }) }}</div>
+							{{ fi }}
+							{{ if p.type === 'reasoning' }}
+							<div class="part reasoning">{{ p.data.text }}</div>
+							{{ fi }}
+							{{ if p.type === 'tool' }}
+							<div class="part">
+								<details class="tool">
+									<summary><i class="ti ti-tool"></i><b>{{ p.data.tool }}</b><span class="hellip" style="flex:1;color:#777">{{ p.data.input | json }}</span><span class="st-{{ p.data.status }}">{{ p.data.status }}</span></summary>
+									{{ if p.data.output || p.data.error }}<pre>{{ p.data.error || p.data.output }}</pre>{{ fi }}
+								</details>
+							</div>
+							{{ fi }}
+						{{ end }}
+					</div>
+					{{ end }}
+				</script>
+			</ui-bind>
+
+			<ui-bind path="?.asks" config="template" class="block">
+				<script type="text/html">
+					{{ foreach a in value }}
+					<div class="ask">
+						<b><i class="ti ti-shield-question"></i> @(Totem wants to use) {{ a.tool }}</b>
+						<code>{{ a.text }}</code>
+						<button class="exec" data-exec="?/reply" data-id="{{ a.id }}" data-reply="once"><i class="ti ti-check"></i>@(Allow once)</button>
+						<button class="exec" data-exec="?/reply" data-id="{{ a.id }}" data-reply="always"><i class="ti ti-checks"></i>@(Always allow)</button>
+						<button class="exec" data-exec="?/reply" data-id="{{ a.id }}" data-reply="reject"><i class="ti ti-x"></i>@(Reject)</button>
+					</div>
+					{{ end }}
+				</script>
+			</ui-bind>
+
+		</div>
+	</div>
+
+	<div class="compose">
+		<ui-component name="enter" config="exec:?/send;validate:false;trigger:button[name=send]">
+			<div class="row">
+				<div class="grow"><ui-component name="input" path="?.text" config="placeholder:@(Ask Totem...);autofocus:true"></ui-component></div>
+				<div class="model"><ui-component name="input" path="?.model" config="placeholder:@(Model);dirsource:?.models;dirempty:@(Add a provider in Settings)"></ui-component></div>
+				<button name="send" class="exec" data-exec="?/send"><i class="ti ti-send"></i>@(Send)</button>
+			</div>
+		</ui-component>
+	</div>
+
+</ui-plugin>
+
+<script>
+
+	PLUGIN(function(exports) {
+
+		var sessionid = null;
+		var parts = {};
+
+		exports.reload = function() {
+			exports.set('items', []);
+			exports.set('asks', []);
+			exports.models();
+		};
+
+		exports.models = function() {
+			exports.tapi('providers_models', function(response) {
+				exports.set('models', response.map(function(m) { return { id: m, name: m }; }));
+				if (!exports.model.model && response.length)
+					exports.set('model', response[0]);
+			});
+		};
+
+		// The projects plugin opens a session
+		exports.open = function(id) {
+			sessionid = id;
+			parts = {};
+			exports.set('items', []);
+			exports.set('asks', []);
+			exports.set('status', 'idle');
+			exports.set('session', null);
+
+			if (!id)
+				return;
+
+			exports.models();
+			exports.tapi('sessions_read/' + id + ' ERROR', function(session) {
+				exports.set('session', session);
+				exports.set('status', session.status);
+				if (session.model)
+					exports.set('model', session.model);
+			});
+
+			exports.tapi('sessions_messages/' + id + ' ERROR', function(items) {
+				for (var m of items) {
+					for (var p of m.parts)
+						parts[p.id] = p;
+				}
+				exports.set('items', items);
+				scroll();
+			});
+
+			online();
+		};
+
+		// Subscribes to the events of the session (again after a reconnect)
+		function online() {
+			sessionid && SETTER('websocket/send', { type: 'subscribe', sessionid: sessionid });
+		}
+
+		exports.online = online;
+
+		function scroll() {
+			setTimeout(function() {
+				var el = $('#chatscroll')[0];
+				el && (el.scrollTop = el.scrollHeight);
+			}, 30);
+		}
+
+		function find(messageid) {
+			return (exports.model.items || []).findItem('id', messageid);
+		}
+
+		// An event of the server (protocol.md)
+		exports.event = function(msg) {
+
+			if (msg.sessionid !== sessionid)
+				return;
+
+			var data = msg.data;
+			var items = exports.model.items || [];
+
+			switch (msg.type) {
+
+				case 'session.status':
+					exports.set('status', data.status);
+					PLUGINS.projects && PLUGINS.projects.refresh();
+					break;
+
+				case 'message.created':
+					if (!find(data.message.id)) {
+						data.message.parts = [];
+						items.push(data.message);
+						exports.update('items', true);
+					}
+					scroll();
+					break;
+
+				case 'part.created':
+					var m = find(data.part.messageid);
+					if (m && !parts[data.part.id]) {
+						parts[data.part.id] = data.part;
+						m.parts.push(data.part);
+						exports.update('items', true);
+						scroll();
+					}
+					break;
+
+				case 'part.delta':
+					var part = parts[data.partid];
+					if (part) {
+						part.data.text += data.text;
+						exports.update('items', true);
+						scroll();
+					}
+					break;
+
+				case 'part.updated':
+					var tool = parts[data.part.id];
+					if (tool) {
+						tool.data = data.part.data;
+						exports.update('items', true);
+					}
+					break;
+
+				case 'permission.ask':
+					var asks = exports.model.asks || [];
+					asks.push({ id: data.id, tool: data.tool, text: data.patterns[0] || JSON.stringify(data.input) });
+					exports.update('asks', true);
+					scroll();
+					break;
+
+				case 'permission.replied':
+					exports.set('asks', (exports.model.asks || []).filter(function(a) { return a.id !== data.id; }));
+					break;
+
+				case 'error':
+					SETTER('notify/warning', data.message);
+					break;
+			}
+		};
+
+		exports.send = function() {
+
+			var model = exports.model;
+
+			if (!sessionid || !model.text || !model.text.trim())
+				return;
+
+			if (!model.model) {
+				SETTER('notify/warning', '@(Choose a model first. Add a provider in Settings.)');
+				return;
+			}
+
+			var text = model.text;
+			exports.set('text', '');
+			exports.tapi('sessions_prompt/' + sessionid + ' ERROR', { text: text, model: model.model }, NOOP);
+		};
+
+		exports.abort = function() {
+			sessionid && exports.tapi('sessions_abort/' + sessionid, NOOP);
+		};
+
+		exports.reply = function(el) {
+			var id = ATTRD(el);
+			exports.tapi('permissions_reply/' + id + ' ERROR', { reply: el.attrd('reply') }, NOOP);
+		};
+
+	});
+
+</script>

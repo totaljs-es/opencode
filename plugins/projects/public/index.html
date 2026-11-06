@@ -1,0 +1,143 @@
+<style>
+	.CLASS { height: 100vh; display: flex; flex-direction: column; background: var(--bg, #F8F8F8); }
+	.CLASS .top { padding: 12px; border-bottom: 1px solid var(--border, #E0E0E0); display: flex; align-items: center; gap: 8px; }
+	.CLASS .top b { flex: 1; font-size: 15px; }
+	.CLASS .list { flex: 1; overflow: auto; padding: 8px 0; }
+	.CLASS .project { padding: 8px 12px; cursor: pointer; display: flex; align-items: center; gap: 8px; }
+	.CLASS .project:hover { background: rgba(0,0,0,0.04); }
+	.CLASS .project .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: bold; }
+	.CLASS .project .path { font-size: 11px; color: #888; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.CLASS .session { padding: 5px 12px 5px 34px; cursor: pointer; display: flex; gap: 6px; align-items: center; }
+	.CLASS .session:hover { background: rgba(0,0,0,0.04); }
+	.CLASS .session.selected { background: rgba(0,0,0,0.08); font-weight: bold; }
+	.CLASS .session .running { color: #E67E22; }
+	.CLASS .session span.title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.CLASS .foot { padding: 8px 12px; border-top: 1px solid var(--border, #E0E0E0); }
+</style>
+
+<ui-plugin class="CLASS">
+
+	<div class="top">
+		<b>Totem</b>
+		<button class="exec" data-exec="?/open" title="@(Open a folder)"><i class="ti ti-folder-plus"></i></button>
+	</div>
+
+	<div class="list">
+		<ui-component name="empty" path="?.items" config="parent:auto">
+			<script type="text/html">
+				<div class="padding">@(No projects yet. Open a folder to start.)</div>
+			</script>
+			<ui-bind path="?.items" config="template" class="block">
+				<script type="text/html">
+					{{ foreach m in value }}
+					<div class="exec project" data-exec="?/project" data-id="{{ m.id }}">
+						<i class="ti ti-folder"></i>
+						<div style="flex:1;min-width:0">
+							<div class="name">{{ m.name }}</div>
+							<div class="path">{{ m.path | shortpath }}</div>
+						</div>
+						<span class="exec" data-exec="?/menu" data-prevent="true" title="@(Options)"><i class="ti ti-dots"></i></span>
+					</div>
+					{{ if m.sessions }}
+					{{ foreach s in m.sessions }}
+					<div class="exec session{{ if s.id === common.sessionid }} selected{{ fi }}" data-exec="?/session" data-id="{{ s.id }}" data-project="{{ m.id }}">
+						<i class="ti ti-message{{ if s.status === 'running' }} running{{ fi }}"></i>
+						<span class="title">{{ s.name }}</span>
+					</div>
+					{{ end }}
+					{{ fi }}
+					{{ end }}
+				</script>
+			</ui-bind>
+		</ui-component>
+	</div>
+
+	<div class="foot">
+		<button class="exec" data-exec="?/settings"><i class="ti ti-settings"></i>@(Settings)</button>
+	</div>
+
+</ui-plugin>
+
+<script>
+
+	PLUGIN(function(exports) {
+
+		exports.reload = function() {
+			exports.refresh();
+		};
+
+		exports.refresh = function() {
+			exports.tapi('projects', function(projects) {
+				var pending = projects.length;
+				if (!pending) {
+					exports.set('items', projects);
+					return;
+				}
+				projects.forEach(function(project) {
+					exports.tapi(QUERIFY('sessions', { projectid: project.id }), function(sessions) {
+						project.sessions = sessions;
+						if (!--pending)
+							exports.set('items', projects);
+					});
+				});
+			});
+		};
+
+		exports.open = function() {
+			SET('formproject @default', { path: '' });
+			SET('common.form', 'formproject');
+		};
+
+		// Click on a project creates a session in it
+		exports.project = function(el) {
+			var id = typeof(el) === 'string' ? el : ATTRD(el);
+			exports.tapi('sessions_create ERROR', { projectid: id }, function(response) {
+				exports.refresh();
+				exports.session(response.id, id);
+			});
+		};
+
+		exports.session = function(el, projectid) {
+			var id = typeof(el) === 'string' ? el : ATTRD(el);
+			projectid = projectid || el.attrd('project');
+			SET('common.projectid', projectid);
+			SET('common.sessionid', id);
+			PLUGINS.chat && PLUGINS.chat.open(id);
+			exports.refresh();
+		};
+
+		exports.menu = function(el) {
+			var id = el.closest('.project').attrd('id');
+			var opt = {};
+			opt.element = el;
+			opt.align = 'right';
+			opt.items = [];
+			opt.items.push({ id: 'session', name: '@(New session)', icon: 'ti ti-plus' });
+			opt.items.push('-');
+			opt.items.push({ id: 'remove', name: '@(Forget project)', icon: 'ti ti-trash red' });
+			opt.callback = function(item) {
+				if (item.id === 'session')
+					exports.project(id);
+				else if (item.id === 'remove') {
+					SETTER('approve/show', '@(Forget this project and its sessions? The files are not touched.)', ':ti ti-trash: @(Forget)', function() {
+						exports.tapi('projects_remove/' + id + ' ERROR', function() {
+							if (common.projectid === id) {
+								SET('common.projectid', null);
+								SET('common.sessionid', null);
+								PLUGINS.chat && PLUGINS.chat.open(null);
+							}
+							exports.refresh();
+						});
+					});
+				}
+			};
+			SETTER('menu/show', opt);
+		};
+
+		exports.settings = function() {
+			SET('common.form', 'formsettings');
+		};
+
+	});
+
+</script>

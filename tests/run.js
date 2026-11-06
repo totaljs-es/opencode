@@ -214,6 +214,47 @@ Test.push('bash and abort', async function(next) {
 	next();
 });
 
+Test.push('real provider over HTTP', async function(next) {
+
+	var mock = require('./mock-openai');
+	await new Promise(resolve => mock.start(8111, resolve));
+
+	var r = await api('providers_save', { name: 'Mock', url: 'http://127.0.0.1:8111/v1', key: 'secret-key', models: ['mock'] });
+	check('a provider is saved', r.response && r.response.success === true);
+
+	r = await api('providers');
+	check('the key is never returned', r.response.length === 1 && r.response[0].haskey === true && r.response[0].key === undefined);
+	var stored = await NOSQL('providers').read().where('id', 'mock').promise();
+	check('the key is stored encrypted', stored.key && stored.key !== 'secret-key' && FUNC.decryptkey(stored.key) === 'secret-key');
+
+	await new Promise(resolve => setTimeout(resolve, 200));
+	r = await api('providers_models');
+	check('its models can be chosen', r.response.indexOf('mock:mock') !== -1);
+
+	r = await api('sessions_create', { projectid: projectid, model: 'mock:mock' });
+	var id = r.response.id;
+	events.length = 0;
+
+	await api('sessions_prompt/' + id, { text: 'please read the file' });
+	await until(() => events.some(e => e.type === 'permission.ask') || events.some(e => e.type === 'session.status' && e.data.status === 'idle'));
+	check('read runs without asking', !events.some(e => e.type === 'permission.ask'));
+	await until(() => events.filter(e => e.type === 'session.status' && e.data.status === 'idle').length > 0);
+
+	r = await api('sessions_messages/' + id);
+	var assistant = r.response.find(m => m.role === 'assistant');
+	var tool = assistant.parts.find(p => p.type === 'tool');
+	var texts = assistant.parts.filter(p => p.type === 'text').map(p => p.data.text).join('|');
+	check('the stream of the provider was parsed into text and a tool call', texts.indexOf('Let me look at the file.') !== -1 && tool && tool.data.tool === 'read' && tool.data.input.path === 'README.md');
+	check('the answer follows the tool result', texts.indexOf('I read the file.') !== -1);
+	check('the provider received the key and the tools', mock.requests.length === 2 && mock.requests[0].tools.length === 6 && mock.requests[0].model === 'mock');
+
+	events.length = 0;
+	await api('sessions_prompt/' + id, { text: 'please fail' });
+	await until(() => events.some(e => e.type === 'session.status' && e.data.status === 'error'));
+	check('a provider error ends the run with a visible error', events.some(e => e.type === 'error' && /401/.test(e.data.message)));
+	next();
+});
+
 Test.push('cleanup', async function(next) {
 	var r = await api('projects_remove/' + projectid);
 	check('removing a project removes its sessions', r.response.success === true);

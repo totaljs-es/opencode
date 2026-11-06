@@ -12,7 +12,7 @@ exports.openai = function(ai, callback) {
 	if (ai.payload.tools && ai.payload.tools.length)
 		payload.tools = ai.payload.tools;
 
-	var url = Total.Url.parse((config.url || '').replace(/\/+$/, '') + '/chat/completions');
+	var url = new URL((config.url || '').replace(/\/+$/, '') + '/chat/completions');
 	var lib = url.protocol === 'https:' ? Total.Https : Total.Http;
 	var body = JSON.stringify(payload);
 	var headers = { 'content-type': 'application/json', 'accept': 'text/event-stream', 'content-length': Buffer.byteLength(body) };
@@ -29,7 +29,7 @@ exports.openai = function(ai, callback) {
 		}
 	}
 
-	var req = lib.request({ protocol: url.protocol, hostname: url.hostname, port: url.port, path: url.path, method: 'POST', headers: headers }, function(res) {
+	var req = lib.request({ protocol: url.protocol, hostname: url.hostname, port: url.port, path: url.pathname + url.search, method: 'POST', headers: headers }, function(res) {
 
 		if (res.statusCode >= 400) {
 			var error = '';

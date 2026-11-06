@@ -1,0 +1,28 @@
+<ui-component name="miniform" path="common.form" config="if:~PATH~;icon:ti ti-folder-plus;autofocus:true;title:@(Open a folder);reload:?/reload;scrollbar:0;submit:?/submit;width:480" class="hidden" plugin="~PATH~">
+	<div class="padding">
+		<ui-component name="input" path="?.path" config="required:1;placeholder:@(Absolute path of the project folder)">@(Folder)</ui-component>
+		<div class="help mt5">@(Totem works only inside this folder.)</div>
+	</div>
+	<nav>
+		<ui-component name="validate" path="?">
+			<button name="submit" disabled><i class="ti ti-check-circle"></i>@(Open)</button>
+			<button name="cancel">@(Cancel)</button>
+		</ui-component>
+	</nav>
+</ui-component>
+
+<script>
+
+	PLUGIN(function(exports) {
+
+		exports.submit = function(hide) {
+			exports.tapi('projects_open ERROR', exports.form, function(response) {
+				hide();
+				PLUGINS.projects.refresh();
+				PLUGINS.projects.project(response.id);
+			});
+		};
+
+	});
+
+</script>

@@ -1,0 +1,5 @@
+html, body { height: 100%; margin: 0; }
+.app { display: flex; height: 100vh; }
+.app > aside { width: 290px; flex: 0 0 290px; border-right: 1px solid var(--border, #E0E0E0); overflow: hidden; }
+.app > main { flex: 1; min-width: 0; overflow: hidden; }
+.login { max-width: 340px; margin: 18vh auto 0; padding: 20px; }

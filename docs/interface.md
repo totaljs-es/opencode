@@ -13,6 +13,18 @@ Single-page application in the Total.js admin style: jComponent 20, plugins load
 └────────────┴───────────────────────────────┴───────────────┘
 ```
 
+## What exists (phase 1)
+
+Three plugins, mounted by the shell `views/index.html` with `page` components named by their `if` value (`projects`, `chat`) and two importers for the forms. Forms loaded by an importer use `~PATH~` (the importer's `if` value), not `CLASS`, for `miniform` `if` and `plugin`.
+
+| Plugin | Files | Does |
+|---|---|---|
+| `projects` | `index.html`, `form.html` | Projects and their sessions; open a folder; new session; forget a project; opens Settings |
+| `chat` | `index.html` | Messages with parts (text as Markdown, tool calls with input and output), permission questions, prompt box, model picker, stop; subscribes to the session over WebSocket and renders events |
+| `settings` | `index.html`, `form.html` | Providers: list, add, edit, remove; the API key is write-only |
+
+The login page (`views/login.html`) is used only when `token` is set in `config`.
+
 ## Screens (plugins)
 
 | Plugin | Shows | Notes |

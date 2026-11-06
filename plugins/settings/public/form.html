@@ -1,0 +1,45 @@
+<ui-component name="miniform" path="common.form2" config="if:~PATH~;icon:ti ti-server;autofocus:true;reload:?/reload;scrollbar:0;submit:?/submit;width:520" class="hidden" plugin="~PATH~">
+	<div class="padding">
+		<div class="m">
+			<ui-component name="input" path="?.name" config="required:1;placeholder:@(For example OpenRouter)">@(Name)</ui-component>
+		</div>
+		<div class="m">
+			<ui-component name="input" path="?.url" config="required:1;type:url;placeholder:@(https://openrouter.ai/api/v1)">@(Base URL)</ui-component>
+			<div class="help">@(The address that ends before /chat/completions. Ollama: http://127.0.0.1:11434/v1)</div>
+		</div>
+		<div class="m">
+			<ui-component name="input" path="?.key" config="type:password;placeholder:@(Leave empty to keep the saved key)">@(API key)</ui-component>
+			<div class="help">@(It is stored encrypted on this computer and never shown again.)</div>
+		</div>
+		<div class="m">
+			<ui-component name="input" path="?.models" config="required:1;type:tags;placeholder:@(Type a model id and press enter)">@(Models)</ui-component>
+		</div>
+		<ui-component name="input" path="?.disabled" config="type:checkbox">@(Disabled)</ui-component>
+	</div>
+	<nav>
+		<ui-component name="validate" path="?">
+			<button name="submit" disabled><i class="ti ti-check-circle"></i>@(SUBMIT)</button>
+			<button name="cancel">@(Cancel)</button>
+		</ui-component>
+	</nav>
+</ui-component>
+
+<script>
+
+	PLUGIN(function(exports) {
+
+		exports.reload = function(com) {
+			com.reconfigure({ title: exports.model.id ? '@(Update provider)' : '@(Add a provider)' });
+		};
+
+		exports.submit = function(hide) {
+			exports.tapi('providers_save ERROR', exports.form, function() {
+				hide();
+				PLUGINS.formsettings && PLUGINS.formsettings.refresh();
+				PLUGINS.chat && PLUGINS.chat.models();
+			});
+		};
+
+	});
+
+</script>
