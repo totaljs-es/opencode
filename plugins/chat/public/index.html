@@ -37,7 +37,7 @@
 	.CLASS .compose { border-top: 1px solid var(--t-border); padding: 10px 16px 14px; }
 	.CLASS .compose .row { max-width: 860px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 	.CLASS .compose .grow { flex: 1 1 220px; min-width: 160px; }
-	.CLASS .compose .model { width: 230px; }
+	.CLASS .compose .model { width: 210px; }
 	.CLASS .note { text-align: center; font-size: 12px; color: var(--t-muted); margin: 10px 0; }
 	.CLASS .undo { font-size: 12px; margin-top: 4px; }
 	.CLASS .side { width: 380px; flex: 0 0 380px; border-left: 1px solid var(--t-border); overflow: auto; padding: 12px; background: var(--t-side); }
@@ -57,6 +57,7 @@
 
 	<div class="bar">
 		<b><ui-bind path="?.session" config="template" class="block"><script type="text/html">{{ if value }}{{ value.name }}{{ else }}@(No session){{ fi }}</script></ui-bind></b>
+		<ui-bind path="?.current" config="template" class="inline"><script type="text/html">{{ if value }}<span class="meter" style="display:inline-flex;gap:6px;align-items:center" title="{{ value.provider }}">{{ value.icon | provicon(value.provider) }}{{ value.id }}</span>{{ fi }}</script></ui-bind>
 		<ui-bind path="?.status" config="template" class="inline"><script type="text/html"><span class="badge badge-small{{ if value === 'running' }} badge-orange{{ fi }}{{ if value === 'error' }} badge-red{{ fi }}{{ if value === 'idle' }} badge-silver{{ fi }}{{ if value === 'aborted' }} badge-gray{{ fi }}">{{ value }}</span></script></ui-bind>
 		<ui-bind path="?.status" config="show:value === 'running'" class="hidden"><button class="tbtn exec" data-exec="?/abort" title="@(Stop, Esc)"><i class="ti ti-player-stop"></i>@(Stop)</button></ui-bind>
 		<ui-bind path="?.items" config="template" class="inline"><script type="text/html"><span class="meter" title="@(Tokens used in this session)">{{ value | tokens }}</span></script></ui-bind>
@@ -162,10 +163,11 @@
 	</ui-bind>
 
 	<div class="compose">
-		<ui-component name="enter" config="exec:?/send;validate:false;trigger:button[name=send]">
+		<ui-component name="enter" config="exec:?/send;validate:false;delay:0;timeout:400">
 			<div class="row">
 				<div class="grow"><ui-component name="input" path="?.text" config="placeholder:@(Ask Totem...);autofocus:true"></ui-component></div>
-				<div class="model"><ui-component name="input" path="?.model" config="placeholder:@(Model);dirsource:?.models;dirempty:@(Add a provider in Settings)"></ui-component></div>
+				<ui-bind path="?.current" config="template" class="inline"><script type="text/html">{{ if value }}{{ value.icon | provicon(value.provider) }}{{ fi }}</script></ui-bind>
+				<div class="model"><ui-component name="input" path="?.model" config="placeholder:@(Model);dirsource:?.models"></ui-component></div>
 				<ui-bind path="?.thinks" config="show:value" class="hidden"><ui-component name="input" path="?.reasoning" config="placeholder:@(Reasoning);dirsource:?.efforts"></ui-component></ui-bind>
 				<ui-component name="input" path="?.autoaccept" config="type:checkbox">@(Auto-accept edits)</ui-component>
 				<button name="send" class="tbtn tbtn-primary exec" data-exec="?/send"><i class="ti ti-send"></i>@(Send)</button>
@@ -246,6 +248,7 @@
 		exports.watchmodel = function() {
 			var m = catalog[exports.model.model];
 			exports.set('thinks', !!(m && m.reasoning));
+			exports.set('current', m ? { icon: m.icon, provider: m.provider, id: m.id } : null);
 		};
 
 		exports.models = function() {
@@ -260,7 +263,8 @@
 						notes.push('@(free)');
 					if (m.reasoning)
 						notes.push('@(thinks)');
-					return { id: m.id, name: m.id + (notes.length ? (' · ' + notes.join(', ')) : '') };
+					// A template per item: the icon of the provider and the name
+					return { id: m.id, name: m.id + (notes.length ? (' · ' + notes.join(', ')) : ''), template: Thelpers.provicon(m.icon, m.provider) + ' <span style="margin-left:6px">{{ name }}</span>' };
 				}));
 				if (!exports.model.model && response.length)
 					exports.set('model', response[0].id);
@@ -429,8 +433,14 @@
 
 			var model = exports.model;
 
-			if (!sessionid || !model.text || !model.text.trim())
+			// Enter arrives before the input has copied its value to the model: the text is read from the input
+			var input = $('.compose input[type="text"]').first();
+			var typed = (input.val() || model.text || '').trim();
+
+			if (!sessionid || !typed)
 				return;
+
+			model.text = typed;
 
 			if (!model.model) {
 				SETTER('notify/warning', '@(Choose a model first. Add a provider in Settings.)');
@@ -441,6 +451,7 @@
 				SETTER('notify/warning', '@(This model cannot use tools: it will only chat.)');
 
 			var text = model.text;
+			input.val('');
 			exports.set('text', '');
 			exports.tapi('sessions_prompt/' + sessionid + ' ERROR', { text: text, model: model.model, autoaccept: !!model.autoaccept, reasoning: model.reasoning || '' }, NOOP);
 		};

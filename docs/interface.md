@@ -19,18 +19,26 @@ Three plugins, mounted by the shell `views/index.html` with `page` components na
 
 | Plugin | Files | Does |
 |---|---|---|
-| `projects` | `index.html`, `form.html` | Projects and their sessions; open a folder; new session; forget a project; opens Settings |
+| `projects` | `index.html`, `form.html` | Projects and their sessions (each session shows the icon of its provider); open a folder with a folder picker; new session; forget a project; opens Settings |
 | `chat` | `index.html` | Messages with parts (text as Markdown, tool calls with input and output), permission questions, prompt box, model picker, stop; subscribes to the session over WebSocket and renders events |
 | `settings` | `index.html`, `form.html` | Providers: look for servers on this computer and add them with their models, add from a template (Ollama, llama.cpp, LM Studio, OpenRouter, OpenAI...), load the full model list of a provider with search and Tools / Free filters, choose the models; the API key is write-only |
 
 The login page (`views/login.html`) is used only when `token` is set in `config`.
+
+## Choosing a folder
+
+The folder of a project is chosen with the component `folder` (j-Folder), which browses the computer where Totem runs through `Folders|list`: a path bar, the folders of the current one, up, and shortcuts to Home, Volumes and Root. Only the names of folders are listed. The component `filebrowser` is not used: it is the file chooser of the browser, which never gives the path of a file on the computer, and a project needs a path. The picker uses `/` as separator; drives of Windows are not listed yet.
+
+## Prompt box
+
+`Enter` sends (the component `enter` with no delay). The text is read from the input at that moment, because the input copies its value to the model a little later than the key arrives.
 
 ## Design
 
 - **IntranetCSS** (the component `intranetcss`) provides the base: `message`, `badge`, `caption`, `listing`, `toolbar`. Totem adds `public/css/default.css` with a few variables and its own buttons (`tbtn`, not `btn`, which jComponent already defines).
 - **Dark theme.** IntranetCSS styles the class `ui-dark` of the body, which `APPEARANCE({ dark })` switches. Settings has Auto (follows the system), Light and Dark; the choice is kept in the browser.
 - **Logo.** `assets/` keeps the sources. `public/img/totem-light.svg` (dark greens, for a light background) and `totem-dark.svg` (light greens) are shown with the class of the theme. The favicon and the app icons use the dark tile.
-- **Provider icons.** `public/img/providers/*.svg` are drawn as a mask in the colour of the text, so they work in both themes. See `SOURCE.md` there.
+- **Provider icons.** `public/img/providers/*.svg` are drawn as a mask in the colour of the text, so they work in both themes. See `SOURCE.md` there. They appear in Settings, the template menu (a class of `default.css`, `provi provi-openai`, because the menu takes a class), the model selector (a template per item), the model of the session in the bar and the sessions of the sidebar. A provider without an icon shows its initial.
 
 ## Screens (plugins)
 

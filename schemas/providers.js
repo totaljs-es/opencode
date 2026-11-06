@@ -4,7 +4,7 @@ NEWACTION('Providers|list', {
 		var items = await NOSQL('providers').find().promise($);
 		for (var item of items) {
 			item.haskey = !!item.key;
-			item.icon = item.icon || item.id;
+			item.icon = FUNC.providericon(item);
 			delete item.key;
 			delete item.meta;
 		}
@@ -120,7 +120,8 @@ NEWACTION('Providers|catalog', {
 	action: function($) {
 		var items = Object.keys(F.aimodels).sort().map(function(id) {
 			var meta = MAIN.modelmeta[id] || {};
-			return { id: id, name: meta.name || id, context: meta.context || null, tools: meta.tools === undefined ? null : meta.tools, reasoning: meta.reasoning === undefined ? null : meta.reasoning, free: meta.free === undefined ? null : meta.free };
+			var provider = MAIN.modelprov[id] || {};
+			return { id: id, name: meta.name || id, provider: provider.name || '', icon: provider.icon || '', context: meta.context || null, tools: meta.tools === undefined ? null : meta.tools, reasoning: meta.reasoning === undefined ? null : meta.reasoning, free: meta.free === undefined ? null : meta.free };
 		});
 		$.callback(items);
 	}

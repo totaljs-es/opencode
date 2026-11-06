@@ -10,6 +10,7 @@ Routes use the `+API` style of the conventions (`$api` is `/api/`), each to an a
 |---|---|---|
 | `-account` | `Account\|read` | Current user and capabilities |
 | `-projects`, `+projects_open`, `-projects_remove/{id}` | `Projects\|...` | List, open a folder, forget a project |
+| `-folders` | `Folders\|list` | Folders of the computer (query `path`, default the home folder; `hidden`): `{ path, sep, home, items: [{ name }], places }` |
 | `-projects_files/{id}` | `Projects\|files` | File tree (lazy, one level per call) |
 | `-sessions`, `+sessions_create`, `-sessions_read/{id}`, `-sessions_remove/{id}` | `Sessions\|...` | Sessions of a project |
 | `-sessions_messages/{id}` | `Sessions\|messages` | Messages with parts |
@@ -25,7 +26,7 @@ Routes use the `+API` style of the conventions (`$api` is `/api/`), each to an a
 | `-providers_templates` | `Providers\|templates` | Known providers (`private/providers.json`): Ollama, llama.cpp, LM Studio, OpenRouter, OpenAI, Groq, Mistral, DeepSeek, Together |
 | `-providers_detect` | `Providers\|detect` | Local servers that answer on this computer, with their models |
 | `+providers_available` | `Providers\|available` | Every model that a provider offers (`url`, `kind`, `key`, or `id` of a saved provider) with `context`, `tools`, `reasoning`, `free` |
-| `-providers_catalog` | `Providers\|catalog` | The models that a session can use, with what each can do |
+| `-providers_catalog` | `Providers\|catalog` | The models that a session can use, with what each can do, and the name and icon of their provider |
 | `-permissions`, `-permissions_remove/{id}` | `Permissions\|...` | Permission rules of a project |
 | `+login`, `+logout` | `Account\|...` | Sign in with the access token (only when `token` is set) |
 

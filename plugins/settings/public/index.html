@@ -74,7 +74,9 @@
 				opt.element = el;
 				opt.align = 'left';
 				opt.items = templates.map(function(t) {
-					return { id: t.id, name: t.name + (t.local ? ' (@(this computer))' : ''), icon: t.local ? 'ti ti-device-desktop' : 'ti ti-cloud' };
+					// The icon of the provider when there is one (a class of public/css/default.css), a generic one otherwise
+					var icon = t.icon ? ('provi provi-' + t.icon) : (t.local ? 'ti ti-server' : 'ti ti-cloud');
+					return { id: t.id, name: t.name + (t.local ? ' (@(this computer))' : ''), icon: icon };
 				});
 				opt.items.push('-');
 				opt.items.push({ id: '', name: '@(Other, OpenAI-compatible)', icon: 'ti ti-plug' });

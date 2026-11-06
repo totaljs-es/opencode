@@ -45,7 +45,7 @@
 					{{ if m.sessions }}
 					{{ foreach s in m.sessions }}
 					<div class="exec session{{ if s.id === common.sessionid }} selected{{ fi }}" data-exec="?/session" data-id="{{ s.id }}" data-project="{{ m.id }}">
-						<i class="ti ti-message{{ if s.status === 'running' }} running{{ fi }}"></i>
+						<span class="{{ if s.status === 'running' }}running{{ fi }}">{{ s.icon | provicon(s.provider) }}</span>
 						<span class="title">{{ s.name }}</span>
 					</div>
 					{{ end }}
@@ -71,17 +71,29 @@
 		};
 
 		exports.refresh = function() {
-			exports.tapi('projects', function(projects) {
-				var pending = projects.length;
-				if (!pending) {
-					exports.set('items', projects);
-					return;
-				}
-				projects.forEach(function(project) {
-					exports.tapi(QUERIFY('sessions', { projectid: project.id }), function(sessions) {
-						project.sessions = sessions;
-						if (!--pending)
-							exports.set('items', projects);
+			exports.tapi('providers_catalog', function(catalog) {
+
+				// model -> icon and name of its provider, for the sessions
+				var providers = {};
+				catalog.forEach(m => providers[m.id] = m);
+
+				exports.tapi('projects', function(projects) {
+					var pending = projects.length;
+					if (!pending) {
+						exports.set('items', projects);
+						return;
+					}
+					projects.forEach(function(project) {
+						exports.tapi(QUERIFY('sessions', { projectid: project.id }), function(sessions) {
+							sessions.forEach(function(s) {
+								var m = providers[s.model];
+								s.icon = m ? m.icon : '';
+								s.provider = m ? m.provider : '';
+							});
+							project.sessions = sessions;
+							if (!--pending)
+								exports.set('items', projects);
+						});
 					});
 				});
 			});
@@ -95,7 +107,9 @@
 		// Click on a project creates a session in it
 		exports.project = function(el) {
 			var id = typeof(el) === 'string' ? el : ATTRD(el);
-			exports.tapi('sessions_create ERROR', { projectid: id }, function(response) {
+			// The new session starts with the model that is chosen in the chat
+			var model = (PLUGINS.chat && PLUGINS.chat.model && PLUGINS.chat.model.model) || '';
+			exports.tapi('sessions_create ERROR', { projectid: id, model: model }, function(response) {
 				exports.refresh();
 				exports.session(response.id, id);
 			});

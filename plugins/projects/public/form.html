@@ -1,13 +1,31 @@
-<ui-component name="miniform" path="common.form" config="if:~PATH~;icon:ti ti-folder-plus;autofocus:true;title:@(Open a folder);reload:?/reload;scrollbar:0;submit:?/submit;width:480" class="hidden" plugin="~PATH~">
+<style>
+	.~PATH~-picker { height: 320px; border: 1px solid var(--t-border); border-radius: var(--radius, 6px); overflow: hidden; }
+	.~PATH~-places { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+	.~PATH~-current { margin-top: 10px; font-size: 13px; display: flex; gap: 8px; align-items: baseline; }
+	.~PATH~-current code { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+</style>
+
+<ui-component name="miniform" path="common.form" config="if:~PATH~;icon:ti ti-folder-plus;title:@(Open a folder);reload:?/reload;scrollbar:0;submit:?/submit;width:560" class="hidden" plugin="~PATH~">
 	<div class="padding">
-		<ui-component name="input" path="?.path" config="required:1;placeholder:@(Absolute path of the project folder)">@(Folder)</ui-component>
-		<div class="help mt5">@(Totem works only inside this folder.)</div>
+		<div class="help mb10">@(Choose the folder of the project. Totem works only inside it.)</div>
+		<ui-bind path="?.places" config="template" class="block">
+			<script type="text/html">
+				<div class="~PATH~-places">
+					{{ foreach m in value }}<button class="tbtn tbtn-small exec" data-exec="?/goto" data-path="{{ m.path }}"><i class="ti ti-{{ if m.name === 'Home' }}home{{ else }}folder{{ fi }}"></i>{{ m.name }}</button>{{ end }}
+				</div>
+			</script>
+		</ui-bind>
+		<div class="~PATH~-picker">
+			<ui-component name="folder" path="?.path" config="browse:?/browse;root:/;up:.." style="height:318px"></ui-component>
+		</div>
+		<div class="~PATH~-current">
+			<span class="gray">@(Folder:)</span>
+			<ui-bind path="?.path" config="template" class="block" style="flex:1;min-width:0"><script type="text/html"><code>{{ value | absolute }}</code></script></ui-bind>
+		</div>
 	</div>
 	<nav>
-		<ui-component name="validate" path="?">
-			<button name="submit" disabled><i class="ti ti-check-circle"></i>@(Open)</button>
-			<button name="cancel">@(Cancel)</button>
-		</ui-component>
+		<button name="submit"><i class="ti ti-check-circle"></i>@(Open this folder)</button>
+		<button name="cancel">@(Cancel)</button>
 	</nav>
 </ui-component>
 
@@ -15,8 +33,56 @@
 
 	PLUGIN(function(exports) {
 
+		var sep = '/';
+
+		// The component keeps the path as "Users/name/folder"; the computer has "/Users/name/folder" (or "C:\Users\name")
+		function absolute(relative) {
+			var parts = (relative || '').split('/').filter(Boolean);
+			if (sep === '/')
+				return '/' + parts.join('/');
+			return parts.length ? (parts[0] + '\\' + parts.slice(1).join('\\')) : '';
+		}
+
+		function relative(path) {
+			return path.split(sep).filter(Boolean).join('/');
+		}
+
+		Thelpers.absolute = function(value) {
+			return Thelpers.encode(absolute(value));
+		};
+
+		exports.reload = function() {
+			exports.set('places', []);
+			exports.tapi('folders ERROR', function(response) {
+				sep = response.sep;
+				exports.set('places', response.places);
+				exports.set('path', relative(response.home));
+			});
+		};
+
+		// Called by the folder component with the path to show; next() receives the folders of that path
+		exports.browse = function(path, next) {
+			exports.tapi(QUERIFY('folders', { path: absolute(path) }) + ' ERROR', function(response) {
+				sep = response.sep;
+				exports.set('places', response.places);
+				next(response.items.map(m => ({ name: m.name, type: 1, icon: 'folder' })));
+			});
+		};
+
+		exports.goto = function(el) {
+			exports.set('path', relative(el.attrd('path')));
+		};
+
 		exports.submit = function(hide) {
-			exports.tapi('projects_open ERROR', exports.form, function(response) {
+
+			var path = absolute(exports.model.path);
+
+			if (!exports.model.path) {
+				SETTER('notify/warning', '@(Choose a folder first.)');
+				return;
+			}
+
+			exports.tapi('projects_open ERROR', { path: path }, function(response) {
 				hide();
 				PLUGINS.projects.refresh();
 				PLUGINS.projects.project(response.id);

@@ -53,3 +53,14 @@ html, body { height: 100%; margin: 0; }
 .prov.mono { -webkit-mask: none; mask: none; background: var(--t-soft2); border-radius: 5px; text-align: center; font-size: 12px; font-weight: bold; line-height: 20px; }
 .prov-large { width: 28px; height: 28px; flex-basis: 28px; }
 .prov-large.mono { line-height: 28px; font-size: 14px; }
+
+/* The same icons as classes, for components that take a class for an icon (the menu): icon: 'provi provi-openai' */
+.provi { display: inline-block; width: 16px; height: 16px; margin-right: 8px; vertical-align: middle; background-color: currentColor; -webkit-mask: var(--i) center / contain no-repeat; mask: var(--i) center / contain no-repeat; }
+.provi-anthropic { --i: url(/img/providers/anthropic.svg); }
+.provi-deepseek { --i: url(/img/providers/deepseek.svg); }
+.provi-gemini { --i: url(/img/providers/gemini.svg); }
+.provi-lmstudio { --i: url(/img/providers/lmstudio.svg); }
+.provi-mistral { --i: url(/img/providers/mistral.svg); }
+.provi-ollama { --i: url(/img/providers/ollama.svg); }
+.provi-openai { --i: url(/img/providers/openai.svg); }
+.provi-openrouter { --i: url(/img/providers/openrouter.svg); }

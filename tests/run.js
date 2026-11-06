@@ -873,6 +873,50 @@ Test.push('Total.js knowledge: conventions and Forge', async function(next) {
 	next();
 });
 
+Test.push('folders and provider icons', async function(next) {
+
+	var r = await api('folders');
+	check('the folders start at the home folder, with places', r.response.path === Total.Os.homedir() && r.response.sep === Total.Path.sep && r.response.places[0].name === 'Home' && r.response.places[0].path === Total.Os.homedir() && Array.isArray(r.response.items));
+
+	Total.Fs.mkdirSync(Total.Path.join(PROJECT, 'inner/deeper'), { recursive: true });
+	r = await api('folders?path=' + encodeURIComponent(PROJECT));
+	var names = r.response.items.map(i => i.name);
+	check('only folders are listed, not files or hidden folders', names.indexOf('inner') !== -1 && names.indexOf('src') !== -1 && names.indexOf('a.txt') === -1 && names.indexOf('.totem') === -1);
+	check('a link to a folder counts as a folder', names.indexOf('link') !== -1);
+	check('the folders are sorted', JSON.stringify(names) === JSON.stringify(names.slice().sort((a, b) => a.localeCompare(b))));
+
+	r = await api('folders?hidden=1&path=' + encodeURIComponent(PROJECT));
+	check('hidden folders can be asked for', r.response.items.some(i => i.name === '.totem'));
+
+	r = await api('folders?path=' + encodeURIComponent(Total.Path.join(PROJECT, 'inner')));
+	check('a folder inside is listed', r.response.path === Total.Path.join(PROJECT, 'inner') && r.response.items.length === 1 && r.response.items[0].name === 'deeper');
+
+	r = await api('folders?path=' + encodeURIComponent(Total.Path.join(PROJECT, 'does-not-exist')));
+	check('a missing folder is an error', !!(r.err && r.err.items && r.err.items[0].error));
+
+	// The icon of a provider, in the list and in the catalogue of models
+	var base = 'http://127.0.0.1:8111/v1';
+	await api('providers_save', { name: 'OpenAI', url: base, kind: 'openai', icon: 'openai', models: ['gpt-x'] });
+	await api('providers_save', { name: 'Google Gemini', url: base, kind: 'openai', icon: 'gemini', models: ['gem-x'] });
+	await api('providers_save', { name: 'No icon', url: base, kind: 'openai', models: ['plain-x'] });
+	await new Promise(resolve => setTimeout(resolve, 300));
+
+	r = await api('providers');
+	var by = {};
+	r.response.forEach(p => by[p.id] = p);
+	check('a provider keeps the icon it was saved with', by['google-gemini'].icon === 'gemini');
+	check('a provider whose id is an icon gets it', by['openai'].icon === 'openai');
+	check('a provider without an icon has none', by['no-icon'].icon === '' && by['mock'].icon === '');
+
+	r = await api('providers_catalog');
+	var gpt = r.response.find(m => m.id === 'openai:gpt-x');
+	var gem = r.response.find(m => m.id === 'google-gemini:gem-x');
+	var plain = r.response.find(m => m.id === 'no-icon:plain-x');
+	check('the catalogue names the provider and its icon for every model', gpt.provider === 'OpenAI' && gpt.icon === 'openai' && gem.provider === 'Google Gemini' && gem.icon === 'gemini' && plain.provider === 'No icon' && plain.icon === '');
+	check('every icon of the templates exists as a file', JSON.parse(Total.Fs.readFileSync(Total.Path.join(ROOT, 'private/providers.json'), 'utf8')).filter(t => t.icon).every(t => Total.Fs.existsSync(Total.Path.join(ROOT, 'public/img/providers', t.icon + '.svg'))));
+	next();
+});
+
 Test.push('command line', async function(next) {
 
 	function cli(args) {
