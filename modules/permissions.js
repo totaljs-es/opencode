@@ -21,7 +21,7 @@ exports.check = function(run, tool, input, callback) {
 
 	// A path outside the project is refused before any rule
 	if (tool !== 'bash' && input.path && !FUNC.resolve(run.root, input.path)) {
-		callback('deny', '@(The path is outside the project)');
+		callback('deny', 'The path is outside the project. Use a path inside it.');
 		return;
 	}
 
@@ -52,7 +52,7 @@ exports.check = function(run, tool, input, callback) {
 		}
 
 		if (found !== 'ask') {
-			callback(found, found === 'deny' ? '@(Denied by a permission rule)' : null);
+			callback(found, found === 'deny' ? 'Denied by a permission rule. Do not try again; tell the user what you wanted to do.' : null);
 			return;
 		}
 
@@ -76,7 +76,7 @@ exports.reply = function(id, reply) {
 		NOSQL('permissions').insert({ id: UID(), projectid: ask.projectid, tool: ask.tool, pattern: ask.text, action: 'allow', dtcreated: NOW });
 
 	FUNC.emit(ask.sessionid, 'permission.replied', { id: id, reply: reply });
-	ask.callback(reply === 'reject' ? 'deny' : 'allow', reply === 'reject' ? '@(Rejected by the user)' : null);
+	ask.callback(reply === 'reject' ? 'deny' : 'allow', reply === 'reject' ? 'The user rejected this action. Do not try it again; explain what you wanted to change and ask how to proceed.' : null);
 	return true;
 };
 

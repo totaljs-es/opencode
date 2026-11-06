@@ -90,7 +90,7 @@ NEWACTION('Sessions|prompt', {
 
 		await NOSQL('sessions').modify({ model: session.model, autoaccept: session.autoaccept }).where('id', session.id).promise($);
 
-		var message = { id: UID(), sessionid: session.id, role: 'user', dtcreated: new Date() };
+		var message = { id: UID(), sessionid: session.id, role: 'user', dtcreated: FUNC.stamp() };
 		var part = { id: UID(), messageid: message.id, sessionid: session.id, type: 'text', data: { text: model.text }, dtcreated: NOW, seq: 0 };
 
 		await NOSQL('messages').insert(message).promise($);

@@ -174,6 +174,7 @@ Test.push('agent run: read, write, answer', async function(next) {
 	var assistant = r.response.find(m => m.role === 'assistant');
 	var tools = assistant.parts.filter(p => p.type === 'tool');
 	check('messages are stored with ordered parts', r.response.length === 2 && assistant.parts[0].type === 'text');
+	check('the user message comes before the answer', r.response[0].role === 'user' && r.response[1].role === 'assistant');
 	check('tool parts keep input and output', tools.length === 2 && tools[0].data.output.indexOf('1\tone') !== -1 && tools[1].data.status === 'done');
 	check('the second request carried the tool result', requests[1].messages.some(m => m.role === 'tool' && m.content.indexOf('one') !== -1));
 	check('the deltas were streamed', events.some(e => e.type === 'part.delta'));
@@ -189,6 +190,7 @@ Test.push('permissions', async function(next) {
 	await api('permissions_reply/' + ask.data.id, { reply: 'reject' });
 	await until(() => events.filter(e => e.type === 'session.status' && e.data.status === 'idle').length > 0);
 	check('a rejected write does not happen', !Total.Fs.existsSync(Total.Path.join(PROJECT, 'c.txt')));
+	check('the model is told not to retry a rejection', requests[requests.length - 1].messages.some(m => m.role === 'tool' && /do not try it again/i.test(m.content) && m.content.indexOf('@(') === -1));
 	var r = await api('sessions_messages/' + sessionid);
 	var denied = r.response[r.response.length - 1].parts.find(p => p.type === 'tool');
 	check('the rejection is stored as denied', denied && denied.data.status === 'denied');
@@ -200,6 +202,29 @@ Test.push('permissions', async function(next) {
 	r = await api('sessions_messages/' + sessionid);
 	denied = r.response[r.response.length - 1].parts.find(p => p.type === 'tool');
 	check('a path outside the project is denied without asking', denied.data.status === 'denied' && !events.some(e => e.type === 'permission.ask'));
+	next();
+});
+
+Test.push('repeated rejections', async function(next) {
+
+	var id = await session();
+	events.length = 0;
+	script = [];
+	for (var i = 0; i < 5; i++)
+		script.push({ tools: [{ id: 'w' + i, name: 'write', arguments: { path: 'never' + i + '.txt', content: 'x' } }] });
+
+	await api('sessions_prompt/' + id, { text: 'keep trying' });
+
+	for (var n = 0; n < 3; n++) {
+		var ask = await until(() => events.filter(e => e.type === 'permission.ask')[n]);
+		await api('permissions_reply/' + ask.data.id, { reply: 'reject' });
+	}
+
+	await idle(id);
+	check('the run stops after three rejected actions', script.length === 2 && !events.some(e => e.type === 'permission.ask' && events.filter(x => x.type === 'permission.ask').length > 3));
+	var r = await api('sessions_messages/' + id);
+	var parts = r.response.find(m => m.role === 'assistant').parts;
+	check('the stop is explained in the conversation', parts[parts.length - 1].type === 'text' && /Stopped/.test(parts[parts.length - 1].data.text));
 	next();
 });
 
@@ -270,6 +295,19 @@ Test.push('snapshots: diff and undo', async function(next) {
 	check('undo restores the files', Total.Fs.readFileSync(Total.Path.join(PROJECT, 'a.txt'), 'utf8') === 'one\ntwo\nthree\n' && !Total.Fs.existsSync(Total.Path.join(PROJECT, 'n.txt')));
 	r = await api('sessions_diff/' + id);
 	check('the diff is empty after undo', r.response.length === 0);
+	next();
+});
+
+Test.push('tool errors', async function(next) {
+	var id = await session({ autoaccept: true });
+	events.length = 0;
+	script = [{ tools: [{ id: 'e1', name: 'read', arguments: {} }, { id: 'e2', name: 'read', arguments: { path: 'missing.txt' } }] }, { content: 'ok' }];
+	await api('sessions_prompt/' + id, { text: 'bad calls' });
+	await idle(id);
+	var r = await api('sessions_messages/' + id);
+	var tools = r.response.find(m => m.role === 'assistant').parts.filter(p => p.type === 'tool');
+	check('a call with a missing argument names the argument', /path/.test(tools[0].data.error) && tools[0].data.status === 'error');
+	check('an error has no translation markers', tools[1].data.error === 'File not found');
 	next();
 });
 

@@ -25,6 +25,15 @@ Design points:
 - **Retries.** A failed provider call retries with backoff for transient errors (network, 429, 5xx) and stops on authentication or invalid request errors.
 - **Context size.** Before each call the loop estimates tokens. Over the model limit it compacts: old tool results are replaced by a one-line summary, then old turns by a model-written summary. The stored history is never rewritten; compaction produces a derived message list.
 
+- **Rejections end a run.** After three rejected or denied actions in a row the run stops with a note in the conversation, so a model that keeps trying the same edit cannot loop until the step limit.
+
+## Tried with real models (Ollama, 2026-11-06)
+
+| Model | Result |
+|---|---|
+| `qwen3:4b` | Calls `read` and `edit` through the OpenAI-compatible endpoint, streams reasoning (stored as a collapsed `reasoning` part) and answers correctly. Slow on CPU (about 30 s for a read and an answer). After a rejected edit it tried again, which led to the rule above |
+| `qwen2.5:1.5b` | Did not call the tool and invented the content of the file. Too small to use tools reliably; the model catalogue (phase 3) should mark which models support tools |
+
 ## The prompt
 
 Built in this order; each part is a file or a function, never a hidden string:

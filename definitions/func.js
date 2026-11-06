@@ -37,6 +37,22 @@ FUNC.emit = function(sessionid, type, data) {
 		FUNC.onevent(sessionid, type, data);
 };
 
+// Strictly increasing timestamps: two messages of the same millisecond keep their order
+var laststamp = 0;
+
+FUNC.stamp = function() {
+	var time = Date.now();
+	if (time <= laststamp)
+		time = laststamp + 1;
+	laststamp = time;
+	return new Date(time);
+};
+
+// Text for the model or the log: the translation markers @(Text) are removed
+FUNC.plain = function(text) {
+	return typeof(text) === 'string' ? text.replace(/@\(([^)]*)\)/g, '$1') : text;
+};
+
 // Shortens a text to the maximum output of a tool and says so
 FUNC.truncate = function(text, max) {
 	max = max || CONF.maxoutput;

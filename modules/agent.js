@@ -205,6 +205,7 @@ exports.run = function(session, project, message, callback) {
 		parts: {},
 		seq: 0,
 		attempts: 0,
+		denials: 0,
 		open: {},
 		messages: [],
 		ai: null
@@ -233,7 +234,7 @@ exports.run = function(session, project, message, callback) {
 	NOSQL('sessions').modify({ status: 'running', dtupdated: NOW }).where('id', session.id).callback(NOOP);
 
 	// The assistant message of this run
-	var assistant = { id: UID(), sessionid: session.id, role: 'assistant', model: session.model, dtcreated: new Date() };
+	var assistant = { id: UID(), sessionid: session.id, role: 'assistant', model: session.model, dtcreated: FUNC.stamp() };
 	run.message = assistant;
 	NOSQL('messages').insert(assistant).callback(NOOP);
 	FUNC.emit(session.id, 'message.created', { message: assistant });
@@ -261,6 +262,14 @@ function step(run, finish, fail) {
 	if (run.steps >= run.max) {
 		closeparts(run);
 		finish('error', '@(Step limit reached)');
+		return;
+	}
+
+	// A model that keeps trying what the user rejected is stopped: the user decides how to continue
+	if (run.denials >= 3) {
+		closeparts(run);
+		addpart(run, 'text', { text: 'Stopped: the last 3 actions were rejected. Tell me how you want to continue.' }, true);
+		finish('idle');
 		return;
 	}
 
@@ -391,6 +400,13 @@ function toolstart(run, tool) {
 	run.parts[tool.id] = part;
 }
 
+// The message of an action error, with the field when the input is invalid
+function failure(err) {
+	if (err && err.items && err.items.length)
+		return err.items.map(item => (item.error && item.error !== '@') ? item.error : ('invalid or missing ' + (item.name || 'input'))).join('; ');
+	return (err && err.message) || String(err);
+}
+
 function runtools(run, tools, callback) {
 
 	tools.wait(function(tool, next) {
@@ -411,7 +427,8 @@ function runtools(run, tools, callback) {
 
 		function result(status, output, error) {
 			output = FUNC.scrub(output);
-			error = FUNC.scrub(error);
+			error = FUNC.plain(FUNC.scrub(error));
+			run.denials = status === 'denied' ? run.denials + 1 : 0;
 			part.data.status = status;
 			part.data.output = output || '';
 			part.data.error = error || '';
@@ -431,7 +448,7 @@ function runtools(run, tools, callback) {
 		MODS.permissions.check(run, tool.name, part.data.input, function(reply, reason) {
 
 			if (reply !== 'allow') {
-				result('denied', '', reason || '@(Denied)');
+				result('denied', '', reason || 'Denied. Do not try again.');
 				return;
 			}
 
@@ -444,7 +461,7 @@ function runtools(run, tools, callback) {
 				if (run.aborted)
 					next();
 				else if (err)
-					result('error', '', (err.items && err.items[0] && err.items[0].error) || err.toString());
+					result('error', '', failure(err));
 				else
 					result('done', typeof(response) === 'string' ? response : JSON.stringify(response));
 			});
