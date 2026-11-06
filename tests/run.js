@@ -1713,6 +1713,19 @@ Test.push('instruction files and rules of an agent', async function(next) {
 	next();
 });
 
+Test.push('sidebar: names and sessions', async function(next) {
+
+	// A name that is not a text (the event of a click) is ignored
+	var r = await api('sessions_create', { projectid: projectid, model: 'fake', name: { type: 'click' } });
+	check('a name that is an object does not name the session', r.response && r.response.name === 'New session');
+	var broken = await session({ name: 'x' });
+	await NOSQL('sessions').modify({ name: '[object Object]', named: true }).where('id', broken).promise();
+	var list = await api('sessions?projectid=' + projectid);
+	var healed = list.response.find(x => x.id === broken);
+	check('a name written by the old bug is healed when the sessions are listed', !!healed && healed.name === 'New session' && healed.named === false);
+	next();
+});
+
 Test.push('cleanup', async function(next) {
 	var r = await api('projects_remove/' + projectid);
 	check('removing a project removes its sessions', r.response.success === true);

@@ -106,3 +106,7 @@ After an undo the bar shows Redo, which puts the changes back (the snapshots and
 - An agent file (`.totem/agents/name.md`) can have `allow:` and `deny:` lines with tool names. `deny` always wins and is checked after the project boundary and Plan mode; `allow` only removes the question for that tool (never for a chained command). The tools of a sub-agent are still the list in `tools:`.
 - The prompts of the MCP servers that the user allowed to start are offered to the model as one tool, `mcp_prompt`, which lists them (`server:prompt`) and returns their text. Starting the server is what asks; reading a prompt does not.
 - When the tab is in the background, the browser shows a notice when Totem finishes, stops with an error or asks for permission. The browser asks to allow notices the first time a prompt is sent; nothing is sent to any server.
+
+## Sidebar
+
+A click on a folder opens its latest session (a folder without sessions gets one); the `+` of the row starts a new one. The dots of every row are always visible, and a right click opens the same menu: rename, fork and delete a session, remove a folder from the list (the files are never touched). A double click on a session renames it. A name that is not a text is ignored, and sessions that an old bug named "[object Object]" are renamed after their first prompt when the list is read.

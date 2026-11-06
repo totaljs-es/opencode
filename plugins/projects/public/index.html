@@ -7,13 +7,14 @@
 	.CLASS .project:hover { background: var(--t-soft); }
 	.CLASS .project .name { font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	.CLASS .project .path { font-size: 11px; color: var(--t-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-	.CLASS .project .more { opacity: 0; color: var(--t-muted); }
+	.CLASS .project .more { opacity: 0.55; color: var(--t-muted); padding: 2px 5px; border-radius: 4px; }
+	.CLASS .project .more:hover, .CLASS .session .more:hover { opacity: 1; background: var(--t-soft2); }
 	.CLASS .project:hover .more { opacity: 1; }
 	.CLASS .session { margin: 1px 8px 1px 28px; padding: 5px 10px; border-radius: var(--radius, 6px); cursor: pointer; display: flex; gap: 8px; align-items: center; font-size: 13px; }
 	.CLASS .session:hover { background: var(--t-soft); }
 	.CLASS .session.selected { background: var(--t-soft2); font-weight: bold; }
 	.CLASS .session .running { color: #E67E22; }
-	.CLASS .session .more { opacity: 0; color: var(--t-muted); padding: 0 4px; }
+	.CLASS .session .more { opacity: 0.45; color: var(--t-muted); padding: 2px 5px; border-radius: 4px; }
 	.CLASS .session:hover .more { opacity: 1; }
 	.CLASS .session span.title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	.CLASS .foot { padding: 10px 14px; border-top: 1px solid var(--t-border); display: flex; gap: 8px; }
@@ -42,7 +43,8 @@
 							<div class="name">{{ m.name }}</div>
 							<div class="path">{{ m.path | shortpath }}</div>
 						</div>
-						<span class="exec more" data-exec="?/menu" data-prevent="true" title="@(Options)"><i class="ti ti-dots"></i></span>
+						<span class="exec more" data-exec="?/newsession" data-prevent="true" title="@(New session)" aria-label="@(New session)"><i class="ti ti-plus"></i></span>
+						<span class="exec more" data-exec="?/menu" data-prevent="true" title="@(Options)" aria-label="@(Options)"><i class="ti ti-dots"></i></span>
 					</div>
 					{{ if m.sessions }}
 					{{ foreach s in m.sessions }}
@@ -69,8 +71,38 @@
 
 	PLUGIN(function(exports) {
 
+		var wired = false;
+
 		exports.reload = function() {
+
+			// Right click opens the same menu as the dots; a double click on a session renames it
+			if (!wired) {
+				wired = true;
+				var list = document.querySelector('.CLASS .list') || document.querySelector('.list');
+				list && list.addEventListener('contextmenu', function(e) {
+					var row = e.target.closest('.session, .project');
+					var dots = row && row.querySelector('[data-exec$="/sessionmenu"], [data-exec$="/menu"]');
+					if (dots) {
+						e.preventDefault();
+						dots.click();
+					}
+				});
+				list && list.addEventListener('dblclick', function(e) {
+					var row = e.target.closest('.session');
+					row && exports.rename(row.getAttribute('data-id'));
+				});
+			}
+
 			exports.refresh();
+		};
+
+		exports.rename = function(id) {
+			var current = '';
+			(exports.model.items || []).forEach(p => (p.sessions || []).forEach(s => s.id === id && (current = s.name)));
+			exports.askname('@(Rename session)', current, function(name) {
+				if (name && name.trim())
+					exports.tapi('sessions_update/' + id + ' ERROR', { name: name.trim() }, () => exports.refresh());
+			}, '@(Type the new name.)');
 		};
 
 		exports.refresh = function() {
@@ -107,9 +139,24 @@
 			SET('common.form', 'formproject');
 		};
 
-		// Click on a project creates a session in it; the name is optional, without one the first prompt names it
-		exports.project = function(el, name) {
+		// A click on a project opens its latest session; a project without sessions gets one
+		exports.project = function(el) {
+
 			var id = typeof(el) === 'string' ? el : ATTRD(el);
+			var project = (exports.model.items || []).findItem('id', id);
+
+			if (project && project.sessions && project.sessions.length)
+				exports.session(project.sessions[0].id, id);
+			else
+				exports.create(id);
+		};
+
+		exports.newsession = function(el) {
+			exports.create(el.closest('.project').attrd('id'));
+		};
+
+		// Creates a session in a project; the name is optional, without one the first prompt names it
+		exports.create = function(id, name) {
 			// The new session starts with the model that is chosen in the chat
 			var model = (PLUGINS.chat && PLUGINS.chat.model && PLUGINS.chat.model.model) || '';
 			exports.tapi('sessions_create ERROR', { projectid: id, model: model, name: typeof(name) === 'string' ? name : '' }, function(response) {
@@ -136,12 +183,12 @@
 			opt.items.push({ id: 'session', name: '@(New session)', icon: 'ti ti-plus' });
 			opt.items.push({ id: 'named', name: '@(New session with a name)', icon: 'ti ti-pencil-plus' });
 			opt.items.push('-');
-			opt.items.push({ id: 'remove', name: '@(Forget project)', icon: 'ti ti-trash red' });
+			opt.items.push({ id: 'remove', name: '@(Remove folder from the list)', icon: 'ti ti-trash red' });
 			opt.callback = function(item) {
 				if (item.id === 'session')
-					exports.project(id);
+					exports.create(id);
 				else if (item.id === 'named')
-					exports.askname('@(New session)', '', name => exports.project(id, name));
+					exports.askname('@(New session)', '', name => exports.create(id, name));
 				else if (item.id === 'remove') {
 					SETTER('approve/show', '@(Forget this project and its sessions? The files are not touched.)', ':ti ti-trash: @(Forget)', function() {
 						exports.tapi('projects_remove/' + id + ' ERROR', function() {
@@ -185,13 +232,7 @@
 
 				if (item.id === 'rename') {
 
-					var current = '';
-					(exports.model.items || []).forEach(p => (p.sessions || []).forEach(s => s.id === id && (current = s.name)));
-
-					exports.askname('@(Rename session)', current, function(name) {
-						if (name && name.trim())
-							exports.tapi('sessions_update/' + id + ' ERROR', { name: name.trim() }, () => exports.refresh());
-					}, '@(Type the new name.)');
+					exports.rename(id);
 
 				} else if (item.id === 'fork') {
 

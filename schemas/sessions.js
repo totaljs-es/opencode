@@ -3,6 +3,22 @@ NEWACTION('Sessions|list', {
 	query: '*projectid',
 	action: async function($) {
 		var items = await NOSQL('sessions').find().where('projectid', $.query.projectid).sort('dtupdated_desc').promise($);
+
+		// Names that an old bug wrote ("[object Object]") become the title of the first prompt, or the default name
+		for (var item of items) {
+			if (!/^\[object Object\]/.test(item.name || ''))
+				continue;
+			var title = '';
+			var first = await NOSQL('messages').find().where('sessionid', item.id).where('role', 'user').sort('dtcreated').take(1).promise($);
+			if (first.length) {
+				var part = await NOSQL('parts').find().where('messageid', first[0].id).where('type', 'text').take(1).promise($);
+				title = part.length ? FUNC.title(part[0].data.text || '') : '';
+			}
+			item.name = (title || 'New session') + (/\(fork\)$/.test(item.name) ? ' (fork)' : '');
+			item.named = false;
+			await NOSQL('sessions').modify({ name: item.name, named: false }).where('id', item.id).promise($);
+		}
+
 		$.callback(items);
 	}
 });
@@ -13,7 +29,7 @@ NEWACTION('Sessions|create', {
 	action: async function($, model) {
 		await NOSQL('projects').read().where('id', model.projectid).error(404).promise($);
 		// A name given by the user stays; without one the session is named after its first prompt
-		var name = (model.name || '').trim().substring(0, 80);
+		var name = (typeof($.body && $.body.name) === 'string' ? model.name : '').trim().substring(0, 80);
 		var item = { id: UID(), projectid: model.projectid, name: name || 'New session', named: !!name, model: model.model || '', status: 'idle', autoaccept: !!model.autoaccept, reasoning: model.reasoning || '', maxsteps: CONF.maxsteps, dtcreated: NOW, dtupdated: NOW };
 		await NOSQL('sessions').insert(item).promise($);
 		$.callback(item);
