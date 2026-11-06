@@ -121,6 +121,10 @@ exports.openai = function(ai, callback) {
 	if (ai.payload.tools && ai.payload.tools.length)
 		body.tools = ai.payload.tools;
 
+	// How much the model thinks: none, low, medium or high. Empty leaves the default of the model.
+	if (['none', 'low', 'medium', 'high'].indexOf(ai.payload.reasoning) !== -1)
+		body.reasoning_effort = ai.payload.reasoning;
+
 	stream(ai, callback, {
 		url: base(config) + '/chat/completions',
 		headers: config.key ? { authorization: 'Bearer ' + config.key } : {},

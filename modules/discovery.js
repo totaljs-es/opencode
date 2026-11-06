@@ -92,7 +92,7 @@ function ollama(provider, callback) {
 							context = info.model_info[key];
 					}
 				}
-				item.meta = { id: item.name, name: item.name, context: context, tools: caps ? caps.indexOf('tools') !== -1 : null, reasoning: caps ? caps.indexOf('thinking') !== -1 : null, free: true, size: item.size || null };
+				item.meta = { id: item.name, name: item.name, context: context, tools: caps ? caps.indexOf('tools') !== -1 : null, reasoning: caps ? caps.indexOf('thinking') !== -1 : null, free: true, price: { input: 0, output: 0 }, size: item.size || null };
 				next();
 			});
 		}, function() {
@@ -117,6 +117,7 @@ function openai(provider, callback) {
 
 			var params = m.supported_parameters;
 			var price = m.pricing ? number(m.pricing.prompt) : null;
+			var output = m.pricing ? number(m.pricing.completion) : null;
 			var context = m.context_length || m.max_model_len || (m.meta && m.meta.n_ctx_train) || (m.top_provider && m.top_provider.context_length) || null;
 
 			return {
@@ -126,6 +127,7 @@ function openai(provider, callback) {
 				tools: params ? params.indexOf('tools') !== -1 : null,
 				reasoning: params ? (params.indexOf('reasoning') !== -1 || params.indexOf('include_reasoning') !== -1) : null,
 				free: price === null ? null : price === 0,
+				price: price === null ? null : { input: price, output: output || 0 },
 				size: null
 			};
 		}));

@@ -41,6 +41,9 @@
 	.CLASS .minus { color: #C0392B; }
 	.CLASS .undo { font-size: 12px; margin-top: 4px; }
 	.CLASS .note { text-align: center; font-size: 12px; color: #888; margin: 10px 0; }
+	.CLASS .chips { max-width: 860px; margin: 0 auto 6px; padding: 0 16px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+	.CLASS .chip { cursor: pointer; border: 1px solid var(--border, #D0D0D0); border-radius: 12px; padding: 1px 10px; font-size: 12px; }
+	.CLASS .chip:hover { background: rgba(0,0,0,0.06); }
 	.CLASS .todos { max-width: 860px; margin: 0 auto 8px; font-size: 13px; }
 	.CLASS .todos div { padding: 1px 0; }
 	.CLASS .todos .completed { color: #888; text-decoration: line-through; }
@@ -150,11 +153,22 @@
 		</script>
 	</ui-bind>
 
+	<ui-bind path="?.commands" config="template" class="block">
+		<script type="text/html">
+			{{ if value && value.length }}
+			<div class="chips"><span class="gray fs12">@(Commands:)</span>
+				{{ foreach c in value }}<span class="exec chip" data-exec="?/usecommand" data-name="{{ c.name }}" title="{{ c.description }}">/{{ c.name }}</span>{{ end }}
+			</div>
+			{{ fi }}
+		</script>
+	</ui-bind>
+
 	<div class="compose">
 		<ui-component name="enter" config="exec:?/send;validate:false;trigger:button[name=send]">
 			<div class="row">
 				<div class="grow"><ui-component name="input" path="?.text" config="placeholder:@(Ask Totem...);autofocus:true"></ui-component></div>
 				<div class="model"><ui-component name="input" path="?.model" config="placeholder:@(Model);dirsource:?.models;dirempty:@(Add a provider in Settings)"></ui-component></div>
+				<ui-bind path="?.thinks" config="show:value" class="hidden"><ui-component name="input" path="?.reasoning" config="placeholder:@(Reasoning);dirsource:?.efforts"></ui-component></ui-bind>
 				<ui-component name="input" path="?.autoaccept" config="type:checkbox">@(Auto-accept edits)</ui-component>
 				<button name="send" class="exec" data-exec="?/send"><i class="ti ti-send"></i>@(Send)</button>
 			</div>
@@ -199,8 +213,11 @@
 			exports.set('files', []);
 			exports.models();
 
+			exports.set('efforts', [{ id: '', name: '@(Default)' }, { id: 'none', name: '@(Off)' }, { id: 'low', name: '@(Low)' }, { id: 'medium', name: '@(Medium)' }, { id: 'high', name: '@(High)' }]);
+
 			if (!registered) {
 				registered = true;
+				exports.watch('model', exports.watchmodel);
 				SETTER(true, 'shortcuts/register', 'esc', function() {
 					if (exports.model.status === 'running')
 						exports.abort();
@@ -227,6 +244,12 @@
 			}, 300);
 		}
 
+		// The reasoning control only makes sense for a model that thinks
+		exports.watchmodel = function() {
+			var m = catalog[exports.model.model];
+			exports.set('thinks', !!(m && m.reasoning));
+		};
+
 		exports.models = function() {
 			exports.tapi('providers_catalog', function(response) {
 				catalog = {};
@@ -243,6 +266,7 @@
 				}));
 				if (!exports.model.model && response.length)
 					exports.set('model', response[0].id);
+				exports.watchmodel();
 			});
 		};
 
@@ -255,6 +279,7 @@
 			exports.set('questions', []);
 			exports.set('todos', []);
 			exports.set('files', []);
+			exports.set('commands', []);
 			exports.set('status', 'idle');
 			exports.set('session', null);
 
@@ -268,6 +293,11 @@
 				if (session.model)
 					exports.set('model', session.model);
 				exports.set('autoaccept', !!session.autoaccept);
+
+				// Commands of the project: /name inserts the command in the prompt box
+				exports.tapi('projects_commands/' + session.projectid, function(response) {
+					exports.set('commands', response.commands);
+				});
 			});
 
 			exports.tapi('sessions_todos/' + id, function(todos) {
@@ -414,11 +444,15 @@
 
 			var text = model.text;
 			exports.set('text', '');
-			exports.tapi('sessions_prompt/' + sessionid + ' ERROR', { text: text, model: model.model, autoaccept: !!model.autoaccept }, NOOP);
+			exports.tapi('sessions_prompt/' + sessionid + ' ERROR', { text: text, model: model.model, autoaccept: !!model.autoaccept, reasoning: model.reasoning || '' }, NOOP);
 		};
 
 		exports.abort = function() {
 			sessionid && exports.tapi('sessions_abort/' + sessionid, NOOP);
+		};
+
+		exports.usecommand = function(el) {
+			exports.set('text', '/' + el.attrd('name') + ' ');
 		};
 
 		exports.changes = function() {

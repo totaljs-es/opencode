@@ -9,10 +9,10 @@ NEWACTION('Sessions|list', {
 
 NEWACTION('Sessions|create', {
 	name: 'Create a session',
-	input: '*projectid:String, name:String, model:String, autoaccept:Boolean',
+	input: '*projectid:String, name:String, model:String, autoaccept:Boolean, reasoning:String',
 	action: async function($, model) {
 		await NOSQL('projects').read().where('id', model.projectid).error(404).promise($);
-		var item = { id: UID(), projectid: model.projectid, name: model.name || 'New session', model: model.model || '', status: 'idle', autoaccept: !!model.autoaccept, maxsteps: CONF.maxsteps, dtcreated: NOW, dtupdated: NOW };
+		var item = { id: UID(), projectid: model.projectid, name: model.name || 'New session', model: model.model || '', status: 'idle', autoaccept: !!model.autoaccept, reasoning: model.reasoning || '', maxsteps: CONF.maxsteps, dtcreated: NOW, dtupdated: NOW };
 		await NOSQL('sessions').insert(item).promise($);
 		$.callback(item);
 	}
@@ -64,7 +64,7 @@ NEWACTION('Sessions|messages', {
 NEWACTION('Sessions|prompt', {
 	name: 'Send a prompt to the agent',
 	params: '*id',
-	input: '*text:String, model:String, autoaccept:Boolean',
+	input: '*text:String, model:String, autoaccept:Boolean, reasoning:String',
 	action: async function($, model) {
 
 		var session = await NOSQL('sessions').read().where('id', $.params.id).error(404).promise($);
@@ -83,15 +83,23 @@ NEWACTION('Sessions|prompt', {
 		if ($.body && $.body.autoaccept !== undefined)
 			session.autoaccept = !!model.autoaccept;
 
+		if ($.body && $.body.reasoning !== undefined)
+			session.reasoning = model.reasoning || '';
+
 		if (!session.model || !F.aimodels[session.model]) {
 			$.invalid('@(Choose a model first)');
 			return;
 		}
 
-		await NOSQL('sessions').modify({ model: session.model, autoaccept: session.autoaccept }).where('id', session.id).promise($);
+		await NOSQL('sessions').modify({ model: session.model, autoaccept: session.autoaccept, reasoning: session.reasoning || '' }).where('id', session.id).promise($);
 
+		// A command of the project: /name arguments. The conversation shows what the user typed, the model gets the expanded text.
+		var command = MODS.commands.expand(project.path, model.text);
 		var message = { id: UID(), sessionid: session.id, role: 'user', dtcreated: FUNC.stamp() };
 		var part = { id: UID(), messageid: message.id, sessionid: session.id, type: 'text', data: { text: model.text }, dtcreated: NOW, seq: 0 };
+
+		if (command)
+			part.data.expanded = command.text;
 
 		await NOSQL('messages').insert(message).promise($);
 		await NOSQL('parts').insert(part).promise($);

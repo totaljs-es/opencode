@@ -31,7 +31,7 @@ Status: snapshots, per-session diff, undo, auto-accept, `AGENTS.md`, skills, pat
 
 ## Phase 3: breadth (in progress)
 
-Done: provider templates, detection of Ollama, llama.cpp and LM Studio on this computer, full model lists with context window, tool, reasoning and free flags (Ollama through `/api/show`, catalogues through `/models`), a model without tool support gets a request without tools, the context window of the model sets the compaction limit, token usage per step with a counter in the session bar. Anthropic and Gemini request formats are in code with simulator tests (not yet tried with real keys). Pending: cost counters, reasoning mode controls, sub-agents, custom commands, MCP client and server, attachments, split diff, the Forge documentation search tool.
+Done: provider templates, detection of Ollama, llama.cpp and LM Studio on this computer, full model lists with context window, tool, reasoning and free flags (Ollama through `/api/show`, catalogues through `/models`), a model without tool support gets a request without tools, the context window of the model sets the compaction limit, token usage per step with a counter in the session bar. Anthropic and Gemini request formats are in code with simulator tests (not yet tried with real keys). Also done: cost per step from the price of the model, a reasoning effort control (sent to OpenAI-compatible servers), sub-agents, custom commands and the MCP client over stdio and HTTP. Pending: attachments, split diff, the Forge documentation search tool, reasoning controls for Anthropic and Gemini (they need their own thinking blocks), and exposing selected actions as an MCP server.
 
 
 - All five provider parsers, model catalogue, reasoning mode, token and cost counters.

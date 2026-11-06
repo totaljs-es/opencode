@@ -15,13 +15,16 @@ ON('online', function(is) {
 // Tokens used by the model in a session, from the steps of its messages
 Thelpers.tokens = function(items) {
 	var total = 0;
+	var cost = 0;
 	(items || []).forEach(function(m) {
 		(m.parts || []).forEach(function(p) {
 			if (p.type === 'step' && p.data && p.data.tokens)
 				total += (p.data.tokens.input || 0) + (p.data.tokens.output || 0);
+			if (p.type === 'step' && p.data && p.data.cost)
+				cost += p.data.cost;
 		});
 	});
-	return total ? (total.format(0) + ' tokens') : '';
+	return total ? (total.format(0) + ' tokens' + (cost ? (' · $' + (cost < 0.01 ? cost.toFixed(4) : cost.toFixed(2))) : '')) : '';
 };
 
 Thelpers.shortpath = function(path) {

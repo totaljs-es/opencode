@@ -100,6 +100,14 @@ Every file tool: resolves paths against the project root, refuses anything that 
 
 Tools from MCP servers (stdio and HTTP) are registered at session start by `modules/mcpclient.js`. They appear to the loop as tools named `server_tool` and pass through the same permission check.
 
-## Sub-agents
+## Sub-agents (implemented)
 
-`Tools|task` starts a nested run with a fresh context, a restricted tool list and its own step limit; only its final answer returns to the parent. Agent definitions are files (`.totem/agents/*.md` in the project, `private/agents/*.md` built in) with a name, description, tool list and prompt.
+`Tools|task` (`modules/subagent.js`) starts a nested run with a fresh context, the tools of its definition and its own step limit; only its final answer returns to the parent. Its tool calls use the same permission check, so a question appears in the session of the user; its progress is shown in the output of the `task` call; aborting the session stops it. It cannot start other agents. Agent definitions are files (`.totem/agents/*.md` in the project, `private/agents/*.md` built in: `explore`, read-only, and `general`) with a name, description, `tools`, `maxsteps` and a prompt.
+
+## Commands
+
+A file `.totem/commands/<name>.md` with a `description` and a prompt becomes `/name arguments`. `$ARGUMENTS` in the prompt is replaced by the arguments. The conversation shows what the user typed; the model receives the expanded text, also in later turns. The chat shows the commands of the project as chips above the prompt box. Text that starts with `/` but is not a command of the project is sent as it is.
+
+## MCP servers (implemented)
+
+The tools of MCP servers declared in `.totem/mcp.json` (`command` and `args` for stdio, `url` and `headers` for HTTP) join the tools of the agent as `server__tool`. A project file can start a program, so each server asks first (`mcp-start`), and each of its tools asks before it runs. The programs stop when the run ends. The sub-agents do not get MCP tools. Totem does not expose its own tools as an MCP server.

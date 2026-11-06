@@ -46,8 +46,19 @@ NEWACTION('Projects|remove', {
 	action: async function($) {
 		var id = $.params.id;
 		var sessions = await NOSQL('sessions').find().where('projectid', id).promise($);
-		for (var session of sessions)
-			await ACTION('Sessions|remove').params({ id: session.id }).user($.user).promise($);
+		var ids = sessions.map(s => s.id);
+
+		// One pass per collection, not one per session
+		if (ids.length) {
+			ids.forEach(sessionid => MODS.agent.abort(sessionid));
+			await new Promise(resolve => MODS.snapshots.clear(ids, resolve));
+			await NOSQL('todos').remove().in('sessionid', ids).promise($);
+			await NOSQL('parts').remove().in('sessionid', ids).promise($);
+			await NOSQL('messages').remove().in('sessionid', ids).promise($);
+			await NOSQL('sessions').remove().in('id', ids).promise($);
+		}
+
+		await NOSQL('permissions').remove().where('projectid', id).promise($);
 		await NOSQL('projects').remove().where('id', id).promise($);
 		$.success();
 	}
@@ -80,5 +91,18 @@ NEWACTION('Projects|files', {
 
 		items.sort((a, b) => a.directory === b.directory ? a.name.localeCompare(b.name) : (a.directory ? -1 : 1));
 		$.callback(items);
+	}
+});
+
+
+NEWACTION('Projects|commands', {
+	name: 'Commands and agents of a project',
+	params: '*id',
+	action: async function($) {
+		var project = await NOSQL('projects').read().where('id', $.params.id).error(404).promise($);
+		$.callback({
+			commands: MODS.commands.list(project.path).map(c => ({ name: c.name, description: c.description })),
+			agents: MODS.agents.list(project.path).map(a => ({ name: a.name, description: a.description, tools: a.tools }))
+		});
 	}
 });

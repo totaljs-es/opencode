@@ -356,3 +356,26 @@ NEWACTION('Tools|skill', {
 			$.callback(body);
 	}
 });
+
+
+NEWACTION('Tools|task', {
+	name: 'Run a sub-agent',
+	summary: 'Delegates a task to a sub-agent that has its own context and a limited set of tools. Only its final answer comes back. Use it for research or a self-contained job that would fill your own context.',
+	input: '*agent:String // The name of the agent, *prompt:String // The complete task. The agent does not see this conversation, so include what it needs to know',
+	action: function($, model) {
+
+		var run = MAIN.running[$.user.sessionid];
+
+		if (!run) {
+			$.invalid('@(The session is not running)');
+			return;
+		}
+
+		MODS.subagent.run(run, model.agent, model.prompt, $.user.callid, function(err, text) {
+			if (err)
+				$.invalid(FUNC.plain(err));
+			else
+				$.callback(text);
+		});
+	}
+});

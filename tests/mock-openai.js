@@ -99,6 +99,26 @@ exports.start = function(port, callback) {
 		req.on('data', c => body += c);
 		req.on('end', function() {
 
+			// An MCP server over HTTP
+			if (req.url === '/mcp') {
+				var rpc = JSON.parse(body);
+				var answer = require('./mock-mcp').handle(rpc);
+				if (!answer || rpc.id == null) {
+					res.statusCode = 202;
+					res.end();
+					return;
+				}
+				var reply = JSON.stringify(Object.assign({ jsonrpc: '2.0', id: rpc.id }, answer));
+				if (req.headers.accept.indexOf('text/event-stream') !== -1 && rpc.method === 'tools/call') {
+					res.writeHead(200, { 'content-type': 'text/event-stream' });
+					res.end('event: message\ndata: ' + reply + '\n\n');
+				} else {
+					res.writeHead(200, { 'content-type': 'application/json', 'mcp-session-id': 'sess-1' });
+					res.end(reply);
+				}
+				return;
+			}
+
 			// Anthropic and Gemini: the key must arrive in their own header
 			if (req.url === '/v1/messages') {
 				if (req.headers['x-api-key'] !== 'test-key' || req.headers['anthropic-version'] !== '2023-06-01') {

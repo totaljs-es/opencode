@@ -19,7 +19,8 @@ Patterns: for `bash` the command line (`git status*`), for file tools the path r
 | bash | ask, except a short list of read-only commands |
 | fetch | ask |
 | any path outside the project root | deny |
-| MCP tools | ask |
+| MCP servers of the project | ask before each one starts (`mcp-start`: a project file can start a program) |
+| MCP tools | ask before each call |
 
 A session can run in **auto-accept edits** mode (write/edit/patch become allow for that session); it never changes `bash` or `fetch`.
 

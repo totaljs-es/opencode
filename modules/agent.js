@@ -16,15 +16,18 @@ var TOOLS = {
 	fetch: { action: 'Tools|fetch', readonly: true },
 	todo: { action: 'Tools|todo' },
 	ask: { action: 'Tools|ask' },
-	skill: { action: 'Tools|skill', readonly: true }
+	skill: { action: 'Tools|skill', readonly: true },
+	task: { action: 'Tools|task' }
 };
 
 exports.tools = TOOLS;
 
 // Definitions for the model: the arguments are flattened (the model sends { path }, the action receives { input: { path } })
-exports.definitions = function() {
+exports.definitions = function(names) {
 	var output = [];
 	for (var name in TOOLS) {
+		if (names && names.indexOf(name) === -1)
+			continue;
 		var action = F.actions[TOOLS[name].action];
 		if (!action)
 			continue;
@@ -43,6 +46,13 @@ function system(run) {
 	var instructions = MODS.instructions.text(run.root);
 	if (instructions)
 		text += '\nInstructions of this project (AGENTS.md):\n' + instructions + '\n';
+
+	var agents = MODS.agents.list(run.root);
+	if (agents.length) {
+		text += '\nAgents you can delegate to with the task tool. They have their own context and return only their final answer:\n';
+		for (var agent of agents)
+			text += '- {0}: {1}\n'.format(agent.name, agent.description);
+	}
 
 	var skills = MODS.instructions.skills(run.root);
 	if (skills.length) {
@@ -131,6 +141,8 @@ function retryable(err) {
 }
 
 // The signature that Gemini 3 asks to receive back with a function call
+exports.withsignature = withsignature;
+
 function withsignature(call, signature) {
 	if (signature)
 		call.thoughtSignature = signature;
@@ -157,7 +169,7 @@ function history(messages, parts) {
 			var text = '';
 			for (var item of items) {
 				if (item.type === 'text')
-					text += item.data.text;
+					text += item.data.expanded || item.data.text;
 			}
 			output.push({ role: 'user', content: text });
 			continue;
@@ -215,6 +227,7 @@ exports.run = function(session, project, message, callback) {
 		seq: 0,
 		attempts: 0,
 		denials: 0,
+		reasoning: session.reasoning || '',
 		open: {},
 		messages: [],
 		ai: null
@@ -223,6 +236,7 @@ exports.run = function(session, project, message, callback) {
 	MAIN.running[session.id] = run;
 
 	function finish(status, error) {
+		MODS.mcpclient.close(run);
 		delete MAIN.running[session.id];
 		NOSQL('sessions').modify({ status: status, dtupdated: NOW }).where('id', session.id).callback(NOOP);
 
@@ -255,7 +269,11 @@ exports.run = function(session, project, message, callback) {
 			messages = messages.filter(m => m.id !== assistant.id);
 
 			run.messages = history(messages, parts);
-			step(run, finish, fail);
+
+			// The MCP servers of the project that the user allows; their tools join the ones of Totem
+			MODS.mcpclient.connect(run, function() {
+				step(run, finish, fail);
+			});
 		});
 	});
 };
@@ -302,7 +320,8 @@ function request(run, finish, fail) {
 
 	// A model that is known not to support tools only chats: the request without tools is better than an error
 	var meta = (MAIN.modelmeta && MAIN.modelmeta[run.model]) || {};
-	ai.payload.tools = meta.tools === false ? [] : exports.definitions();
+	ai.payload.tools = meta.tools === false ? [] : exports.definitions().concat((run.mcp && run.mcp.defs) || []);
+	ai.payload.reasoning = run.reasoning;
 	run.ai = ai;
 
 	ai.stream(function(e) {
@@ -349,6 +368,11 @@ function request(run, finish, fail) {
 
 		var tools = output.tools || [];
 		var stepdata = { tokens: output.usage || null, finish: tools.length ? 'tools' : 'stop' };
+
+		// The cost in dollars when the model has a price (a free or local model costs nothing)
+		var price = (MAIN.modelmeta[run.model] || {}).price;
+		if (output.usage && price)
+			stepdata.cost = output.usage.input * price.input + output.usage.output * price.output;
 		addpart(run, 'step', stepdata, true);
 
 		// The assistant message of this step for the next request
@@ -420,6 +444,8 @@ function toolstart(run, tool) {
 }
 
 // The message of an action error, with the field when the input is invalid
+exports.failure = failure;
+
 function failure(err) {
 	if (err && err.items && err.items.length)
 		return err.items.map(item => (item.error && item.error !== '@') ? item.error : ('invalid or missing ' + (item.name || 'input'))).join('; ');
@@ -459,6 +485,32 @@ function runtools(run, tools, callback) {
 
 		var meta = TOOLS[tool.name];
 
+		// A tool of an MCP server: it always asks, like the tools that change things
+		if (!meta && run.mcp && run.mcp.tools[tool.name]) {
+
+			MODS.permissions.check(run, 'mcp:' + tool.name, part.data.input, function(reply, reason) {
+
+				if (reply !== 'allow') {
+					result('denied', '', reason || 'Denied. Do not try again.');
+					return;
+				}
+
+				part.data.status = 'running';
+				FUNC.emit(run.sessionid, 'part.updated', { part: part });
+
+				MODS.mcpclient.call(run, tool.name, part.data.input, function(err, text) {
+					if (run.aborted)
+						next();
+					else if (err)
+						result('error', '', typeof(err) === 'string' ? err : 'MCP error');
+					else
+						result('done', text);
+				});
+			});
+
+			return;
+		}
+
 		if (!meta) {
 			result('error', '', 'Unknown tool: ' + tool.name);
 			return;
@@ -474,7 +526,7 @@ function runtools(run, tools, callback) {
 			part.data.status = 'running';
 			FUNC.emit(run.sessionid, 'part.updated', { part: part });
 
-			var user = { id: 'agent', sa: true, root: run.root, sessionid: run.sessionid, projectid: run.projectid, messageid: run.message.id };
+			var user = { id: 'agent', sa: true, root: run.root, sessionid: run.sessionid, projectid: run.projectid, messageid: run.message.id, callid: tool.id };
 
 			ACTION(meta.action, part.data.input).user(user).callback(function(err, response) {
 				if (run.aborted)
@@ -496,6 +548,7 @@ exports.abort = function(sessionid) {
 		return false;
 
 	run.aborted = true;
+	MODS.subagent.abort(run);
 	MODS.permissions.cancel(sessionid);
 
 	if (run.ai && run.ai.options.abort)

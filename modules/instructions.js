@@ -26,6 +26,8 @@ function frontmatter(text) {
 	return { meta: meta, body: match ? text.substring(match[0].length) : text };
 }
 
+exports.frontmatter = frontmatter;
+
 exports.text = function(root) {
 	var text = read(Total.Path.join(root, 'AGENTS.md')) || read(Total.Path.join(root, 'CLAUDE.md'));
 	return text.length > MAXTEXT ? (text.substring(0, MAXTEXT) + '\n[truncated]') : text;

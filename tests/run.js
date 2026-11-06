@@ -92,7 +92,8 @@ Test.push('boot', function(next) {
 
 	ON('ready', function() {
 		NEWAIMODEL('fake', fake);
-		FUNC.onevent = (sessionid, type, data) => events.push({ sessionid: sessionid, type: type, data: data });
+		// The data is copied: a part keeps changing after the event, like on the wire
+		FUNC.onevent = (sessionid, type, data) => events.push({ sessionid: sessionid, type: type, data: JSON.parse(JSON.stringify(data)) });
 		check('the application starts', true);
 		check('the tools are registered as actions', !!F.actions['Tools|read'] && !!F.actions['Tools|bash']);
 
@@ -116,7 +117,7 @@ Test.push('boot', function(next) {
 Test.push('tool definitions', function(next) {
 	var defs = MODS.agent.definitions();
 	var read = defs.find(d => d.function.name === 'read');
-	check('every tool has a definition', defs.length === 11);
+	check('every tool has a definition', defs.length === 12);
 	check('arguments are flattened', read && read.function.parameters.properties.path && read.function.parameters.required.indexOf('path') !== -1);
 	check('the descriptions of the fields reach the model', read && !!read.function.parameters.properties.path.description);
 	next();
@@ -477,7 +478,7 @@ Test.push('real provider over HTTP', async function(next) {
 	var texts = assistant.parts.filter(p => p.type === 'text').map(p => p.data.text).join('|');
 	check('the stream of the provider was parsed into text and a tool call', texts.indexOf('Let me look at the file.') !== -1 && tool && tool.data.tool === 'read' && tool.data.input.path === 'README.md');
 	check('the answer follows the tool result', texts.indexOf('I read the file.') !== -1);
-	check('the provider received the key and the tools', mock.requests.length === 2 && mock.requests[0].tools.length === 11 && mock.requests[0].model === 'mock');
+	check('the provider received the key and the tools', mock.requests.length === 2 && mock.requests[0].tools.length === 12 && mock.requests[0].model === 'mock');
 
 	events.length = 0;
 	await api('sessions_prompt/' + id, { text: 'please fail' });
@@ -504,6 +505,7 @@ Test.push('providers, discovery and model metadata', async function(next) {
 	var plain = r.response.find(m => m.id === 'plain-model');
 	check('catalogue models say if they are free and support tools', free.free === true && free.tools === true && free.reasoning === true && free.context === 65536 && paid.free === false && paid.tools === false);
 	check('unknown values stay null', plain.tools === null && plain.free === null && plain.context === null);
+	check('catalogue models carry their price per token', free.price.input === 0 && paid.price.input === 0.000001 && paid.price.output === 0.000002 && plain.price === null);
 
 	// Detection on this computer: the local templates point to the mock (Ollama) or to a closed port
 	var saved = MAIN.templates;
@@ -536,7 +538,7 @@ Test.push('providers, discovery and model metadata', async function(next) {
 	mock.requests.length = 0;
 	await api('sessions_prompt/' + id, { text: 'hello with tools' });
 	await idle(id);
-	check('a model with tool support gets the tools', mock.requests[0].tools && mock.requests[0].tools.length === 11);
+	check('a model with tool support gets the tools', mock.requests[0].tools && mock.requests[0].tools.length === 12);
 	next();
 });
 
@@ -584,10 +586,10 @@ Test.push('Anthropic and Gemini', async function(next) {
 		check(label + ': the conversation takes two requests with the key in its header', calls.length === 2);
 
 		if (kind === 'anthropic') {
-			check('Anthropic: system, tools with input_schema and max_tokens are sent', calls[0].body.system.indexOf('You are Totem') === 0 && calls[0].body.tools.length === 11 && !!calls[0].body.tools[0].input_schema && calls[0].body.max_tokens > 0);
+			check('Anthropic: system, tools with input_schema and max_tokens are sent', calls[0].body.system.indexOf('You are Totem') === 0 && calls[0].body.tools.length === 12 && !!calls[0].body.tools[0].input_schema && calls[0].body.max_tokens > 0);
 			check('Anthropic: the second request carries the tool result', calls[1].body.messages.some(m => Array.isArray(m.content) && m.content.some(b => b.type === 'tool_result' && b.tool_use_id === 'toolu_1')));
 		} else {
-			check('Gemini: system instruction and function declarations are sent', calls[0].body.systemInstruction.parts[0].text.indexOf('You are Totem') === 0 && calls[0].body.tools[0].functionDeclarations.length === 11 && JSON.stringify(calls[0].body.tools).indexOf('additionalProperties') === -1);
+			check('Gemini: system instruction and function declarations are sent', calls[0].body.systemInstruction.parts[0].text.indexOf('You are Totem') === 0 && calls[0].body.tools[0].functionDeclarations.length === 12 && JSON.stringify(calls[0].body.tools).indexOf('additionalProperties') === -1);
 			check('Gemini: the signature of the function call is sent back', calls[1].body.contents.some(c => c.role === 'model' && c.parts.some(p => p.functionCall && p.thoughtSignature === 'sig-123')));
 			check('Gemini: the second request carries the function response', calls[1].body.contents.some(c => c.parts.some(p => p.functionResponse && p.functionResponse.name === 'read')));
 		}
@@ -609,6 +611,191 @@ Test.push('Anthropic and Gemini', async function(next) {
 	await api('sessions_prompt/' + bad, { text: 'hello' });
 	await until(() => events.some(e => e.type === 'session.status' && e.data.status === 'error'));
 	check('a rejected key ends the run with the error of the provider', events.some(e => e.type === 'error' && /401/.test(e.data.message)));
+	next();
+});
+
+Test.push('sub-agents and commands', async function(next) {
+
+	var id = await session();
+	events.length = 0;
+	requests.length = 0;
+	script = [
+		{ tools: [{ id: 'ta', name: 'task', arguments: { agent: 'explore', prompt: 'Find the lines of a.txt' } }] },
+		{ tools: [{ id: 'cr', name: 'read', arguments: { path: 'a.txt' } }] },
+		{ content: 'FOUND three lines' },
+		{ content: 'The sub-agent said it.' }
+	];
+
+	await api('sessions_prompt/' + id, { text: 'delegate' });
+	await idle(id);
+
+	check('the task tool runs without asking', !events.some(e => e.type === 'permission.ask'));
+	check('the sub-agent has its own prompt and context', requests.length === 4 && requests[1].messages[0].content.indexOf('You are the explore agent') === 0 && requests[1].messages.length === 2 && requests[1].messages[1].content === 'Find the lines of a.txt');
+	check('the sub-agent only gets the tools of its definition', JSON.stringify(requests[1].tools.map(t => t.function.name)) === JSON.stringify(['read', 'glob', 'grep', 'fetch', 'skill']));
+	check('the parent lists the agents it can delegate to', requests[0].messages[0].content.indexOf('- explore:') !== -1 && requests[0].messages[0].content.indexOf('- general:') !== -1);
+	check('the progress of the sub-agent is shown in the tool call', events.some(e => e.type === 'part.updated' && e.data.part.data.tool === 'task' && /\[read\] done/.test(e.data.part.data.output || '')));
+	var r = await api('sessions_messages/' + id);
+	var parts = r.response.find(m => m.role === 'assistant').parts;
+	var task = parts.find(p => p.type === 'tool' && p.data.tool === 'task');
+	check('only the final answer comes back to the parent', task.data.status === 'done' && task.data.output === 'FOUND three lines' && requests[3].messages.some(m => m.role === 'tool' && m.content === 'FOUND three lines'));
+	check('the tool calls of the sub-agent are not part of the conversation', parts.filter(p => p.type === 'tool').length === 1);
+
+	events.length = 0;
+	script = [{ tools: [{ id: 'tb', name: 'task', arguments: { agent: 'nope', prompt: 'x' } }] }, { content: 'ok' }];
+	await api('sessions_prompt/' + id, { text: 'delegate again' });
+	await idle(id);
+	r = await api('sessions_messages/' + id);
+	var bad = r.response[r.response.length - 1].parts.find(p => p.type === 'tool');
+	check('an unknown agent is an error that lists the available ones', bad.data.status === 'error' && /Unknown agent "nope"\. Available: explore, general/.test(bad.data.error));
+
+	// The sub-agent asks the user like any other agent
+	events.length = 0;
+	script = [
+		{ tools: [{ id: 'tc', name: 'task', arguments: { agent: 'general', prompt: 'Create w.txt' } }] },
+		{ tools: [{ id: 'cw', name: 'write', arguments: { path: 'w.txt', content: 'x' } }] },
+		{ content: 'Could not write.' },
+		{ content: 'Reported.' }
+	];
+	await api('sessions_prompt/' + id, { text: 'delegate a write' });
+	var ask = await until(() => events.find(e => e.type === 'permission.ask'));
+	check('a write of a sub-agent asks in the session of the user', !!ask && ask.data.tool === 'write');
+	await api('permissions_reply/' + ask.data.id, { reply: 'reject' });
+	await idle(id);
+	check('a rejected write of a sub-agent does not happen', !Total.Fs.existsSync(Total.Path.join(PROJECT, 'w.txt')));
+
+	// Commands of the project
+	Total.Fs.mkdirSync(Total.Path.join(PROJECT, '.totem/commands'), { recursive: true });
+	Total.Fs.writeFileSync(Total.Path.join(PROJECT, '.totem/commands/review.md'), '---\ndescription: Review a file\n---\nReview $ARGUMENTS carefully.\n');
+	r = await api('projects_commands/' + projectid);
+	check('the commands and the agents of a project are listed', r.response.commands.length === 1 && r.response.commands[0].name === 'review' && r.response.commands[0].description === 'Review a file' && r.response.agents.length === 2);
+
+	id = await session();
+	events.length = 0;
+	requests.length = 0;
+	script = [{ content: 'Reviewed.' }, { content: 'Again.' }];
+	await api('sessions_prompt/' + id, { text: '/review a.txt' });
+	await idle(id);
+	check('a command sends its expanded text to the model', requests[0].messages[requests[0].messages.length - 1].content === 'Review a.txt carefully.');
+	r = await api('sessions_messages/' + id);
+	var shown = r.response.find(m => m.role === 'user').parts[0].data;
+	check('the conversation keeps what the user typed', shown.text === '/review a.txt' && shown.expanded === 'Review a.txt carefully.');
+	await api('sessions_prompt/' + id, { text: '/unknown thing' });
+	await idle(id);
+	check('the history sends the expanded text and an unknown command is plain text', requests[1].messages.some(m => m.role === 'user' && m.content === 'Review a.txt carefully.') && requests[1].messages[requests[1].messages.length - 1].content === '/unknown thing');
+	next();
+});
+
+Test.push('cost and reasoning effort', async function(next) {
+
+	var mock = require('./mock-openai');
+	var base = 'http://127.0.0.1:8111/v1';
+
+	await api('providers_save', { name: 'Priced', url: base, kind: 'openai', models: ['p1'], meta: { p1: { id: 'p1', reasoning: true, tools: true, price: { input: 0.001, output: 0.002 } } } });
+	await new Promise(resolve => setTimeout(resolve, 200));
+
+	var id = await session({ model: 'priced:p1', reasoning: 'low' });
+	events.length = 0;
+	mock.requests.length = 0;
+	await api('sessions_prompt/' + id, { text: 'hello' });
+	await idle(id);
+
+	var r = await api('sessions_messages/' + id);
+	var step = r.response.find(m => m.role === 'assistant').parts.find(p => p.type === 'step');
+	check('the cost of a step follows the usage and the price', Math.abs(step.data.cost - 0.022) < 1e-9);
+	check('the reasoning effort of the session is sent', mock.requests[0].reasoning_effort === 'low');
+
+	mock.requests.length = 0;
+	events.length = 0;
+	await api('sessions_prompt/' + id, { text: 'again', reasoning: 'high' });
+	await idle(id);
+	r = await api('sessions_read/' + id);
+	check('a prompt can change the reasoning effort for the session', mock.requests[0].reasoning_effort === 'high' && r.response.reasoning === 'high');
+
+	mock.requests.length = 0;
+	events.length = 0;
+	await api('sessions_prompt/' + id, { text: 'no change' });
+	await idle(id);
+	check('without a value the effort of the session stays', mock.requests[0].reasoning_effort === 'high');
+
+	var plain = await session({ model: 'priced:p1' });
+	mock.requests.length = 0;
+	events.length = 0;
+	await api('sessions_prompt/' + plain, { text: 'default' });
+	await idle(plain);
+	check('an empty effort leaves the default of the model', mock.requests[0].reasoning_effort === undefined);
+
+	// A local model costs nothing
+	await api('providers_save', { name: 'Free local', url: base, kind: 'ollama', models: ['tiny:1b'], meta: { 'tiny:1b': { id: 'tiny:1b', free: true, price: { input: 0, output: 0 }, tools: false } } });
+	await new Promise(resolve => setTimeout(resolve, 200));
+	var free = await session({ model: 'free-local:tiny:1b' });
+	events.length = 0;
+	await api('sessions_prompt/' + free, { text: 'free' });
+	await idle(free);
+	r = await api('sessions_messages/' + free);
+	step = r.response.find(m => m.role === 'assistant').parts.find(p => p.type === 'step');
+	check('a free model has a cost of zero', step.data.cost === 0);
+	next();
+});
+
+Test.push('MCP client', async function(next) {
+
+	var mockpath = Total.Path.join(ROOT, 'tests/mock-mcp.js');
+	Total.Fs.mkdirSync(Total.Path.join(PROJECT, '.totem'), { recursive: true });
+	Total.Fs.writeFileSync(Total.Path.join(PROJECT, '.totem/mcp.json'), JSON.stringify({ servers: { mock: { command: process.execPath, args: [mockpath] }, web: { url: 'http://127.0.0.1:8111/mcp' } } }));
+
+	// Answers every permission question of the session with a reply until the run ends
+	function approver(replyfor) {
+		var seen = {};
+		return setInterval(function() {
+			events.filter(e => e.type === 'permission.ask' && !seen[e.data.id]).forEach(function(e) {
+				seen[e.data.id] = true;
+				api('permissions_reply/' + e.data.id, { reply: replyfor(e.data) });
+			});
+		}, 30);
+	}
+
+	var id = await session();
+	events.length = 0;
+	requests.length = 0;
+	script = [
+		{ tools: [{ id: 'm1', name: 'mock__echo', arguments: { text: 'hi' } }, { id: 'm2', name: 'web__echo', arguments: { text: 'over http' } }, { id: 'm3', name: 'mock__fail', arguments: {} }] },
+		{ content: 'Done.' }
+	];
+
+	var timer = approver(() => 'once');
+	await api('sessions_prompt/' + id, { text: 'use the mcp tools' });
+	await idle(id);
+	clearInterval(timer);
+
+	var starts = events.filter(e => e.type === 'permission.ask' && e.data.tool === 'mcp-start');
+	check('every server of the project asks before it starts', starts.length === 2 && starts[0].data.patterns[0].indexOf('mock: ') === 0 && starts[1].data.patterns[0].indexOf('http://127.0.0.1:8111/mcp') !== -1);
+
+	var names = requests[0].tools.map(t => t.function.name);
+	check('the tools of the servers join the tools of Totem', names.indexOf('mock__echo') !== -1 && names.indexOf('web__echo') !== -1 && names.indexOf('read') !== -1);
+	var echo = requests[0].tools.find(t => t.function.name === 'mock__echo').function;
+	check('their definitions keep the schema and name the server', echo.description.indexOf('[mock]') === 0 && echo.parameters.required[0] === 'text');
+
+	check('a tool of a server asks before it runs', events.filter(e => e.type === 'permission.ask' && e.data.tool === 'mcp:mock__echo').length === 1);
+
+	var r = await api('sessions_messages/' + id);
+	var tools = r.response.find(m => m.role === 'assistant').parts.filter(p => p.type === 'tool');
+	check('a tool over stdio answers', tools[0].data.status === 'done' && tools[0].data.output === 'echo: hi');
+	check('a tool over HTTP answers, also as an event stream', tools[1].data.status === 'done' && tools[1].data.output === 'echo: over http');
+	check('a tool that fails is an error for the model', tools[2].data.status === 'error' && tools[2].data.error === 'it failed');
+	check('the program of the server stops with the run', !MAIN.children[id]);
+
+	// When the user refuses to start the servers, their tools do not exist
+	id = await session();
+	events.length = 0;
+	requests.length = 0;
+	script = [{ content: 'No tools.' }];
+	timer = approver(() => 'reject');
+	await api('sessions_prompt/' + id, { text: 'hello' });
+	await idle(id);
+	clearInterval(timer);
+	check('refused servers add no tools', requests[0].tools.map(t => t.function.name).indexOf('mock__echo') === -1 && requests[0].tools.length === 12);
+
+	Total.Fs.rmSync(Total.Path.join(PROJECT, '.totem/mcp.json'));
 	next();
 });
 

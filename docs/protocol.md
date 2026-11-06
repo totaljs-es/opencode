@@ -15,6 +15,7 @@ Routes use the `+API` style of the conventions (`$api` is `/api/`), each to an a
 | `-sessions_messages/{id}` | `Sessions\|messages` | Messages with parts |
 | `+sessions_prompt/{id}` | `Sessions\|prompt` | Send a prompt; answers `{ messageid }` immediately |
 | `-sessions_abort/{id}` | `Sessions\|abort` | Stop the run |
+| `-projects_commands/{id}` | `Projects\|commands` | Commands (`.totem/commands`) and agents of a project |
 | `+questions_reply/{id}` | `Questions\|reply` | Answer a question of the `ask` tool |
 | `-sessions_todos/{id}` | `Sessions\|todos` | Task list of the session |
 | `+sessions_undo/{id}` | `Sessions\|undo` | Restore the files that a message and the later ones changed (input `messageid`) |

@@ -294,14 +294,22 @@ exports.undo = function(session, project, messageid, callback) {
 	});
 };
 
-// Removes the snapshots of a session
+// Removes the snapshots of a session or of a list of sessions
 exports.clear = function(sessionid, callback) {
-	NOSQL('snapshots').find().where('sessionid', sessionid).callback(function(err, snapshots) {
+
+	var ids = Array.isArray(sessionid) ? sessionid : [sessionid];
+
+	if (!ids.length) {
+		callback && callback();
+		return;
+	}
+
+	NOSQL('snapshots').find().in('sessionid', ids).callback(function(err, snapshots) {
 		for (var item of (snapshots || [])) {
 			try {
 				Total.Fs.unlinkSync(Total.Path.join(dir(), item.id));
 			} catch (e) {}
 		}
-		NOSQL('snapshots').remove().where('sessionid', sessionid).callback(() => callback && callback());
+		NOSQL('snapshots').remove().in('sessionid', ids).callback(() => callback && callback());
 	});
 };

@@ -8,6 +8,7 @@ exports.install = function() {
 	ROUTE('+API    ?    +projects_open              --> Projects|open');
 	ROUTE('+API    ?    -projects_remove/{id}       --> Projects|remove');
 	ROUTE('+API    ?    -projects_files/{id}        --> Projects|files');
+	ROUTE('+API    ?    -projects_commands/{id}     --> Projects|commands');
 
 	// Sessions
 	ROUTE('+API    ?    -sessions                   --> Sessions|list');

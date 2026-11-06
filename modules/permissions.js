@@ -2,14 +2,14 @@
 
 exports.id = 'permissions';
 
-var READONLY = { read: 1, glob: 1, grep: 1, todo: 1, ask: 1, skill: 1 };
+var READONLY = { read: 1, glob: 1, grep: 1, todo: 1, ask: 1, skill: 1, task: 1 };
 var READONLY_COMMANDS = /^(ls|pwd|cat|head|tail|wc|echo|git (status|diff|log|show|branch)|node --check|rg|grep|find)( |$)/;
 
 // Subject of a tool call that a rule pattern is compared with
 function subject(tool, input) {
 	if (tool === 'bash')
 		return (input.command || '').trim();
-	return input.path || input.pattern || input.url || '';
+	return input.path || input.pattern || input.url || input.command || '';
 }
 
 exports.subject = subject;
