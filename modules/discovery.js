@@ -224,7 +224,8 @@ exports.detect = function(templates, callback) {
 
 	var found = [];
 
-	templates.filter(t => t.local).wait(function(template, next) {
+	// The servers of this computer, and the ones that are usually on it (LiteLLM runs on a port of the computer or on a server of the team)
+	templates.filter(t => t.local || t.detect).wait(function(template, next) {
 
 		var provider = { url: template.url, kind: template.kind, key: '' };
 		var started = Date.now();

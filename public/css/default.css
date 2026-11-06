@@ -75,3 +75,4 @@ html, body { height: 100%; margin: 0; }
 .provi-moonshot { --i: url(/img/providers/moonshot.svg); }
 .provi-vllm { --i: url(/img/providers/vllm.svg); }
 .provi-cohere { --i: url(/img/providers/cohere.svg); }
+.provi-litellm { --i: url(/img/providers/litellm.svg); }

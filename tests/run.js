@@ -511,7 +511,7 @@ Test.push('providers, discovery and model metadata', async function(next) {
 
 	// Detection on this computer: the local templates point to the mock (Ollama) or to a closed port
 	var saved = MAIN.templates;
-	MAIN.templates = saved.map(t => t.local ? Object.assign({}, t, { url: t.id === 'ollama' ? base : 'http://127.0.0.1:1/v1' }) : t);
+	MAIN.templates = saved.map(t => (t.local || t.detect) ? Object.assign({}, t, { url: t.id === 'ollama' ? base : 'http://127.0.0.1:1/v1' }) : t);
 	r = await api('providers_detect');
 	MAIN.templates = saved;
 	check('detection finds the servers that answer and skips the others', r.response.length === 1 && r.response[0].template.id === 'ollama' && r.response[0].models.length === 2);
@@ -1019,7 +1019,7 @@ Test.push('LiteLLM', async function(next) {
 
 	var r = await api('providers_templates');
 	var litellm = r.response.find(t => t.id === 'litellm');
-	check('LiteLLM is a template, local by default, with the port of the proxy', litellm && litellm.kind === 'litellm' && litellm.url === 'http://127.0.0.1:4000/v1' && litellm.local === true);
+	check('LiteLLM is a template with the port of the proxy, searched for on this computer but not presented as local', litellm && litellm.kind === 'litellm' && litellm.url === 'http://127.0.0.1:4000/v1' && litellm.detect === true && litellm.local === false && litellm.icon === 'litellm');
 	check('the other providers of the list are templates too', ['vllm', 'xai', 'fireworks', 'cerebras', 'huggingface', 'nvidia', 'moonshot', 'cohere'].every(id => r.response.find(t => t.id === id)));
 
 	r = await api('providers_available', { url: 'http://127.0.0.1:8111/v1', kind: 'litellm' });
@@ -1227,6 +1227,44 @@ Test.push('restart', async function(next) {
 	var count = await new Promise(resolve => FUNC.recover(resolve));
 	var r = await api('sessions_read/' + id);
 	check('a session that was running before a restart is marked as aborted', count >= 1 && r.response.status === 'aborted');
+	next();
+});
+
+Test.push('the icons of the providers are all the same', function(next) {
+
+	var normalizer = require('../scripts/normalize-icons');
+	var dir = Total.Path.join(ROOT, 'public/img/providers');
+	var files = Total.Fs.readdirSync(dir).filter(name => /\.svg$/.test(name));
+
+	// The path parser: relative and absolute commands, an arc with its flags stuck to the numbers, a closed shape
+	var box = normalizer.bounds('M2 3h4v5H2z');
+	check('the bounds of a path of lines', box.x0 === 2 && box.y0 === 3 && box.x1 === 6 && box.y1 === 8);
+	box = normalizer.bounds('M0 0a5 5 0 1010 0');
+	check('the bounds of an arc whose flags are stuck to the numbers', Math.abs(box.x1 - 10) < 0.01 && Math.abs(box.x0) < 0.01 && Math.abs((box.y1 - box.y0) - 5) < 0.2);
+	box = normalizer.bounds('M0 0C0 10 10 10 10 0');
+	check('the bounds of a curve are the curve, not its control points', box.y1 > 7 && box.y1 < 8);
+
+	check('there is an icon for every template that names one', JSON.parse(Total.Fs.readFileSync(Total.Path.join(ROOT, 'private/providers.json'), 'utf8')).filter(t => t.icon).every(t => files.indexOf(t.icon + '.svg') !== -1));
+
+	var wrong = [];
+	files.forEach(function(name) {
+		var text = Total.Fs.readFileSync(Total.Path.join(dir, name), 'utf8');
+		var root = text.match(/<svg[^>]*>/)[0];
+		var transform = text.match(/translate\(([-\d.]+) ([-\d.]+)\) scale\(([-\d.]+)\)/);
+		var paths = (text.match(/\sd="([^"]+)"/g) || []).map(d => d.slice(4, -1));
+		var b = { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity };
+		paths.forEach(d => { var p = normalizer.bounds(d); b.x0 = Math.min(b.x0, p.x0); b.y0 = Math.min(b.y0, p.y0); b.x1 = Math.max(b.x1, p.x1); b.y1 = Math.max(b.y1, p.y1); });
+		var x0 = b.x0 * transform[3] + +transform[1], x1 = b.x1 * transform[3] + +transform[1], y0 = b.y0 * transform[3] + +transform[2], y1 = b.y1 * transform[3] + +transform[2];
+		var longest = Math.max(x1 - x0, y1 - y0);
+		var centered = Math.abs((x0 + x1) / 2 - 12) < 0.05 && Math.abs((y0 + y1) / 2 - 12) < 0.05;
+		var ok = /viewBox="0 0 24 24"/.test(root) && /fill="currentColor"/.test(root) && !/\s(width|height|style|class)=/.test(text) && !/<path[^>]*\sfill="/.test(text) && Math.abs(longest - 20) < 0.05 && centered && x0 >= 1.95 && y0 >= 1.95 && x1 <= 22.05 && y1 <= 22.05;
+		!ok && wrong.push(name);
+	});
+	check('every icon has the same box, colour and size, and is centered' + (wrong.length ? ' (not: ' + wrong.join(', ') + ')' : ''), wrong.length === 0);
+
+	// The files are what the script writes from the originals
+	var result = require('child_process').spawnSync(process.execPath, [Total.Path.join(ROOT, 'scripts/normalize-icons.js'), '--check']);
+	check('the files of the folder are what the script writes from assets/providers', result.status === 0);
 	next();
 });
 
