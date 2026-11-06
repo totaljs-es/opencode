@@ -114,3 +114,7 @@ A click on a folder opens its latest session (a folder without sessions gets one
 ## Icons
 
 The icon font is the one of `spa.min@20.css` (the Total.js icons, named `ti-...`), not the whole Tabler set: a name that is not in it shows nothing. `tests/icons.txt` lists the names of that file and a test checks every icon used in `plugins/` and `views/`.
+
+## Git in the Changes panel
+
+The top of the Changes panel shows the branch of the project and the files that git sees as changed (state, staged or not, at most 200), read with `git status --porcelain` through `Projects|git`. It only reads, with a timeout and a minimal environment, and shows nothing when the folder is not a git repository. The files of the session below it are still the ones that the agent changed, from the snapshots.

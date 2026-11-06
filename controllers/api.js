@@ -9,6 +9,7 @@ exports.install = function() {
 	ROUTE('+API    ?    -projects_remove/{id}       --> Projects|remove');
 	ROUTE('+API    ?    -projects_files/{id}        --> Projects|files');
 	ROUTE('+API    ?    -projects_commands/{id}     --> Projects|commands');
+	ROUTE('+API    ?    -projects_git/{id}          --> Projects|git');
 
 	// Folders of this computer
 	ROUTE('+API    ?    -folders                    --> Folders|list');

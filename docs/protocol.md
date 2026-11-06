@@ -10,6 +10,7 @@ Routes use the `+API` style of the conventions (`$api` is `/api/`), each to an a
 |---|---|---|
 | `-account` | `Account\|read` | Current user and capabilities |
 | `-projects`, `+projects_open`, `-projects_remove/{id}` | `Projects\|...` | List, open a folder, forget a project |
+| `-projects_git/{id}` | `Projects\|git` | Branch and changed files of the folder: `{ repository, branch, files: [{ path, status, staged }], more }` |
 | `-folders` | `Folders\|list` | Folders of the computer (query `path`, default the home folder; `hidden`): `{ path, sep, home, items: [{ name }], places }` |
 | `-projects_files/{id}` | `Projects\|files` | File tree (lazy, one level per call) |
 | `-sessions`, `+sessions_create`, `-sessions_read/{id}`, `-sessions_remove/{id}` | `Sessions\|...` | Sessions of a project |

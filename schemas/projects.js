@@ -109,3 +109,15 @@ NEWACTION('Projects|commands', {
 		});
 	}
 });
+
+NEWACTION('Projects|git', {
+	name: 'Git state of a project',
+	summary: 'The branch of the project and the files that git sees as changed (empty when the folder is not a git repository).',
+	params: '*id',
+	action: async function($) {
+
+		var project = await NOSQL('projects').read().where('id', $.params.id).error(404).promise($);
+		var state = await new Promise(resolve => MODS.git.status(project.path, resolve));
+		$.callback(state);
+	}
+});

@@ -1872,6 +1872,33 @@ Test.push('Totem as an MCP server', async function(next) {
 	next();
 });
 
+Test.push('git state of a project', async function(next) {
+
+	var r = await api('projects_git/' + projectid);
+	check('a folder that is not a repository says so', r.response && r.response.repository === false && r.response.files.length === 0);
+
+	var repo = Total.Path.join(TMP, 'repo');
+	Total.Fs.mkdirSync(repo, { recursive: true });
+	var git = args => Total.Child.execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t'].concat(args), { cwd: repo, stdio: 'pipe' });
+	git(['init', '-q', '-b', 'trunk']);
+	Total.Fs.writeFileSync(Total.Path.join(repo, 'kept.txt'), 'one\n');
+	Total.Fs.writeFileSync(Total.Path.join(repo, 'gone.txt'), 'bye\n');
+	git(['add', '.']);
+	git(['commit', '-q', '-m', 'first']);
+	Total.Fs.writeFileSync(Total.Path.join(repo, 'kept.txt'), 'two\n');
+	Total.Fs.unlinkSync(Total.Path.join(repo, 'gone.txt'));
+	Total.Fs.writeFileSync(Total.Path.join(repo, 'new file.txt'), 'x\n');
+	Total.Fs.writeFileSync(Total.Path.join(repo, 'staged.txt'), 'y\n');
+	git(['add', 'staged.txt']);
+
+	var state = await new Promise(resolve => MODS.git.status(repo, resolve));
+	var by = {};
+	state.files.forEach(f => by[f.path] = f);
+	check('the branch and the files are listed', state.repository === true && state.branch === 'trunk' && state.files.length === 4);
+	check('each file has its state', by['kept.txt'].status === 'modified' && by['gone.txt'].status === 'deleted' && by['new file.txt'].status === 'untracked' && by['staged.txt'].status === 'added' && by['staged.txt'].staged === true && by['kept.txt'].staged === false);
+	next();
+});
+
 Test.push('cleanup', async function(next) {
 	var r = await api('projects_remove/' + projectid);
 	check('removing a project removes its sessions', r.response.success === true);

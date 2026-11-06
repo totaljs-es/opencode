@@ -17,6 +17,9 @@
 	@keyframes totemwait { 0%, 80%, 100% { opacity: 0.25; transform: scale(0.8); } 40% { opacity: 1; transform: scale(1.1); } }
 	@media (prefers-reduced-motion: reduce) { .CLASS .waiting span { animation: none; opacity: 0.6; } }
 	.CLASS .mode { width: 110px; }
+	.CLASS .gitbox { border: 1px solid var(--t-border); border-radius: var(--radius, 6px); padding: 8px 10px; margin-bottom: 12px; font-size: 12px; background: var(--t-soft); }
+	.CLASS .gittop { margin-bottom: 6px; }
+	.CLASS .gitfile { padding: 1px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	.CLASS .part { margin-bottom: 8px; }
 	.CLASS .part.live { white-space: pre-wrap; overflow-wrap: anywhere; }
 	.CLASS .part pre { background: var(--t-soft); color: inherit; border: 1px solid var(--t-border); border-radius: var(--radius, 6px); padding: 10px 12px; overflow: auto; font-size: 12px; }
@@ -245,6 +248,17 @@
 	</div>
 
 	<ui-bind path="?.showdiff" config="show:value" class="hidden side">
+		<ui-bind path="?.git" config="template" class="block">
+			<script type="text/html">
+				{{ if value && value.repository }}
+				<div class="gitbox">
+					<div class="gittop"><i class="ti ti-code-branch"></i> <b>{{ value.branch }}</b> <span class="gray">{{ value.files.length }} @(changed in git)</span></div>
+					{{ foreach f in value.files }}<div class="gitfile"><span class="badge badge-small">{{ f.status }}</span> {{ f.path }}{{ if f.staged }} <span class="gray">@(staged)</span>{{ fi }}</div>{{ end }}
+					{{ if value.more }}<div class="gray">+{{ value.more }}</div>{{ fi }}
+				</div>
+				{{ fi }}
+			</script>
+		</ui-bind>
 		<ui-bind path="?.splitmode" config="template" class="block">
 			<script type="text/html">
 				<div class="mb10" style="display:flex;gap:6px">
@@ -371,6 +385,8 @@
 					rawfiles = files;
 					showfiles();
 				});
+				var projectid = exports.model.session && exports.model.session.projectid;
+				projectid && exports.tapi('projects_git/' + projectid, git => exports.set('git', git));
 			}, 300);
 		}
 
