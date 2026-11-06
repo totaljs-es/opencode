@@ -1,4 +1,8 @@
-# Total.js Totem
+<p align="center">
+  <img src="assets/totem-buttom.svg" alt="Total.js Totem" width="128" height="128">
+</p>
+
+<h1 align="center">Total.js Totem</h1>
 
 An AI coding environment written as a Total.js 5 application: open a project, talk to an agent that reads code, edits files and runs commands, and review what changed. You choose the model: a free cloud one, one running on your computer, or a paid one.
 
