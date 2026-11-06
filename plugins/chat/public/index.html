@@ -56,7 +56,9 @@
 	.CLASS .todos .completed { color: var(--t-muted); text-decoration: line-through; }
 	.CLASS .todos .in_progress { font-weight: bold; }
 	.CLASS .compose { border-top: 1px solid var(--t-border); padding: 10px 16px 14px; }
-	.CLASS .compose .row { max-width: 860px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+	.CLASS .compose .row { max-width: 860px; margin: 0 auto; display: flex; flex-wrap: nowrap; gap: 8px; align-items: center; }
+	.CLASS .compose .row.opts { flex-wrap: wrap; margin-top: 8px; }
+	.CLASS .compose .row .tbtn { flex: 0 0 auto; }
 	.CLASS .attached { max-width: 860px; margin: 0 auto 8px; display: flex; gap: 8px; flex-wrap: wrap; }
 	.CLASS .attached .item { border: 1px solid var(--t-border); border-radius: var(--radius, 6px); padding: 3px 6px 3px 3px; display: flex; gap: 6px; align-items: center; font-size: 12px; background: var(--t-card); max-width: 220px; }
 	.CLASS .attached .item img { width: 34px; height: 34px; object-fit: cover; border-radius: 4px; }
@@ -243,12 +245,14 @@
 			<div class="row">
 				<button class="tbtn tbtn-icon exec" data-exec="?/attach" title="@(Attach images or text files)" aria-label="@(Attach images or text files)"><i class="ti ti-paperclip"></i></button>
 				<div class="grow"><ui-component name="input" path="?.text" config="placeholder:@(Ask Totem...);autofocus:true"></ui-component></div>
+				<button name="send" class="tbtn tbtn-primary exec" data-exec="?/send"><i class="ti ti-send"></i>@(Send)</button>
+			</div>
+			<div class="row opts">
 				<ui-bind path="?.current" config="template" class="inline"><script type="text/html">{{ if value }}{{ value.icon | provicon(value.provider) }}{{ fi }}</script></ui-bind>
 				<div class="model"><ui-component name="input" path="?.model" config="placeholder:@(Model);dirsource:?.models"></ui-component></div>
 				<ui-bind path="?.thinks" config="show:value" class="hidden"><ui-component name="input" path="?.reasoning" config="placeholder:@(Reasoning);dirsource:?.efforts"></ui-component></ui-bind>
 				<div class="mode"><ui-component name="input" path="?.mode" config="dirsource:?.modes;required:false"></ui-component></div>
 				<ui-component name="input" path="?.autoaccept" config="type:checkbox">@(Auto-accept edits)</ui-component>
-				<button name="send" class="tbtn tbtn-primary exec" data-exec="?/send"><i class="ti ti-send"></i>@(Send)</button>
 			</div>
 		</ui-component>
 	</div>
