@@ -4,16 +4,16 @@
 		<ui-bind path="common.theme" config="template" class="block mb10">
 			<script type="text/html">
 				<div style="display:flex;gap:8px">
-					<button class="tbtn exec{{ if value === 'auto' }} tbtn-primary{{ fi }}" data-exec="?/theme" data-mode="auto"><i class="ti ti-device-desktop"></i>@(Auto)</button>
+					<button class="tbtn exec{{ if value === 'auto' }} tbtn-primary{{ fi }}" data-exec="?/theme" data-mode="auto"><i class="ti ti-desktop"></i>@(Auto)</button>
 					<button class="tbtn exec{{ if value === 'light' }} tbtn-primary{{ fi }}" data-exec="?/theme" data-mode="light"><i class="ti ti-sun"></i>@(Light)</button>
-					<button class="tbtn exec{{ if value === 'dark' }} tbtn-primary{{ fi }}" data-exec="?/theme" data-mode="dark"><i class="ti ti-moon"></i>@(Dark)</button>
+					<button class="tbtn exec{{ if value === 'dark' }} tbtn-primary{{ fi }}" data-exec="?/theme" data-mode="dark"><i class="ti ti-adjust"></i>@(Dark)</button>
 				</div>
 			</script>
 		</ui-bind>
-		<div class="caption mb10"><label><i class="ti ti-plug-connected"></i>@(Providers)</label></div>
+		<div class="caption mb10"><label><i class="ti ti-plug-alt"></i>@(Providers)</label></div>
 		<div class="help mb10">@(A provider is any server with an OpenAI-compatible API: OpenRouter, OpenAI, Ollama, LM Studio... Prompts go only to the providers you add here.)</div>
 		<div class="mb10">
-			<button class="tbtn exec" data-exec="?/detect"><i class="ti ti-radar"></i>@(Look for servers on this computer)</button>
+			<button class="tbtn exec" data-exec="?/detect"><i class="ti ti-satellite"></i>@(Look for servers on this computer)</button>
 		</div>
 		<ui-bind path="?.found" config="template" class="block">
 			<script type="text/html">

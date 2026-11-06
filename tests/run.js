@@ -1726,6 +1726,33 @@ Test.push('sidebar: names and sessions', async function(next) {
 	next();
 });
 
+Test.push('the icons in use exist in the icon font', function(next) {
+
+	// tests/icons.txt is the list of the icons of spa.min@20.css (the Total.js icon font); a name that is not there shows nothing
+	var have = {};
+	Total.Fs.readFileSync(Total.Path.join(__dirname, 'icons.txt'), 'utf8').split('\n').forEach(name => name && (have[name] = 1));
+	var missing = [];
+
+	function scan(dir) {
+		Total.Fs.readdirSync(dir, { withFileTypes: true }).forEach(function(entry) {
+			var full = Total.Path.join(dir, entry.name);
+			if (entry.isDirectory())
+				return scan(full);
+			if (!/\.(html|js)$/.test(entry.name))
+				return;
+			(Total.Fs.readFileSync(full, 'utf8').match(/\bti ti-[a-z0-9-]+|"ti-[a-z0-9-]+|ti-[a-z0-9-]+(?=["' ])/g) || []).forEach(function(match) {
+				var name = match.replace(/^.*ti-/, '');
+				if (!have[name] && name !== 'icon' && missing.indexOf(name) === -1)
+					missing.push(name);
+			});
+		});
+	}
+
+	['plugins', 'views'].forEach(dir => scan(Total.Path.join(__dirname, '..', dir)));
+	check('every icon name of the interface exists in the font' + (missing.length ? ' (missing: ' + missing.join(', ') + ')' : ''), missing.length === 0);
+	next();
+});
+
 Test.push('cleanup', async function(next) {
 	var r = await api('projects_remove/' + projectid);
 	check('removing a project removes its sessions', r.response.success === true);

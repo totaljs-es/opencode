@@ -44,14 +44,14 @@
 							<div class="path">{{ m.path | shortpath }}</div>
 						</div>
 						<span class="exec more" data-exec="?/newsession" data-prevent="true" title="@(New session)" aria-label="@(New session)"><i class="ti ti-plus"></i></span>
-						<span class="exec more" data-exec="?/menu" data-prevent="true" title="@(Options)" aria-label="@(Options)"><i class="ti ti-dots"></i></span>
+						<span class="exec more" data-exec="?/menu" data-prevent="true" title="@(Options)" aria-label="@(Options)"><i class="ti ti-ellipsis-h"></i></span>
 					</div>
 					{{ if m.sessions }}
 					{{ foreach s in m.sessions }}
 					<div class="exec session{{ if s.id === common.sessionid }} selected{{ fi }}" data-exec="?/session" data-id="{{ s.id }}" data-project="{{ m.id }}">
 						<span class="{{ if s.status === 'running' }}running{{ fi }}">{{ s.icon | provicon(s.provider) }}</span>
 						<span class="title">{{ s.name }}</span>
-						<span class="exec more" data-exec="?/sessionmenu" data-prevent="true" data-id="{{ s.id }}" data-project="{{ m.id }}" title="@(Options)"><i class="ti ti-dots"></i></span>
+						<span class="exec more" data-exec="?/sessionmenu" data-prevent="true" data-id="{{ s.id }}" data-project="{{ m.id }}" title="@(Options)"><i class="ti ti-ellipsis-h"></i></span>
 					</div>
 					{{ end }}
 					{{ fi }}
@@ -181,7 +181,7 @@
 			opt.align = 'right';
 			opt.items = [];
 			opt.items.push({ id: 'session', name: '@(New session)', icon: 'ti ti-plus' });
-			opt.items.push({ id: 'named', name: '@(New session with a name)', icon: 'ti ti-pencil-plus' });
+			opt.items.push({ id: 'named', name: '@(New session with a name)', icon: 'ti ti-pencil-alt' });
 			opt.items.push('-');
 			opt.items.push({ id: 'remove', name: '@(Remove folder from the list)', icon: 'ti ti-trash red' });
 			opt.callback = function(item) {
@@ -225,7 +225,7 @@
 			opt.align = 'right';
 			opt.items = [];
 			opt.items.push({ id: 'rename', name: '@(Rename)', icon: 'ti ti-pencil' });
-			opt.items.push({ id: 'fork', name: '@(Fork)', icon: 'ti ti-git-fork' });
+			opt.items.push({ id: 'fork', name: '@(Fork)', icon: 'ti ti-code-branch' });
 			opt.items.push('-');
 			opt.items.push({ id: 'remove', name: '@(Delete session)', icon: 'ti ti-trash red' });
 			opt.callback = function(item) {

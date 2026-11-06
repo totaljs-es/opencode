@@ -110,3 +110,7 @@ After an undo the bar shows Redo, which puts the changes back (the snapshots and
 ## Sidebar
 
 A click on a folder opens its latest session (a folder without sessions gets one); the `+` of the row starts a new one. The dots of every row are always visible, and a right click opens the same menu: rename, fork and delete a session, remove a folder from the list (the files are never touched). A double click on a session renames it. A name that is not a text is ignored, and sessions that an old bug named "[object Object]" are renamed after their first prompt when the list is read.
+
+## Icons
+
+The icon font is the one of `spa.min@20.css` (the Total.js icons, named `ti-...`), not the whole Tabler set: a name that is not in it shows nothing. `tests/icons.txt` lists the names of that file and a test checks every icon used in `plugins/` and `views/`.

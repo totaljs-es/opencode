@@ -87,10 +87,10 @@
 		<b><ui-bind path="?.session" config="template" class="block"><script type="text/html">{{ if value }}{{ value.name }}{{ else }}@(No session){{ fi }}</script></ui-bind></b>
 		<ui-bind path="?.current" config="template" class="inline"><script type="text/html">{{ if value }}<span class="meter" style="display:inline-flex;gap:6px;align-items:center" title="{{ value.provider }}">{{ value.icon | provicon(value.provider) }}{{ value.id }}</span>{{ fi }}</script></ui-bind>
 		<ui-bind path="?.status" config="template" class="inline"><script type="text/html"><span class="badge badge-small{{ if value === 'running' }} badge-orange{{ fi }}{{ if value === 'error' }} badge-red{{ fi }}{{ if value === 'idle' }} badge-silver{{ fi }}{{ if value === 'aborted' }} badge-gray{{ fi }}">{{ value }}</span></script></ui-bind>
-		<ui-bind path="?.canredo" config="show:value" class="hidden"><button class="tbtn exec" data-exec="?/redo" title="@(Put back the changes that were undone)"><i class="ti ti-arrow-forward-up"></i>@(Redo)</button></ui-bind>
-		<ui-bind path="?.status" config="show:value === 'running'" class="hidden"><button class="tbtn exec" data-exec="?/abort" title="@(Stop, Esc)"><i class="ti ti-player-stop"></i>@(Stop)</button></ui-bind>
+		<ui-bind path="?.canredo" config="show:value" class="hidden"><button class="tbtn exec" data-exec="?/redo" title="@(Put back the changes that were undone)"><i class="ti ti-redo"></i>@(Redo)</button></ui-bind>
+		<ui-bind path="?.status" config="show:value === 'running'" class="hidden"><button class="tbtn exec" data-exec="?/abort" title="@(Stop, Esc)"><i class="ti ti-stop-alt"></i>@(Stop)</button></ui-bind>
 		<ui-bind path="?.items" config="template" class="inline"><script type="text/html"><span class="meter" title="@(Tokens used in this session)">{{ value | tokens }}</span></script></ui-bind>
-		<button class="tbtn exec" data-exec="?/changes" title="@(Files changed by Totem, Alt+D)"><i class="ti ti-git-compare"></i>@(Changes)<ui-bind path="?.files" config="template" class="inline"><script type="text/html">{{ if value && value.length }} ({{ value.length }}){{ fi }}</script></ui-bind></button>
+		<button class="tbtn exec" data-exec="?/changes" title="@(Files changed by Totem, Alt+D)"><i class="ti ti-exchange"></i>@(Changes)<ui-bind path="?.files" config="template" class="inline"><script type="text/html">{{ if value && value.length }} ({{ value.length }}){{ fi }}</script></ui-bind></button>
 	</div>
 
 	<div class="layout">
@@ -127,14 +127,14 @@
 							{{ fi }}
 							{{ if p.type === 'file' }}
 							<div class="files">
-								{{ if p.data.kind === 'image' }}<a href="/attachments/{{ p.data.id }}/" target="_blank" rel="noopener"><img src="/attachments/{{ p.data.id }}/" alt="{{ p.data.name }}" loading="lazy" /></a>{{ else }}<a class="chip" href="/attachments/{{ p.data.id }}/" target="_blank" rel="noopener"><i class="ti ti-file-text"></i> {{ p.data.name }}</a>{{ fi }}
+								{{ if p.data.kind === 'image' }}<a href="/attachments/{{ p.data.id }}/" target="_blank" rel="noopener"><img src="/attachments/{{ p.data.id }}/" alt="{{ p.data.name }}" loading="lazy" /></a>{{ else }}<a class="chip" href="/attachments/{{ p.data.id }}/" target="_blank" rel="noopener"><i class="ti ti-file-alt"></i> {{ p.data.name }}</a>{{ fi }}
 							</div>
 							{{ fi }}
 							{{ if p.type === 'knowledge' }}
 							<div class="note"><i class="ti ti-book"></i> @(Pages of Forge used:) {{ p.data.pages | forgepages }}</div>
 							{{ fi }}
 							{{ if p.type === 'compaction' }}
-							<div class="note"><i class="ti ti-arrows-minimize"></i> @(Earlier turns were summarized to keep the conversation short.)</div>
+							<div class="note"><i class="ti ti-compress"></i> @(Earlier turns were summarized to keep the conversation short.)</div>
 							{{ fi }}
 							{{ if p.type === 'reasoning' }}
 							<details class="part reasoning" data-part="{{ p.id }}"{{ if p.open }} open{{ fi }}><summary>@(Thinking)</summary><span class="rtext">{{ p.data.text }}</span></details>
@@ -142,14 +142,14 @@
 							{{ if p.type === 'tool' }}
 							<div class="part">
 								<details class="tool" data-part="{{ p.id }}"{{ if p.open }} open{{ fi }}>
-									<summary><i class="ti ti-tool"></i><b>{{ p.data.tool }}</b><span class="hellip" style="flex:1;color:#777">{{ p.data.input | json }}</span><span class="st-{{ p.data.status }}">{{ p.data.status }}</span></summary>
+									<summary><i class="ti ti-wrench"></i><b>{{ p.data.tool }}</b><span class="hellip" style="flex:1;color:#777">{{ p.data.input | json }}</span><span class="st-{{ p.data.status }}">{{ p.data.status }}</span></summary>
 									{{ if p.data.output || p.data.error }}<pre>{{ p.data.error || p.data.output }}</pre>{{ fi }}
 								</details>
 							</div>
 							{{ fi }}
 						{{ end }}
 						{{ if m.role === 'assistant' }}
-						<div class="undo">{{ if m.changed }}<span class="exec link" data-exec="?/undo" data-id="{{ m.id }}"><i class="ti ti-arrow-back-up"></i> @(Undo these changes)</span> &nbsp; {{ fi }}<span class="exec link" data-exec="?/fork" data-id="{{ m.id }}"><i class="ti ti-git-fork"></i> @(Fork from here)</span></div>
+						<div class="undo">{{ if m.changed }}<span class="exec link" data-exec="?/undo" data-id="{{ m.id }}"><i class="ti ti-undo"></i> @(Undo these changes)</span> &nbsp; {{ fi }}<span class="exec link" data-exec="?/fork" data-id="{{ m.id }}"><i class="ti ti-code-branch"></i> @(Fork from here)</span></div>
 						{{ fi }}
 					</div>
 					{{ end }}
@@ -162,12 +162,12 @@
 				<script type="text/html">
 					{{ foreach a in value }}
 					<div class="message message-alert ask">
-						<b><i class="ti ti-shield-question"></i> @(Totem wants to use) {{ a.tool }}</b>
+						<b><i class="ti ti-shield-alt"></i> @(Totem wants to use) {{ a.tool }}</b>
 						<code>{{ a.text }}</code>
 						<div class="row2">
 							<button class="tbtn tbtn-primary exec" data-exec="?/reply" data-id="{{ a.id }}" data-reply="once"><i class="ti ti-check"></i>@(Allow once)</button>
-							<button class="tbtn exec" data-exec="?/reply" data-id="{{ a.id }}" data-reply="always"><i class="ti ti-checks"></i>@(Always allow)</button>
-							<button class="tbtn exec" data-exec="?/reply" data-id="{{ a.id }}" data-reply="reject"><i class="ti ti-x"></i>@(Reject)</button>
+							<button class="tbtn exec" data-exec="?/reply" data-id="{{ a.id }}" data-reply="always"><i class="ti ti-check-circle"></i>@(Always allow)</button>
+							<button class="tbtn exec" data-exec="?/reply" data-id="{{ a.id }}" data-reply="reject"><i class="ti ti-times"></i>@(Reject)</button>
 						</div>
 					</div>
 					{{ end }}
@@ -178,7 +178,7 @@
 				<script type="text/html">
 					{{ foreach q in value }}
 					<div class="message ask question">
-						<b><i class="ti ti-help-circle"></i> {{ q.text }}</b>
+						<b><i class="ti ti-question-circle"></i> {{ q.text }}</b>
 						<div class="mt10">
 							{{ foreach o in q.options }}
 							<button class="tbtn exec" data-exec="?/answer" data-id="{{ q.id }}" data-answer="{{ o }}">{{ o }}</button>
@@ -220,9 +220,9 @@
 				<div class="attached">
 					{{ foreach a in value }}
 					<div class="item">
-						{{ if a.kind === 'image' }}<img src="{{ a.url }}" alt="" />{{ else }}<i class="ti ti-file-text" style="font-size:20px;margin:0 4px"></i>{{ fi }}
+						{{ if a.kind === 'image' }}<img src="{{ a.url }}" alt="" />{{ else }}<i class="ti ti-file-alt" style="font-size:20px;margin:0 4px"></i>{{ fi }}
 						<span class="name" title="{{ a.name }}">{{ a.name }}</span>
-						<span class="exec" data-exec="?/unattach" data-index="{{ $index }}" title="@(Remove)" style="cursor:pointer"><i class="ti ti-x"></i></span>
+						<span class="exec" data-exec="?/unattach" data-index="{{ $index }}" title="@(Remove)" style="cursor:pointer"><i class="ti ti-times"></i></span>
 					</div>
 					{{ end }}
 				</div>
@@ -796,7 +796,7 @@
 
 		exports.undo = function(el) {
 			var id = ATTRD(el);
-			SETTER('approve/show', '@(Restore the files as they were before these changes?)', ':ti ti-arrow-back-up: @(Undo)', function() {
+			SETTER('approve/show', '@(Restore the files as they were before these changes?)', ':ti ti-undo: @(Undo)', function() {
 				exports.tapi('sessions_undo/' + sessionid + ' ERROR', { messageid: id }, function(restored) {
 					SETTER('notify/success', '@(Restored files:) ' + restored.length);
 					exports.set('canredo', restored.length > 0);
