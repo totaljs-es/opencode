@@ -516,7 +516,7 @@ Test.push('providers, discovery and model metadata', async function(next) {
 	MAIN.templates = saved;
 	check('detection finds the servers that answer and skips the others', r.response.length === 1 && r.response[0].template.id === 'ollama' && r.response[0].models.length === 2);
 
-	r = await api('providers_save', { name: 'Local mock', url: base, kind: 'ollama', models: ['tiny:1b', 'big:7b'], meta: { 'tiny:1b': { id: 'tiny:1b', context: 8192, tools: false }, 'big:7b': { id: 'big:7b', context: 32768, tools: true, reasoning: true } } });
+	r = await api('providers_save', { name: 'Local mock', url: base, kind: 'openai', models: ['tiny:1b', 'big:7b'], meta: { 'tiny:1b': { id: 'tiny:1b', context: 8192, tools: false }, 'big:7b': { id: 'big:7b', context: 32768, tools: true, reasoning: true } } });
 	check('a provider is saved with the metadata of its models', r.response && r.response.success === true);
 	await new Promise(resolve => setTimeout(resolve, 200));
 
@@ -727,7 +727,7 @@ Test.push('cost and reasoning effort', async function(next) {
 	check('an empty effort leaves the default of the model', mock.requests[0].reasoning_effort === undefined);
 
 	// A local model costs nothing
-	await api('providers_save', { name: 'Free local', url: base, kind: 'ollama', models: ['tiny:1b'], meta: { 'tiny:1b': { id: 'tiny:1b', free: true, price: { input: 0, output: 0 }, tools: false } } });
+	await api('providers_save', { name: 'Free local', url: base, kind: 'openai', models: ['tiny:1b'], meta: { 'tiny:1b': { id: 'tiny:1b', free: true, price: { input: 0, output: 0 }, tools: false } } });
 	await new Promise(resolve => setTimeout(resolve, 200));
 	var free = await session({ model: 'free-local:tiny:1b' });
 	events.length = 0;
@@ -1265,6 +1265,188 @@ Test.push('the icons of the providers are all the same', function(next) {
 	// The files are what the script writes from the originals
 	var result = require('child_process').spawnSync(process.execPath, [Total.Path.join(ROOT, 'scripts/normalize-icons.js'), '--check']);
 	check('the files of the folder are what the script writes from assets/providers', result.status === 0);
+	next();
+});
+
+Test.push('small models: temperature, reminder, and Forge for every project', async function(next) {
+
+	var mock = require('./mock-openai');
+	var mcp = require('./mock-mcp');
+
+	check('the servers of this computer are recognized', ['http://127.0.0.1:11434/v1', 'http://localhost:4000/v1', 'http://192.168.1.5:8080/v1', 'http://10.0.0.2/v1', 'http://172.20.1.1/v1', 'http://[::1]:8080/v1'].every(u => MODS.provider.islocal(u)));
+	check('a remote provider is not', ['https://api.openai.com/v1', 'https://openrouter.ai/api/v1', 'http://172.32.0.1/v1', 'https://localhost.example.com/v1', ''].every(u => !MODS.provider.islocal(u)));
+
+	// Temperature: a low one for a server of this computer
+	var id = await session({ model: 'mock:mock' });
+	events.length = 0;
+	mock.requests.length = 0;
+	await api('sessions_prompt/' + id, { text: 'hello' });
+	await idle(id);
+	check('a model of this computer is asked for the temperature of the config', mock.requests[0].temperature === 0.2);
+
+	// The reminder goes in the request of a Total.js project, and only there
+	var fresh = Total.Path.join(TMP, 'fresh2');
+	Total.Fs.mkdirSync(fresh, { recursive: true });
+	var project = (await api('projects_open', { path: fresh })).response;
+	var tid = (await api('sessions_create', { projectid: project.id, model: 'fake' })).response.id;
+	events.length = 0;
+	requests.length = 0;
+	script = [{ content: 'ok' }];
+	var rejecter = setInterval(() => events.filter(e => e.type === 'permission.ask').forEach(e => api('permissions_reply/' + e.data.id, { reply: 'reject' })), 30);
+	await api('sessions_prompt/' + tid, { text: 'a form with jcomponent' });
+	await idle(tid);
+	clearInterval(rejecter);
+	var last = requests[0].messages[requests[0].messages.length - 1];
+	check('the prompt of a Total.js project ends with the reminder', last.role === 'user' && last.content.indexOf('a form with jcomponent') === 0 && /Total\.js 5 and jComponent 20.*not React/s.test(last.content));
+	var stored = (await api('sessions_messages/' + tid)).response.find(m => m.role === 'user').parts[0].data;
+	check('the reminder is not stored: the user sees only what they wrote', stored.text === 'a form with jcomponent' && JSON.stringify(stored).indexOf('Not plain JavaScript') === -1);
+
+	events.length = 0;
+	requests.length = 0;
+	script = [{ content: 'ok' }];
+	var plain = (await api('sessions_create', { projectid: projectid, model: 'fake' })).response.id;
+	await api('sessions_prompt/' + plain, { text: 'a form with jcomponent' });
+	await idle(plain);
+	check('a plain Node.js project has no reminder', requests[0].messages[requests[0].messages.length - 1].content === 'a form with jcomponent');
+
+	// Always allow Forge once, for every project
+	var a = Total.Path.join(TMP, 'forge-a');
+	var b = Total.Path.join(TMP, 'forge-b');
+	[a, b].forEach(function(dir) {
+		Total.Fs.mkdirSync(Total.Path.join(dir, '.totem'), { recursive: true });
+		Total.Fs.writeFileSync(Total.Path.join(dir, 'package.json'), '{ "dependencies": { "total5": "latest" } }');
+		Total.Fs.writeFileSync(Total.Path.join(dir, '.totem/mcp.json'), JSON.stringify({ servers: { forge: { url: 'http://127.0.0.1:8111/mcp' } } }));
+	});
+
+	var pa = (await api('projects_open', { path: a })).response;
+	var sa = (await api('sessions_create', { projectid: pa.id, model: 'fake' })).response.id;
+	events.length = 0;
+	script = [{ content: 'ok' }];
+	var always = setInterval(() => events.filter(e => e.type === 'permission.ask' && e.data.tool === 'mcp-start').forEach(e => api('permissions_reply/' + e.data.id, { reply: 'always' })), 30);
+	await api('sessions_prompt/' + sa, { text: 'how do I write a jcomponent' });
+	await idle(sa);
+	clearInterval(always);
+	var rule = await NOSQL('permissions').read().where('tool', 'mcp-start').promise();
+	check('"Always allow" for Forge is stored for every project', !!rule && rule.projectid === '' && rule.pattern.indexOf('forge: ') === 0);
+
+	var pb = (await api('projects_open', { path: b })).response;
+	var sb = (await api('sessions_create', { projectid: pb.id, model: 'fake' })).response.id;
+	events.length = 0;
+	requests.length = 0;
+	script = [{ content: 'ok' }];
+	await api('sessions_prompt/' + sb, { text: 'how do I write a jcomponent' });
+	await idle(sb);
+	check('another project starts Forge without asking again', !events.some(e => e.type === 'permission.ask') && requests[0].tools.some(t => t.function.name === 'forge__Forge_search'));
+	next();
+});
+
+Test.push('Ollama with its own API', async function(next) {
+
+	var mock = require('./mock-openai');
+	var mcp = require('./mock-mcp');
+	var base = 'http://127.0.0.1:8111/v1';
+	var PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+
+	await api('providers_save', { name: 'Native', url: base, kind: 'ollama', models: ['m1', 'think', 'broken'], meta: { m1: { id: 'm1', context: 32768, tools: true, vision: true }, think: { id: 'think', context: 8192, reasoning: true, tools: true }, broken: { id: 'broken', context: 8192 } } });
+	await new Promise(resolve => setTimeout(resolve, 300));
+
+	// The conversion of the messages
+	var converted = MODS.provider.toollama([
+		{ role: 'system', content: 'SYS' },
+		{ role: 'user', content: [{ type: 'text', text: 'look' }, { type: 'image_url', image_url: { url: 'data:image/png;base64,' + PNG } }] },
+		{ role: 'assistant', content: null, tool_calls: [{ id: 'c1', type: 'function', function: { name: 'read', arguments: '{"path":"a"}' } }] },
+		{ role: 'tool', tool_call_id: 'c1', content: 'text of a' }
+	]);
+	check('the images go in a list of base64 texts and the text stays', converted[1].content === 'look' && converted[1].images.length === 1 && converted[1].images[0] === PNG);
+	check('the arguments of a call are an object and a result names its tool', converted[2].tool_calls[0].function.arguments.path === 'a' && converted[3].role === 'tool' && converted[3].tool_name === 'read');
+
+	// The size of the context
+	check('a small request asks for the context of the config', MODS.provider.contextsize([{ role: 'user', content: 'hi' }], [], { context: 262144 }) === 16384);
+	check('a large request asks for more, in steps of 4096', MODS.provider.contextsize([{ role: 'user', content: 'x'.repeat(80000) }], [], { context: 262144 }) % 4096 === 0 && MODS.provider.contextsize([{ role: 'user', content: 'x'.repeat(80000) }], [], { context: 262144 }) > 16384);
+	check('it never asks for more than the window of the model or the config', MODS.provider.contextsize([{ role: 'user', content: 'x'.repeat(900000) }], [], { context: 262144 }) === 32768 && MODS.provider.contextsize([{ role: 'user', content: 'hi' }], [], { context: 8192 }) === 8192);
+
+	// A plain prompt goes to /api/chat
+	var id = await session({ model: 'native:m1' });
+	events.length = 0;
+	mock.native.length = 0;
+	mock.requests.length = 0;
+	await api('sessions_prompt/' + id, { text: 'hello' });
+	await idle(id);
+	var sent = mock.native[0];
+	check('Ollama gets /api/chat with a real context and the temperature of the config', mock.native.length === 1 && mock.requests.length === 0 && sent.stream === true && sent.options.num_ctx >= 16384 && sent.options.temperature === 0.2 && sent.messages[0].role === 'system' && sent.tools.length === 12);
+	var r = await api('sessions_messages/' + id);
+	var parts = r.response.find(m => m.role === 'assistant').parts;
+	check('the answer and the usage of the request are kept', parts.find(p => p.type === 'text').data.text === 'Hello from Ollama' && parts.find(p => p.type === 'step').data.tokens.input === 42 && parts.find(p => p.type === 'step').data.tokens.output === 7);
+
+	// A tool call, with the thinking of the model
+	events.length = 0;
+	mock.native.length = 0;
+	await api('sessions_prompt/' + id, { text: 'please read the file' });
+	await idle(id);
+	r = await api('sessions_messages/' + id);
+	parts = r.response[r.response.length - 1].parts;
+	check('the thinking, the text and the tool call of Ollama are parsed', parts.some(p => p.type === 'reasoning' && p.data.text === 'I should read the file first.') && parts.find(p => p.type === 'tool').data.tool === 'read' && parts.find(p => p.type === 'tool').data.status === 'done');
+	var second = mock.native[1].messages[mock.native[1].messages.length - 1];
+	check('the next request carries the result with the name of the tool', mock.native.length === 2 && second.role === 'tool' && second.tool_name === 'read');
+	check('the answer follows the result', parts.filter(p => p.type === 'text').map(p => p.data.text).join('|').indexOf('Ollama saw read') !== -1);
+
+	// A long prompt gets a larger context
+	events.length = 0;
+	mock.native.length = 0;
+	await api('sessions_prompt/' + id, { text: 'word '.repeat(30000) });
+	await idle(id);
+	check('a request that does not fit in the usual context asks for a larger one', mock.native[0].options.num_ctx > 16384 && mock.native[0].options.num_ctx <= 32768 && mock.native[0].options.num_ctx % 4096 === 0);
+
+	// A model with a small window is never asked for more
+	var small = await session({ model: 'native:think' });
+	events.length = 0;
+	mock.native.length = 0;
+	await api('sessions_prompt/' + small, { text: 'hi', reasoning: 'none' });
+	await idle(small);
+	check('a model with a window of 8192 gets 8192', mock.native[0].options.num_ctx === 8192);
+	check('"none" turns the thinking off for a model that thinks', mock.native[0].think === false);
+	events.length = 0;
+	mock.native.length = 0;
+	await api('sessions_prompt/' + small, { text: 'hi again', reasoning: 'high' });
+	await idle(small);
+	check('another level turns it on', mock.native[0].think === true);
+	events.length = 0;
+	mock.native.length = 0;
+	await api('sessions_prompt/' + id, { text: 'no flag for this one', reasoning: 'none' });
+	await idle(id);
+	check('a model that is not known to think gets no flag', mock.native[0].think === undefined);
+
+	// An image goes to a model that can see
+	events.length = 0;
+	mock.native.length = 0;
+	await api('sessions_prompt/' + id, { text: 'what is this', attachments: [{ name: 'a.png', mime: 'image/png', data: PNG }] });
+	await idle(id);
+	var chats = mock.native.filter(n => !JSON.stringify(n.messages).includes('Summarize'));
+	var withimg = chats.filter(n => n.messages.some(m => m.images && m.images[0] === PNG));
+	var lastuser = withimg.length ? withimg[0].messages.filter(m => m.images)[0] : {};
+	check('an attached image is sent as an image of the message', lastuser.role === 'user' && lastuser.images && lastuser.images[0] === PNG);
+
+	// An error of Ollama is an error of the run
+	var broken = await session({ model: 'native:broken' });
+	events.length = 0;
+	await api('sessions_prompt/' + broken, { text: 'hello' });
+	await until(() => events.some(e => e.type === 'session.status' && e.data.status === 'error'));
+	check('the error of Ollama reaches the user with its status', events.some(e => e.type === 'error' && /400/.test(e.data.message) && /image input/.test(e.data.message)));
+
+	// A server can offer fewer tools than it has
+	Total.Fs.mkdirSync(Total.Path.join(PROJECT, '.totem'), { recursive: true });
+	Total.Fs.writeFileSync(Total.Path.join(PROJECT, '.totem/mcp.json'), JSON.stringify({ servers: { mock: { command: process.execPath, args: [Total.Path.join(ROOT, 'tests/mock-mcp.js')], tools: ['echo'] } } }));
+	var filtered = await session({ model: 'fake' });
+	events.length = 0;
+	requests.length = 0;
+	script = [{ content: 'ok' }];
+	var approver = setInterval(() => events.filter(e => e.type === 'permission.ask').forEach(e => api('permissions_reply/' + e.data.id, { reply: 'once' })), 30);
+	await api('sessions_prompt/' + filtered, { text: 'hello' });
+	await idle(filtered);
+	clearInterval(approver);
+	var names = requests[0].tools.map(t => t.function.name).filter(n => /^mock__/.test(n));
+	check('only the tools that the config lists are offered', JSON.stringify(names) === JSON.stringify(['mock__echo']));
+	Total.Fs.rmSync(Total.Path.join(PROJECT, '.totem'), { recursive: true });
 	next();
 });
 

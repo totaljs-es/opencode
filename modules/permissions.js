@@ -25,7 +25,8 @@ exports.check = function(run, tool, input, callback) {
 		return;
 	}
 
-	NOSQL('permissions').find().where('projectid', run.projectid).callback(function(err, rules) {
+	// The rules of the project and the global ones (an empty project)
+	NOSQL('permissions').find().in('projectid', [run.projectid, '']).callback(function(err, rules) {
 
 		var found = null;
 		var best = -1;
@@ -73,8 +74,9 @@ exports.reply = function(id, reply) {
 
 	delete MAIN.asks[id];
 
+	// Starting a server that Totem brings (Forge) is allowed once for every project; the rest is allowed for the project
 	if (reply === 'always')
-		NOSQL('permissions').insert({ id: UID(), projectid: ask.projectid, tool: ask.tool, pattern: ask.text, action: 'allow', dtcreated: NOW });
+		NOSQL('permissions').insert({ id: UID(), projectid: ask.tool === 'mcp-start' && /^forge: /.test(ask.text) ? '' : ask.projectid, tool: ask.tool, pattern: ask.text, action: 'allow', dtcreated: NOW });
 
 	FUNC.emit(ask.sessionid, 'permission.replied', { id: id, reply: reply });
 	ask.callback(reply === 'reject' ? 'deny' : 'allow', reply === 'reject' ? 'The user rejected this action. Do not try it again; explain what you wanted to change and ask how to proceed.' : null);

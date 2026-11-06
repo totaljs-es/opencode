@@ -29,9 +29,14 @@ FUNC.providers = function(callback) {
 			if (item.disabled)
 				continue;
 			for (var model of item.models) {
-				var config = { url: item.url, key: key, model: model };
+				var meta = (item.meta && item.meta[model]) || {};
+				var config = { url: item.url, key: key, model: model, context: meta.context || null, reasoning: meta.reasoning === undefined ? null : meta.reasoning };
 				NEWAIMODEL(item.id + ':' + model, config, MODS.provider.byKind(item.kind));
-				MAIN.modelmeta[item.id + ':' + model] = (item.meta && item.meta[model]) || {};
+				MAIN.modelmeta[item.id + ':' + model] = Object.assign({}, meta);
+
+				// The window that Totem really uses: Ollama is asked for a context that is as large as the config allows
+				if (item.kind === 'ollama')
+					MAIN.modelmeta[item.id + ':' + model].window = Math.max(Math.min(meta.context || 32768, CONF.ollamactxmax || 32768), 4096);
 				MAIN.modelprov[item.id + ':' + model] = { id: item.id, name: item.name, icon: FUNC.providericon(item) };
 			}
 		}

@@ -90,6 +90,7 @@ function gemini(res, payload) {
 }
 
 exports.calls = [];
+exports.native = [];
 
 exports.start = function(port, callback) {
 
@@ -151,6 +152,39 @@ exports.start = function(port, callback) {
 
 			if (req.url === '/v1beta/models?pageSize=1000') {
 				res.end(JSON.stringify({ models: [{ name: 'models/gemini-test', displayName: 'Gemini Test', inputTokenLimit: 1048576, supportedGenerationMethods: ['generateContent'] }, { name: 'models/embed-test', supportedGenerationMethods: ['embedContent'] }] }));
+				return;
+			}
+
+			// The native API of Ollama: newline-delimited JSON
+			if (req.url === '/api/chat') {
+
+				var native = JSON.parse(body);
+				exports.native.push(native);
+
+				if (native.model === 'broken') {
+					res.statusCode = 400;
+					res.end('{"error":"this model is missing data required for image input"}');
+					return;
+				}
+
+				var lastmsg = native.messages[native.messages.length - 1];
+				res.writeHead(200, { 'content-type': 'application/x-ndjson' });
+
+				var line = obj => res.write(JSON.stringify(obj) + '\n');
+				var done = { model: native.model, done: true, done_reason: 'stop', prompt_eval_count: 42, eval_count: 7 };
+
+				if (lastmsg.role === 'tool') {
+					line({ message: { role: 'assistant', content: 'Ollama saw ' + lastmsg.tool_name + ': ' + lastmsg.content.substring(0, 30) }, done: false });
+				} else if (/file/.test(lastmsg.content || '')) {
+					line({ message: { role: 'assistant', content: 'Let me read it.', thinking: 'I should read the file first.' }, done: false });
+					line({ message: { role: 'assistant', content: '', tool_calls: [{ function: { name: 'read', arguments: { path: 'a.txt' } } }] }, done: false });
+				} else {
+					line({ message: { role: 'assistant', content: 'Hello' }, done: false });
+					line({ message: { role: 'assistant', content: ' from Ollama' }, done: false });
+				}
+
+				line(done);
+				res.end();
 				return;
 			}
 

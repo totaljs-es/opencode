@@ -9,6 +9,14 @@ secret                      :
 // When set, every request must send it (header x-token or the cookie created by /auth/)
 token                       :
 
+// Temperature for the models that run on this computer (a low one keeps a small model to the instructions). Remote providers use their own.
+temperature       (Number)  : 0.2
+
+// Ollama is asked for a context of at least this many tokens, and for more when the request needs it, up to the second number or the window of the
+// model. Its default context is 2048 or 4096 tokens, which cuts the instructions of Totem.
+ollamactx         (Number)  : 16384
+ollamactxmax      (Number)  : 32768
+
 // Agent limits
 maxsteps          (Number)  : 50
 bashtimeout       (Number)  : 120000

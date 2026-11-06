@@ -28,13 +28,12 @@ Totem checks the files that you write in a Total.js project and appends what it 
 
 ## Look things up in Forge
 
-Forge (https://forge.totaljs.es) has the documentation of Total.js 5 and jComponent 20 with versions and execution evidence. When the tools `forge__Forge_search`, `forge__Forge_page`, `forge__Forge_verify_api` and `forge__Forge_source` are available:
+Forge (https://forge.totaljs.es) has the documentation of Total.js 5 and jComponent 20 with versions and execution evidence. When the tools `forge__Forge_search`, `forge__Forge_page` and `forge__Forge_verify_api` are available:
 
 The arguments of these tools go inside `input`, for example `{ "input": { "query": "NEWACTION input" } }`.
 
 1. `forge__Forge_search` finds the pages about a topic; `forge__Forge_page` returns the Markdown of one page.
 2. `forge__Forge_verify_api` checks the names that your code uses against the documented globals of Total.js 5: run it on code that you wrote before you answer.
-3. `forge__Forge_source` reads a file of the pinned framework when a page is not enough.
 
 Without them, use the fetch tool on these pages:
 

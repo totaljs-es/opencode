@@ -110,7 +110,7 @@
 							<div class="bubble">{{ p.data.text }}</div>
 							{{ fi }}
 							{{ if p.type === 'text' && m.role !== 'user' }}
-							<div class="part">{{ p.data.text | markdown({ wrap: false }) }}</div>
+							<div class="part" data-part="{{ p.id }}">{{ p.data.text | markdown({ wrap: false }) }}</div>
 							{{ fi }}
 							{{ if p.type === 'file' }}
 							<div class="files">
@@ -124,11 +124,11 @@
 							<div class="note"><i class="ti ti-arrows-minimize"></i> @(Earlier turns were summarized to keep the conversation short.)</div>
 							{{ fi }}
 							{{ if p.type === 'reasoning' }}
-							<details class="part reasoning"><summary>@(Thinking)</summary>{{ p.data.text }}</details>
+							<details class="part reasoning" data-part="{{ p.id }}"{{ if p.open }} open{{ fi }}><summary>@(Thinking)</summary><span class="rtext">{{ p.data.text }}</span></details>
 							{{ fi }}
 							{{ if p.type === 'tool' }}
 							<div class="part">
-								<details class="tool">
+								<details class="tool" data-part="{{ p.id }}"{{ if p.open }} open{{ fi }}>
 									<summary><i class="ti ti-tool"></i><b>{{ p.data.tool }}</b><span class="hellip" style="flex:1;color:#777">{{ p.data.input | json }}</span><span class="st-{{ p.data.status }}">{{ p.data.status }}</span></summary>
 									{{ if p.data.output || p.data.error }}<pre>{{ p.data.error || p.data.output }}</pre>{{ fi }}
 								</details>
@@ -266,7 +266,23 @@
 		var registered = false;
 		var EDITS = { write: 1, edit: 1, patch: 1 };
 
+		var wired = false;
+
 		exports.reload = function() {
+
+			if (!wired) {
+				wired = true;
+				var box = document.getElementById('chatscroll');
+
+				// Where the reader is, and which parts they opened: a redraw keeps both
+				box.addEventListener('scroll', () => stick = nearbottom());
+				box.addEventListener('toggle', function(e) {
+					var id = e.target.tagName === 'DETAILS' && e.target.getAttribute('data-part');
+					if (id && parts[id])
+						parts[id].open = e.target.open;
+				}, true);
+			}
+
 			exports.set('items', null);
 			exports.set('attachments', []);
 			exports.set('asks', []);
@@ -411,7 +427,7 @@
 					mark(m);
 				}
 				exports.set('items', items);
-				scroll();
+				scroll(true);
 			});
 
 			online();
@@ -424,11 +440,78 @@
 
 		exports.online = online;
 
-		function scroll() {
-			setTimeout(function() {
+		// The chat follows the answer only while the reader is at the bottom: scrolling up stops it, going back down starts it again
+		var stick = true;
+		var dirty = {};
+		var streamtimer = null;
+		var fulltimer = null;
+
+		function nearbottom() {
+			var el = $('#chatscroll')[0];
+			return !el || (el.scrollHeight - el.scrollTop - el.clientHeight) < 80;
+		}
+
+		function scroll(force) {
+
+			if (force)
+				stick = true;
+
+			if (!stick)
+				return;
+
+			requestAnimationFrame(function() {
 				var el = $('#chatscroll')[0];
 				el && (el.scrollTop = el.scrollHeight);
-			}, 30);
+			});
+		}
+
+		// The text that arrives while the model answers goes into the element of its part, a few times a second. The whole list is not drawn
+		// again for every word: that is what made the screen jump and flicker.
+		function flush() {
+
+			var again = false;
+
+			Object.keys(dirty).forEach(function(id) {
+
+				var part = parts[id];
+				var el = $('[data-part="' + id + '"]');
+
+				if (!part || !el.length) {
+					again = true;
+					return;
+				}
+
+				if (part.type === 'text')
+					el.html(Thelpers.markdown(part.data.text, { wrap: false }));
+				else if (part.type === 'reasoning')
+					el.find('.rtext').text(part.data.text);
+			});
+
+			dirty = {};
+			again && exports.update('items', true);
+			scroll();
+		}
+
+		function streamed(partid) {
+			dirty[partid] = true;
+			if (!streamtimer) {
+				streamtimer = setTimeout(function() {
+					streamtimer = null;
+					flush();
+				}, 90);
+			}
+		}
+
+		// The rest of the changes (a tool that finished, a part that opened) are drawn together, not one by one
+		function redraw() {
+			if (!fulltimer) {
+				fulltimer = setTimeout(function() {
+					fulltimer = null;
+					flush();
+					exports.update('items', true);
+					scroll();
+				}, 120);
+			}
 		}
 
 		function find(messageid) {
@@ -457,7 +540,7 @@
 						items.push(data.message);
 						exports.update('items', true);
 					}
-					scroll();
+					scroll(true);
 					break;
 
 				case 'part.created':
@@ -465,8 +548,7 @@
 					if (m && !parts[data.part.id]) {
 						parts[data.part.id] = data.part;
 						m.parts.push(data.part);
-						exports.update('items', true);
-						scroll();
+						redraw();
 					}
 					break;
 
@@ -474,8 +556,7 @@
 					var part = parts[data.partid];
 					if (part) {
 						part.data.text += data.text;
-						exports.update('items', true);
-						scroll();
+						streamed(data.partid);
 					}
 					break;
 
@@ -485,7 +566,7 @@
 						tool.data = data.part.data;
 						var owner = find(tool.messageid);
 						owner && mark(owner);
-						exports.update('items', true);
+						redraw();
 					}
 					break;
 

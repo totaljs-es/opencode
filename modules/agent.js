@@ -104,6 +104,26 @@ function textof(content) {
 	return content.map(part => part.type === 'text' ? part.text : '[image]').join('\n');
 }
 
+var REMINDER = '\n\n(Write it with Total.js 5 and jComponent 20, and follow the pages of Forge above when there are any. Not plain JavaScript, not Java, not React or another framework.)';
+
+// The last message, when it is the one of the user, ends with the reminder
+function withreminder(messages) {
+
+	var last = messages[messages.length - 1];
+
+	if (!last || last.role !== 'user')
+		return messages;
+
+	var copy = messages.slice();
+
+	if (Array.isArray(last.content))
+		copy[copy.length - 1] = Object.assign({}, last, { content: last.content.map((part, index) => index === 0 && part.type === 'text' ? Object.assign({}, part, { text: part.text + REMINDER }) : part) });
+	else
+		copy[copy.length - 1] = Object.assign({}, last, { content: (last.content || '') + REMINDER });
+
+	return copy;
+}
+
 // A model that cannot see gets the text of the prompt and a note in place of each image
 function withoutimages(messages) {
 	return messages.map(function(m) {
@@ -162,7 +182,8 @@ function compact(run, callback) {
 
 	// The window of the model when it is known, with room for the answer; otherwise the configured limit
 	var meta = (MAIN.modelmeta && MAIN.modelmeta[run.model]) || {};
-	var limit = meta.context ? Math.floor(meta.context * 0.8) : CONF.contextlimit;
+	var window = meta.window || meta.context;
+	var limit = window ? Math.floor(window * 0.8) : CONF.contextlimit;
 
 	if (estimate(run.messages) <= limit) {
 		callback();
@@ -394,6 +415,11 @@ function request(run, finish, fail) {
 
 	// A model that is known not to support tools only chats: the request without tools is better than an error
 	var meta = (MAIN.modelmeta && MAIN.modelmeta[run.model]) || {};
+
+	// A small model follows the end of the conversation better than the beginning: the prompt of the user, in a Total.js project, carries a
+	// short reminder in the request (it is not stored and the user does not see it)
+	if (MODS.instructions.istotaljs(run.root))
+		ai.payload.messages = withreminder(ai.payload.messages);
 
 	if (meta.vision === false)
 		ai.payload.messages = withoutimages(ai.payload.messages);

@@ -55,10 +55,12 @@ function stream(ai, callback, spec) {
 			var lines = tail.split('\n');
 			tail = lines.pop();
 
+			// A line of an event stream starts with "data:"; a line of Ollama is the JSON itself
 			for (var line of lines) {
-				if (line.indexOf('data:') === 0) {
+				var text = line.indexOf('data:') === 0 ? line.substring(5).trim() : line.trim();
+				if (text.charAt(0) === '{') {
 					try {
-						spec.sniff(JSON.parse(line.substring(5).trim()), state);
+						spec.sniff(JSON.parse(text), state);
 					} catch (e) {}
 				}
 			}
@@ -106,6 +108,11 @@ function json(text) {
 // ---------------------------------------------------------------------------------------------------------------------
 // OpenAI Chat Completions
 
+// A server of this computer or of its network: localhost, a loopback address or a private one
+exports.islocal = function(url) {
+	return /^https?:\/\/(localhost|127(\.\d{1,3}){3}|\[::1\]|10(\.\d{1,3}){3}|192\.168(\.\d{1,3}){2}|172\.(1[6-9]|2\d|3[01])(\.\d{1,3}){2})(?=[:/]|$)/.test(url || '');
+};
+
 exports.openai = function(ai, callback) {
 
 	var config = ai.config;
@@ -121,6 +128,12 @@ exports.openai = function(ai, callback) {
 	if (ai.payload.tools && ai.payload.tools.length)
 		body.tools = ai.payload.tools;
 
+	// Code needs a steady hand: the servers of this computer (Ollama, llama.cpp, vLLM, LM Studio) are asked for a low temperature, because
+	// their default (0.7 or 0.8) makes a small model drift from the instructions. A remote provider keeps its own default: some models
+	// (the reasoning ones) refuse any other value.
+	if (CONF.temperature != null && CONF.temperature !== '' && exports.islocal(config.url))
+		body.temperature = CONF.temperature;
+
 	// How much the model thinks: none, low, medium or high. Empty leaves the default of the model.
 	if (['none', 'low', 'medium', 'high'].indexOf(ai.payload.reasoning) !== -1)
 		body.reasoning_effort = ai.payload.reasoning;
@@ -133,6 +146,109 @@ exports.openai = function(ai, callback) {
 		sniff: function(obj, state) {
 			if (obj.usage)
 				state.usage = { input: obj.usage.prompt_tokens || 0, output: obj.usage.completion_tokens || 0 };
+		}
+	});
+};
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Ollama, with its own API (/api/chat)
+//
+// The OpenAI-compatible address of Ollama cannot set the size of the context: the model reads only the first 2048 or 4096 tokens of
+// the request and silently drops the rest, which is where the instructions of Totem are. /api/chat takes options.num_ctx.
+
+// Chat Completions messages -> messages of /api/chat
+exports.toollama = function(messages) {
+
+	var names = {};
+	var output = [];
+
+	for (var m of messages) {
+
+		if (m.role === 'system') {
+			output.push({ role: 'system', content: m.content });
+			continue;
+		}
+
+		if (m.role === 'user') {
+
+			if (!Array.isArray(m.content)) {
+				output.push({ role: 'user', content: m.content || '' });
+				continue;
+			}
+
+			var images = [];
+			var text = [];
+
+			for (var part of m.content) {
+				if (part.type === 'image_url')
+					images.push(part.image_url.url.replace(/^data:[^;]+;base64,/, ''));
+				else
+					text.push(part.text);
+			}
+
+			output.push({ role: 'user', content: text.join('\n'), images: images });
+			continue;
+		}
+
+		if (m.role === 'assistant') {
+
+			var msg = { role: 'assistant', content: m.content || '' };
+
+			if (m.tool_calls && m.tool_calls.length) {
+				msg.tool_calls = m.tool_calls.map(function(call) {
+					names[call.id] = call.function.name;
+					return { function: { name: call.function.name, arguments: json(call.function.arguments) } };
+				});
+			}
+
+			output.push(msg);
+			continue;
+		}
+
+		output.push({ role: 'tool', tool_name: names[m.tool_call_id] || 'tool', content: m.content || '' });
+	}
+
+	return output;
+};
+
+// The size of the context to ask for: the one of the config at least (so that the model is not reloaded for every request), more when the
+// request needs it, never more than the window of the model
+exports.contextsize = function(messages, tools, config) {
+
+	var floor = CONF.ollamactx || 16384;
+	var window = Math.max(Math.min(config.context || 32768, CONF.ollamactxmax || 32768), 4096);
+	var size = JSON.stringify(messages).length + JSON.stringify(tools || []).length;
+	var needed = Math.ceil(size / 3.2) + 2048;
+
+	return Math.min(Math.max(floor, Math.ceil(needed / 4096) * 4096), Math.max(window, 4096));
+};
+
+exports.ollama = function(ai, callback) {
+
+	var config = ai.config;
+	var tools = ai.payload.tools && ai.payload.tools.length ? ai.payload.tools : null;
+	var options = { num_ctx: exports.contextsize(ai.payload.messages, tools, config) };
+
+	if (CONF.temperature != null && CONF.temperature !== '')
+		options.temperature = CONF.temperature;
+
+	var body = { model: config.model, messages: exports.toollama(ai.payload.messages), stream: true, options: options };
+
+	if (tools)
+		body.tools = tools;
+
+	// Thinking is a switch for the models that think: off for "none", on for the other levels
+	if (config.reasoning === true && ['none', 'low', 'medium', 'high'].indexOf(ai.payload.reasoning) !== -1)
+		body.think = ai.payload.reasoning !== 'none';
+
+	stream(ai, callback, {
+		url: base(config).replace(/\/v1$/, '') + '/api/chat',
+		headers: {},
+		body: body,
+		parser: 'ollama',
+		sniff: function(obj, state) {
+			if (obj.done === true && (obj.prompt_eval_count || obj.eval_count))
+				state.usage = { input: obj.prompt_eval_count || 0, output: obj.eval_count || 0 };
 		}
 	});
 };
@@ -337,5 +453,5 @@ exports.gemini = function(ai, callback) {
 
 // The function that sends the requests of a provider kind
 exports.byKind = function(kind) {
-	return exports[kind === 'anthropic' || kind === 'gemini' ? kind : 'openai'];
+	return exports[kind === 'anthropic' || kind === 'gemini' || kind === 'ollama' ? kind : 'openai'];
 };

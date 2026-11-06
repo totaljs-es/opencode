@@ -79,3 +79,7 @@ From the Forge catalogue (https://forge.totaljs.es/en/components/): `exec`, `inp
 ## Accessibility and language
 
 Keyboard-first (shortcuts for send, abort, switch session, accept/undo), focus managed after each event, labels for every control, all text as `@(English key)` with translations in `resources/`.
+
+## Streaming without flicker
+
+Deltas are buffered and drawn at most once per frame. Only the open part is redrawn, the open or closed state of reasoning and tool blocks is kept, and the view follows the end only while the user is at the bottom; scrolling up stops the following until the user returns.

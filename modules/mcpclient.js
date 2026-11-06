@@ -285,6 +285,10 @@ exports.connect = function(run, callback) {
 
 				run.mcp.clients.push(client);
 
+				// A server can offer fewer tools than it has: each tool costs tokens in every request, and a small model reads less well with many
+				if (Array.isArray(config.tools))
+					client.tools = client.tools.filter(t => config.tools.indexOf(t.name) !== -1);
+
 				for (var tool of client.tools) {
 					var id = toolname(name, tool.name);
 					run.mcp.tools[id] = { server: name, tool: tool.name, client: client };

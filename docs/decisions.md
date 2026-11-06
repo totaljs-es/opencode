@@ -30,3 +30,7 @@
 | 4 | Native shell technology | Electron; a system web view in Swift/C#/GTK per OS; Tauri | Phase 6 |
 | 5 | Name of the headless command and the config folder | `totem`, `~/.totem` | Phase 2 |
 | 6 | Context compaction summaries | Model-written with the session's own model; a cheaper configured model | Phase 2 |
+
+## Ollama through its own API
+
+Ollama's OpenAI-compatible `/v1` cuts the prompt to its default context (2048 or 4096 tokens), which removed part of Totem's system prompt and tool definitions, so small models answered with plain JavaScript. Providers of kind `ollama` now use `/api/chat` with `options.num_ctx` (`contextsize()` in `modules/provider.js`: at least `ollamactx`, grown in steps of 4096 to fit the request, never above the model window or `ollamactxmax`). Local servers get `temperature` from `config`. In Total.js projects a short reminder of the conventions is appended to the request. Forge tools are reduced to a whitelist in `private/mcp.json`, and starting Forge can be allowed once for every project.
