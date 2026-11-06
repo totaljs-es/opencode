@@ -112,7 +112,7 @@
 			var id = typeof(el) === 'string' ? el : ATTRD(el);
 			// The new session starts with the model that is chosen in the chat
 			var model = (PLUGINS.chat && PLUGINS.chat.model && PLUGINS.chat.model.model) || '';
-			exports.tapi('sessions_create ERROR', { projectid: id, model: model, name: name || '' }, function(response) {
+			exports.tapi('sessions_create ERROR', { projectid: id, model: model, name: typeof(name) === 'string' ? name : '' }, function(response) {
 				exports.refresh();
 				exports.session(response.id, id);
 			});
