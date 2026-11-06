@@ -24,6 +24,8 @@ exports.install = function() {
 	ROUTE('+API    ?    -sessions_abort/{id}        --> Sessions|abort');
 	ROUTE('+API    ?    -sessions_diff/{id}         --> Sessions|diff');
 	ROUTE('+API    ?    +sessions_undo/{id}         --> Sessions|undo');
+	ROUTE('+API    ?    +sessions_redo/{id}         --> Sessions|redo');
+	ROUTE('+API    ?    +sessions_fork/{id}         --> Sessions|fork');
 	ROUTE('+API    ?    -sessions_todos/{id}        --> Sessions|todos');
 
 	// Permissions

@@ -178,6 +178,7 @@
 			opt.align = 'right';
 			opt.items = [];
 			opt.items.push({ id: 'rename', name: '@(Rename)', icon: 'ti ti-pencil' });
+			opt.items.push({ id: 'fork', name: '@(Fork)', icon: 'ti ti-git-fork' });
 			opt.items.push('-');
 			opt.items.push({ id: 'remove', name: '@(Delete session)', icon: 'ti ti-trash red' });
 			opt.callback = function(item) {
@@ -191,6 +192,14 @@
 						if (name && name.trim())
 							exports.tapi('sessions_update/' + id + ' ERROR', { name: name.trim() }, () => exports.refresh());
 					}, '@(Type the new name.)');
+
+				} else if (item.id === 'fork') {
+
+					exports.tapi('sessions_fork/' + id + ' ERROR', {}, function(session) {
+						exports.refresh();
+						SET('common.sessionid', session.id);
+						PLUGINS.chat && PLUGINS.chat.open(session.id);
+					});
 
 				} else if (item.id === 'remove') {
 

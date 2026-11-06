@@ -198,8 +198,14 @@ NEWACTION('Tools|edit', {
 NEWACTION('Tools|bash', {
 	name: 'Run a command',
 	summary: 'Runs a shell command in the project root and returns its output. Has a timeout.',
-	input: '*command:String // The command line, timeout:Number // Timeout in milliseconds',
+	input: '*command:String // The command line, timeout:Number // Timeout in milliseconds, background:Boolean // Start it and return at once (a development server, a watcher); read it later with the job tool',
 	action: function($, model) {
+
+		if (model.background) {
+			var job = MODS.jobs.start($.user, model.command);
+			setTimeout(() => $.callback('Started in the background as job {0}.\n{1}'.format(job.id, MODS.jobs.tail(job))), 1500);
+			return;
+		}
 
 		var timeout = model.timeout || CONF.bashtimeout;
 		var env = { PATH: process.env.PATH, HOME: process.env.HOME, LANG: process.env.LANG || 'en_US.UTF-8' };
@@ -248,6 +254,32 @@ NEWACTION('Tools|bash', {
 	}
 });
 
+
+NEWACTION('Tools|job', {
+	name: 'Read or stop a background command',
+	summary: 'Shows the latest output and the state of a command started with bash and background. Set stop to end it. Without an id it lists the jobs of the session.',
+	input: 'id:String // The job id, stop:Boolean // End the command',
+	action: function($, model) {
+
+		if (!model.id) {
+			var list = MODS.jobs.list($.user.sessionid);
+			$.callback(list.length ? list.map(job => '{0}  {1}  {2}'.format(job.id, job.status, job.command)).join('\n') : 'No jobs.');
+			return;
+		}
+
+		var job = MODS.jobs.get($.user.sessionid, model.id);
+
+		if (!job) {
+			$.invalid('@(Job not found)');
+			return;
+		}
+
+		if (model.stop)
+			MODS.jobs.stop(job);
+
+		setTimeout(() => $.callback('Job {0} is {1}.\n{2}'.format(job.id, job.status, MODS.jobs.tail(job))), model.stop ? 400 : 0);
+	}
+});
 
 NEWACTION('Tools|patch', {
 	name: 'Apply a patch',

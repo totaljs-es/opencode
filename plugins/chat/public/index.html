@@ -87,6 +87,7 @@
 		<b><ui-bind path="?.session" config="template" class="block"><script type="text/html">{{ if value }}{{ value.name }}{{ else }}@(No session){{ fi }}</script></ui-bind></b>
 		<ui-bind path="?.current" config="template" class="inline"><script type="text/html">{{ if value }}<span class="meter" style="display:inline-flex;gap:6px;align-items:center" title="{{ value.provider }}">{{ value.icon | provicon(value.provider) }}{{ value.id }}</span>{{ fi }}</script></ui-bind>
 		<ui-bind path="?.status" config="template" class="inline"><script type="text/html"><span class="badge badge-small{{ if value === 'running' }} badge-orange{{ fi }}{{ if value === 'error' }} badge-red{{ fi }}{{ if value === 'idle' }} badge-silver{{ fi }}{{ if value === 'aborted' }} badge-gray{{ fi }}">{{ value }}</span></script></ui-bind>
+		<ui-bind path="?.canredo" config="show:value" class="hidden"><button class="tbtn exec" data-exec="?/redo" title="@(Put back the changes that were undone)"><i class="ti ti-arrow-forward-up"></i>@(Redo)</button></ui-bind>
 		<ui-bind path="?.status" config="show:value === 'running'" class="hidden"><button class="tbtn exec" data-exec="?/abort" title="@(Stop, Esc)"><i class="ti ti-player-stop"></i>@(Stop)</button></ui-bind>
 		<ui-bind path="?.items" config="template" class="inline"><script type="text/html"><span class="meter" title="@(Tokens used in this session)">{{ value | tokens }}</span></script></ui-bind>
 		<button class="tbtn exec" data-exec="?/changes" title="@(Files changed by Totem, Alt+D)"><i class="ti ti-git-compare"></i>@(Changes)<ui-bind path="?.files" config="template" class="inline"><script type="text/html">{{ if value && value.length }} ({{ value.length }}){{ fi }}</script></ui-bind></button>
@@ -147,8 +148,8 @@
 							</div>
 							{{ fi }}
 						{{ end }}
-						{{ if m.role === 'assistant' && m.changed }}
-						<div class="undo"><span class="exec link" data-exec="?/undo" data-id="{{ m.id }}"><i class="ti ti-arrow-back-up"></i> @(Undo these changes)</span></div>
+						{{ if m.role === 'assistant' }}
+						<div class="undo">{{ if m.changed }}<span class="exec link" data-exec="?/undo" data-id="{{ m.id }}"><i class="ti ti-arrow-back-up"></i> @(Undo these changes)</span> &nbsp; {{ fi }}<span class="exec link" data-exec="?/fork" data-id="{{ m.id }}"><i class="ti ti-git-fork"></i> @(Fork from here)</span></div>
 						{{ fi }}
 					</div>
 					{{ end }}
@@ -412,6 +413,7 @@
 			exports.set('files', []);
 			exports.set('commands', []);
 			exports.set('status', 'idle');
+			exports.set('canredo', false);
 			exports.set('session', null);
 
 			if (!id)
@@ -425,6 +427,7 @@
 					exports.set('model', session.model);
 				exports.set('autoaccept', !!session.autoaccept);
 				exports.set('mode', session.mode === 'plan' ? 'plan' : 'build');
+				exports.set('canredo', !!session.redo);
 
 				// Commands of the project: /name inserts the command in the prompt box
 				exports.tapi('projects_commands/' + session.projectid, function(response) {
@@ -776,8 +779,25 @@
 			SETTER('approve/show', '@(Restore the files as they were before these changes?)', ':ti ti-arrow-back-up: @(Undo)', function() {
 				exports.tapi('sessions_undo/' + sessionid + ' ERROR', { messageid: id }, function(restored) {
 					SETTER('notify/success', '@(Restored files:) ' + restored.length);
+					exports.set('canredo', restored.length > 0);
 					refreshdiff();
 				});
+			});
+		};
+
+		exports.redo = function() {
+			exports.tapi('sessions_redo/' + sessionid + ' ERROR', function(restored) {
+				SETTER('notify/success', '@(Restored files:) ' + restored.length);
+				exports.set('canredo', false);
+				refreshdiff();
+			});
+		};
+
+		exports.fork = function(el) {
+			exports.tapi('sessions_fork/' + sessionid + ' ERROR', { messageid: ATTRD(el) }, function(session) {
+				PLUGINS.projects && PLUGINS.projects.refresh();
+				SET('common.sessionid', session.id);
+				exports.open(session.id);
 			});
 		};
 

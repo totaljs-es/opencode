@@ -259,6 +259,7 @@ exports.undo = function(session, project, messageid, callback) {
 
 			var map = earliest(snapshots);
 			var restored = [];
+			var afters = [];
 
 			for (var path in map) {
 
@@ -270,6 +271,17 @@ exports.undo = function(session, project, messageid, callback) {
 				if (original === null)
 					continue;
 
+				// What the file is now, for a redo
+				var after = { path: path, existed: Total.Fs.existsSync(full), blob: '' };
+
+				if (after.existed) {
+					after.blob = UID();
+					Total.Fs.mkdirSync(dir(), { recursive: true });
+					Total.Fs.writeFileSync(Total.Path.join(dir(), after.blob), Total.Fs.readFileSync(full));
+				}
+
+				afters.push(after);
+
 				if (map[path].existed) {
 					Total.Fs.mkdirSync(Total.Path.dirname(full), { recursive: true });
 					Total.Fs.writeFileSync(full, original, 'utf8');
@@ -279,14 +291,97 @@ exports.undo = function(session, project, messageid, callback) {
 				restored.push(path);
 			}
 
-			for (var item of snapshots) {
-				delete (MAIN.snapshots || {})[item.messageid + ':' + item.path];
-				try {
-					Total.Fs.unlinkSync(Total.Path.join(dir(), item.id));
-				} catch (e) {}
-			}
+			// The snapshots and the files of the redo stay until the next prompt: one undo can be redone
+			exports.dropredo(session.id, function() {
 
-			NOSQL('snapshots').remove().in('id', snapshots.map(s => s.id)).callback(function() {
+				if (!afters.length) {
+					callback(null, restored);
+					return;
+				}
+
+				for (var item of snapshots)
+					delete (MAIN.snapshots || {})[item.messageid + ':' + item.path];
+
+				NOSQL('redo').insert({ id: UID(), sessionid: session.id, snapshots: snapshots, afters: afters, dtcreated: new Date() }).callback(function() {
+					NOSQL('snapshots').remove().in('id', snapshots.map(s => s.id)).callback(function() {
+						FUNC.emit(session.id, 'diff.updated', { paths: restored });
+						callback(null, restored);
+					});
+				});
+			});
+		});
+	});
+};
+
+function unlink(name) {
+	try {
+		Total.Fs.unlinkSync(Total.Path.join(dir(), name));
+	} catch (e) {}
+}
+
+// Forgets the undo that could be redone (a new prompt, or another undo)
+exports.dropredo = function(sessionid, callback) {
+
+	var ids = Array.isArray(sessionid) ? sessionid : [sessionid];
+
+	NOSQL('redo').find().in('sessionid', ids).callback(function(err, records) {
+
+		for (var record of (records || [])) {
+			(record.snapshots || []).forEach(item => unlink(item.id));
+			(record.afters || []).forEach(item => item.blob && unlink(item.blob));
+		}
+
+		NOSQL('redo').remove().in('sessionid', ids).callback(() => callback && callback());
+	});
+};
+
+// Is there an undo to redo? callback(boolean)
+exports.canredo = function(sessionid, callback) {
+	NOSQL('redo').read().where('sessionid', sessionid).callback((err, record) => callback(!!record));
+};
+
+// Puts back what the last undo took away. callback(err, restored)
+exports.redo = function(session, project, callback) {
+
+	NOSQL('redo').read().where('sessionid', session.id).callback(function(err, record) {
+
+		if (!record) {
+			callback('@(There is nothing to redo)');
+			return;
+		}
+
+		var restored = [];
+
+		for (var after of record.afters) {
+
+			var full = FUNC.resolve(project.path, after.path);
+			if (!full)
+				continue;
+
+			if (after.existed) {
+				Total.Fs.mkdirSync(Total.Path.dirname(full), { recursive: true });
+				try {
+					Total.Fs.writeFileSync(full, Total.Fs.readFileSync(Total.Path.join(dir(), after.blob)));
+				} catch (e) {
+					continue;
+				}
+			} else if (Total.Fs.existsSync(full))
+				Total.Fs.unlinkSync(full);
+
+			restored.push(after.path);
+			unlink(after.blob);
+		}
+
+		var memo = MAIN.snapshots || (MAIN.snapshots = {});
+
+		for (var item of record.snapshots)
+			memo[item.messageid + ':' + item.path] = 1;
+
+		// The snapshots come back, so the diff and a new undo work as before. Their files were never removed.
+		record.snapshots.wait(function(item, next) {
+			NOSQL('snapshots').insert(Object.assign({}, item, { dtcreated: new Date(item.dtcreated) })).callback(next);
+		}, function() {
+			NOSQL('redo').remove().where('id', record.id).callback(function() {
 				FUNC.emit(session.id, 'diff.updated', { paths: restored });
 				callback(null, restored);
 			});
@@ -303,6 +398,8 @@ exports.clear = function(sessionid, callback) {
 		callback && callback();
 		return;
 	}
+
+	exports.dropredo(ids);
 
 	NOSQL('snapshots').find().in('sessionid', ids).callback(function(err, snapshots) {
 		for (var item of (snapshots || [])) {

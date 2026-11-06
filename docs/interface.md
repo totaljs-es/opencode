@@ -95,3 +95,7 @@ The box of the prompt has a Plan / Build selector. Plan only reads: the model ge
 ## Formatters
 
 After `write`, `edit` and `patch` Totem runs the formatter that the project already has (a local `node_modules/.bin/prettier`, `gofmt` with `go.mod`, `rustfmt` with `Cargo.toml`, `ruff` with `[tool.ruff]`) or the ones in `.totem/formatters.json`: `{ "name": { "command": ["tool", "--write", "$FILE"], "extensions": [".js"] }, "disabled": ["prettier"] }`. The model is told when the file changed. `formatter : false` in `config` turns it off.
+
+## Redo, fork and background commands
+
+After an undo the bar shows Redo, which puts the changes back (the snapshots and the files of the undo are kept until the next prompt). Every answer has "Fork from here" and the menu of a session has Fork: the new session copies the conversation and its attachments, not the file changes. The `bash` tool takes `background: true` for a development server or a watcher: it returns at once with a job id and the first output, Stop does not end it, and the `job` tool lists the jobs of the session, reads their output and ends them (`stop`). Jobs end when the session is removed or the server stops.

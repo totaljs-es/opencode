@@ -47,6 +47,7 @@ NEWACTION('Sessions|read', {
 	params: '*id',
 	action: async function($) {
 		var item = await NOSQL('sessions').read().where('id', $.params.id).error(404).promise($);
+		item.redo = await new Promise(resolve => MODS.snapshots.canredo(item.id, resolve));
 		$.callback(item);
 	}
 });
@@ -57,6 +58,7 @@ NEWACTION('Sessions|remove', {
 	action: async function($) {
 		var id = $.params.id;
 		MODS.agent.abort(id);
+		MODS.jobs.clear(id);
 		await new Promise(resolve => MODS.snapshots.clear(id, resolve));
 		await new Promise(resolve => MODS.attachments.clear(id, resolve));
 		await NOSQL('todos').remove().where('sessionid', id).promise($);
@@ -119,6 +121,7 @@ NEWACTION('Sessions|prompt', {
 			return;
 		}
 
+		await new Promise(resolve => MODS.snapshots.dropredo(session.id, resolve));
 		await NOSQL('sessions').modify({ model: session.model, autoaccept: session.autoaccept, mode: session.mode || 'build', reasoning: session.reasoning || '' }).where('id', session.id).promise($);
 
 		// The files of the prompt: images and text files
@@ -208,6 +211,77 @@ NEWACTION('Sessions|undo', {
 			else
 				$.callback(restored);
 		});
+	}
+});
+
+NEWACTION('Sessions|redo', {
+	name: 'Redo the last undo',
+	params: '*id',
+	action: async function($) {
+
+		if (MAIN.running[$.params.id]) {
+			$.invalid('@(The session is running)');
+			return;
+		}
+
+		var session = await NOSQL('sessions').read().where('id', $.params.id).error(404).promise($);
+		var project = await NOSQL('projects').read().where('id', session.projectid).error(404).promise($);
+
+		MODS.snapshots.redo(session, project, function(err, restored) {
+			if (err)
+				$.invalid(err);
+			else
+				$.callback(restored);
+		});
+	}
+});
+
+NEWACTION('Sessions|fork', {
+	name: 'Copy a session up to a message into a new session',
+	params: '*id',
+	input: 'messageid:String',
+	action: async function($, model) {
+
+		var session = await NOSQL('sessions').read().where('id', $.params.id).error(404).promise($);
+		var messages = await NOSQL('messages').find().where('sessionid', session.id).sort('dtcreated').promise($);
+		var parts = await NOSQL('parts').find().where('sessionid', session.id).sort('dtcreated').promise($);
+
+		// Up to and including the message that was chosen (all of them without one)
+		if (model.messageid) {
+			var index = messages.findIndex(m => m.id === model.messageid);
+			if (index === -1) {
+				$.invalid('@(Message not found)');
+				return;
+			}
+			messages = messages.slice(0, index + 1);
+		}
+
+		var copy = Object.assign({}, session, { id: UID(), name: ((session.name || 'New session') + ' (fork)').substring(0, 80), named: true, status: 'idle', dtcreated: NOW, dtupdated: NOW });
+		delete copy.redo;
+		await NOSQL('sessions').insert(copy).promise($);
+
+		var files = await new Promise(resolve => MODS.attachments.copy(session.id, copy.id, resolve));
+		var ids = {};
+
+		for (var message of messages) {
+			ids[message.id] = UID();
+			await NOSQL('messages').insert(Object.assign({}, message, { id: ids[message.id], sessionid: copy.id })).promise($);
+		}
+
+		for (var part of parts) {
+
+			if (!ids[part.messageid])
+				continue;
+
+			var data = Object.assign({}, part.data);
+
+			if (part.type === 'file' && files[data.id])
+				data.id = files[data.id];
+
+			await NOSQL('parts').insert(Object.assign({}, part, { id: UID(), messageid: ids[part.messageid], sessionid: copy.id, data: data })).promise($);
+		}
+
+		$.callback(copy);
 	}
 });
 

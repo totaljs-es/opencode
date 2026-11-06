@@ -110,6 +110,27 @@ exports.dataurl = function(meta) {
 	return buffer ? ('data:' + meta.mime + ';base64,' + buffer.toString('base64')) : null;
 };
 
+// Copies the files of a session into another one (a fork). callback(map) with { oldid: newid }
+exports.copy = function(fromid, toid, callback) {
+
+	NOSQL('attachments').find().where('sessionid', fromid).callback(function(err, items) {
+
+		var map = {};
+
+		for (var item of (items || [])) {
+			var buffer = exports.buffer(item.id);
+			if (!buffer)
+				continue;
+			var id = UID();
+			Total.Fs.writeFileSync(file(id), buffer);
+			map[item.id] = id;
+			NOSQL('attachments').insert(Object.assign({}, item, { id: id, sessionid: toid })).callback(NOOP);
+		}
+
+		callback(map);
+	});
+};
+
 // Removes the files of one session or of a list of sessions
 exports.clear = function(sessionid, callback) {
 

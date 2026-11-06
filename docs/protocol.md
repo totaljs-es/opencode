@@ -22,6 +22,8 @@ Routes use the `+API` style of the conventions (`$api` is `/api/`), each to an a
 | `+questions_reply/{id}` | `Questions\|reply` | Answer a question of the `ask` tool |
 | `-sessions_todos/{id}` | `Sessions\|todos` | Task list of the session |
 | `+sessions_undo/{id}` | `Sessions\|undo` | Restore the files that a message and the later ones changed (input `messageid`) |
+| `+sessions_redo/{id}` | `Sessions\|redo` | Put back what the last undo took away (one level; a new prompt forgets it). `Sessions\|read` has `redo: true` when there is one |
+| `+sessions_fork/{id}` | `Sessions\|fork` | Copy the conversation, with its attachments, up to `messageid` (all of it without one) into a new session named "... (fork)" |
 | `-sessions_diff/{id}` | `Sessions\|diff` | Files changed in the session: `{ path, status, additions, deletions, patch }` |
 | `+permissions_reply/{id}` | `Permissions\|reply` | Answer a pending permission question |
 | `-providers`, `+providers_save`, `-providers_remove/{id}`, `-providers_models` | `Providers\|...` | Providers (the key is write-only) and the models that a session can use |

@@ -119,7 +119,7 @@ Test.push('boot', function(next) {
 Test.push('tool definitions', function(next) {
 	var defs = MODS.agent.definitions();
 	var read = defs.find(d => d.function.name === 'read');
-	check('every tool has a definition', defs.length === 12);
+	check('every tool has a definition', defs.length === 13);
 	check('arguments are flattened', read && read.function.parameters.properties.path && read.function.parameters.required.indexOf('path') !== -1);
 	check('the descriptions of the fields reach the model', read && !!read.function.parameters.properties.path.description);
 	next();
@@ -480,7 +480,7 @@ Test.push('real provider over HTTP', async function(next) {
 	var texts = assistant.parts.filter(p => p.type === 'text').map(p => p.data.text).join('|');
 	check('the stream of the provider was parsed into text and a tool call', texts.indexOf('Let me look at the file.') !== -1 && tool && tool.data.tool === 'read' && tool.data.input.path === 'README.md');
 	check('the answer follows the tool result', texts.indexOf('I read the file.') !== -1);
-	check('the provider received the key and the tools', mock.requests.length === 2 && mock.requests[0].tools.length === 12 && mock.requests[0].model === 'mock');
+	check('the provider received the key and the tools', mock.requests.length === 2 && mock.requests[0].tools.length === 13 && mock.requests[0].model === 'mock');
 
 	events.length = 0;
 	await api('sessions_prompt/' + id, { text: 'please fail' });
@@ -540,7 +540,7 @@ Test.push('providers, discovery and model metadata', async function(next) {
 	mock.requests.length = 0;
 	await api('sessions_prompt/' + id, { text: 'hello with tools' });
 	await idle(id);
-	check('a model with tool support gets the tools', mock.requests[0].tools && mock.requests[0].tools.length === 12);
+	check('a model with tool support gets the tools', mock.requests[0].tools && mock.requests[0].tools.length === 13);
 	next();
 });
 
@@ -588,10 +588,10 @@ Test.push('Anthropic and Gemini', async function(next) {
 		check(label + ': the conversation takes two requests with the key in its header', calls.length === 2);
 
 		if (kind === 'anthropic') {
-			check('Anthropic: system, tools with input_schema and max_tokens are sent', calls[0].body.system.indexOf('You are Totem') === 0 && calls[0].body.tools.length === 12 && !!calls[0].body.tools[0].input_schema && calls[0].body.max_tokens > 0);
+			check('Anthropic: system, tools with input_schema and max_tokens are sent', calls[0].body.system.indexOf('You are Totem') === 0 && calls[0].body.tools.length === 13 && !!calls[0].body.tools[0].input_schema && calls[0].body.max_tokens > 0);
 			check('Anthropic: the second request carries the tool result', calls[1].body.messages.some(m => Array.isArray(m.content) && m.content.some(b => b.type === 'tool_result' && b.tool_use_id === 'toolu_1')));
 		} else {
-			check('Gemini: system instruction and function declarations are sent', calls[0].body.systemInstruction.parts[0].text.indexOf('You are Totem') === 0 && calls[0].body.tools[0].functionDeclarations.length === 12 && JSON.stringify(calls[0].body.tools).indexOf('additionalProperties') === -1);
+			check('Gemini: system instruction and function declarations are sent', calls[0].body.systemInstruction.parts[0].text.indexOf('You are Totem') === 0 && calls[0].body.tools[0].functionDeclarations.length === 13 && JSON.stringify(calls[0].body.tools).indexOf('additionalProperties') === -1);
 			check('Gemini: the signature of the function call is sent back', calls[1].body.contents.some(c => c.role === 'model' && c.parts.some(p => p.functionCall && p.thoughtSignature === 'sig-123')));
 			check('Gemini: the second request carries the function response', calls[1].body.contents.some(c => c.parts.some(p => p.functionResponse && p.functionResponse.name === 'read')));
 		}
@@ -795,7 +795,7 @@ Test.push('MCP client', async function(next) {
 	await api('sessions_prompt/' + id, { text: 'hello' });
 	await idle(id);
 	clearInterval(timer);
-	check('refused servers add no tools', requests[0].tools.map(t => t.function.name).indexOf('mock__echo') === -1 && requests[0].tools.length === 12);
+	check('refused servers add no tools', requests[0].tools.map(t => t.function.name).indexOf('mock__echo') === -1 && requests[0].tools.length === 13);
 
 	Total.Fs.rmSync(Total.Path.join(PROJECT, '.totem/mcp.json'));
 	next();
@@ -1373,7 +1373,7 @@ Test.push('Ollama with its own API', async function(next) {
 	await api('sessions_prompt/' + id, { text: 'hello' });
 	await idle(id);
 	var sent = mock.native[0];
-	check('Ollama gets /api/chat with a real context and the temperature of the config', mock.native.length === 1 && mock.requests.length === 0 && sent.stream === true && sent.options.num_ctx >= 16384 && sent.options.temperature === 0.2 && sent.messages[0].role === 'system' && sent.tools.length === 12);
+	check('Ollama gets /api/chat with a real context and the temperature of the config', mock.native.length === 1 && mock.requests.length === 0 && sent.stream === true && sent.options.num_ctx >= 16384 && sent.options.temperature === 0.2 && sent.messages[0].role === 'system' && sent.tools.length === 13);
 	var r = await api('sessions_messages/' + id);
 	var parts = r.response.find(m => m.role === 'assistant').parts;
 	check('the answer and the usage of the request are kept', parts.find(p => p.type === 'text').data.text === 'Hello from Ollama' && parts.find(p => p.type === 'step').data.tokens.input === 42 && parts.find(p => p.type === 'step').data.tokens.output === 7);
@@ -1547,6 +1547,105 @@ Test.push('Plan mode, formatter, init and secrets', async function(next) {
 	await api('permissions_reply/' + ask.data.id, { reply: 'reject' });
 	await idle(id);
 	check('reading .env.example does not ask', events.filter(e => e.type === 'permission.ask').length === 1);
+	next();
+});
+
+Test.push('redo, fork and background commands', async function(next) {
+
+	var id = await session({ autoaccept: true });
+	var file = Total.Path.join(PROJECT, 'redo.txt');
+	Total.Fs.writeFileSync(file, 'before');
+	events.length = 0;
+	script = [{ tools: [{ id: 'r1', name: 'edit', arguments: { path: 'redo.txt', oldstring: 'before', newstring: 'after' } }] }, { content: 'Edited.' }];
+	await api('sessions_prompt/' + id, { text: 'change it' });
+	await idle(id);
+	var r = await api('sessions_messages/' + id);
+	var assistant = r.response.find(m => m.role === 'assistant');
+	check('the edit happened', Total.Fs.readFileSync(file, 'utf8') === 'after');
+
+	r = await api('sessions_undo/' + id, { messageid: assistant.id });
+	check('undo restores the file', Total.Fs.readFileSync(file, 'utf8') === 'before' && r.response.length === 1);
+	r = await api('sessions_read/' + id);
+	check('the session says that a redo is possible', r.response.redo === true);
+	r = await api('sessions_diff/' + id);
+	check('the diff is empty after the undo', r.response.length === 0);
+
+	r = await api('sessions_redo/' + id);
+	check('redo puts the change back', Total.Fs.readFileSync(file, 'utf8') === 'after' && r.response.length === 1);
+	r = await api('sessions_diff/' + id);
+	check('the diff and a new undo work after a redo', r.response.length === 1 && r.response[0].path === 'redo.txt');
+	r = await api('sessions_redo/' + id);
+	check('there is nothing left to redo', !!(r.error || (r.response && r.response.error) || !r.response || r.response.length === undefined));
+	r = await api('sessions_read/' + id);
+	check('the redo flag is gone', r.response.redo === false);
+
+	await api('sessions_undo/' + id, { messageid: assistant.id });
+	script = [{ content: 'A new answer.' }];
+	await api('sessions_prompt/' + id, { text: 'something else' });
+	await idle(id);
+	r = await api('sessions_read/' + id);
+	check('a new prompt forgets the redo', r.response.redo === false);
+
+	// A fork copies the conversation up to a message
+	r = await api('sessions_messages/' + id);
+	var total = r.response.length;
+	r = await api('sessions_fork/' + id, { messageid: assistant.id });
+	var fork = r.response;
+	check('a fork is a new session with the same project and model', !!fork.id && fork.id !== id && fork.projectid === projectid && fork.model === 'fake' && /\(fork\)$/.test(fork.name));
+	r = await api('sessions_messages/' + fork.id);
+	check('the fork has the messages up to the chosen one, with new ids', r.response.length === 2 && r.response[1].parts.length > 0 && r.response.every(m => m.id !== assistant.id) && total > 2);
+	r = await api('sessions_fork/' + id, {});
+	var whole = await api('sessions_messages/' + r.response.id);
+	check('a fork without a message copies everything', whole.response.length === total);
+	await api('sessions_remove/' + fork.id);
+	await api('sessions_remove/' + r.response.id);
+	r = await api('sessions_messages/' + id);
+	check('removing a fork leaves the original', r.response.length === total);
+
+	// A read-only command that is chained to another one is not read-only
+	events.length = 0;
+	script = [{ tools: [{ id: 'ch', name: 'bash', arguments: { command: 'echo hi; touch chained.txt' } }] }, { content: 'ok' }];
+	await api('sessions_prompt/' + id, { text: 'chain' });
+	var chained = await until(() => events.find(e => e.type === 'permission.ask'));
+	check('a chained command asks, even when it starts with a read-only one', !!chained);
+	await api('permissions_reply/' + chained.data.id, { reply: 'reject' });
+	await idle(id);
+	check('and a rejected one does not run', !Total.Fs.existsSync(Total.Path.join(PROJECT, 'chained.txt')));
+
+	// A command in the background returns at once and can be read and stopped
+	events.length = 0;
+	requests.length = 0;
+	script = [
+		{ tools: [{ id: 'b1', name: 'bash', arguments: { command: 'echo started; sleep 30', background: true } }] },
+		{ tools: [{ id: 'b2', name: 'job', arguments: {} }] },
+		{ content: 'Running.' }
+	];
+	var started = Date.now();
+	await api('sessions_prompt/' + id, { text: 'start a server' });
+	var ask = await until(() => events.find(e => e.type === 'permission.ask'));
+	check('a background command asks like any command', !!ask && ask.data.tool === 'bash');
+	await api('permissions_reply/' + ask.data.id, { reply: 'once' });
+	await idle(id);
+	check('the run ends while the command still runs', Date.now() - started < 15000 && Object.keys(MAIN.jobs).length === 1);
+	var job = MAIN.jobs[Object.keys(MAIN.jobs)[0]];
+	check('the output of the job is read', job.status === 'running' && /started/.test(job.output));
+	check('the model gets the job id and its first output', requests[1].messages.some(m => m.role === 'tool' && /job j[0-9A-Za-z]+/.test(m.content) && /started/.test(m.content)));
+	check('the job tool lists it', requests[2].messages.some(m => m.role === 'tool' && m.content.indexOf(job.id) !== -1 && /running/.test(m.content)));
+
+	script = [{ tools: [{ id: 'b3', name: 'job', arguments: { id: job.id, stop: true } }] }, { content: 'Stopped.' }];
+	await api('sessions_prompt/' + id, { text: 'stop it' });
+	await idle(id);
+	check('the job is stopped', job.status === 'stopped');
+
+	script = [{ tools: [{ id: 'b4', name: 'bash', arguments: { command: 'sleep 30', background: true } }] }, { content: 'again' }];
+	await api('sessions_prompt/' + id, { text: 'again' });
+	ask = await until(() => events.filter(e => e.type === 'permission.ask').length > 1 && events.filter(e => e.type === 'permission.ask')[1]);
+	await api('permissions_reply/' + ask.data.id, { reply: 'once' });
+	await idle(id);
+	var live = Object.keys(MAIN.jobs).map(k => MAIN.jobs[k]).filter(j => j.status === 'running');
+	check('another job runs', live.length === 1);
+	await api('sessions_remove/' + id);
+	check('removing the session ends its jobs', Object.keys(MAIN.jobs).length === 0);
 	next();
 });
 

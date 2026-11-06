@@ -16,7 +16,7 @@ Patterns: for `bash` the command line (`git status*`), for file tools the path r
 |---|---|
 | read, glob, grep, skill, todo, ask | allow (inside the project) |
 | write, edit, patch | ask |
-| bash | ask, except a short list of read-only commands |
+| bash | ask, except a short list of read-only commands (never when the line chains, redirects or substitutes: `; & | < > $ ` ( )` or a new line) |
 | fetch | ask |
 | `.env` and `.env.*` (read, write, edit; `.env.example`, `.sample` and `.template` are fine) | ask |
 | any path outside the project root | deny |

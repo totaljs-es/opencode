@@ -13,6 +13,7 @@ var TOOLS = {
 	edit: { action: 'Tools|edit' },
 	bash: { action: 'Tools|bash' },
 	patch: { action: 'Tools|patch' },
+	job: { action: 'Tools|job' },
 	fetch: { action: 'Tools|fetch', readonly: true },
 	todo: { action: 'Tools|todo' },
 	ask: { action: 'Tools|ask' },
