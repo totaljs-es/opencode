@@ -135,6 +135,14 @@ function openai(provider, callback) {
 	});
 }
 
+// Does a Claude model think? The list says so in `capabilities` when it can; otherwise the family decides (3.7 and every 4 and later)
+function claudethinks(m) {
+	var thinking = m.capabilities && m.capabilities.thinking;
+	if (thinking && typeof(thinking.supported) === 'boolean')
+		return thinking.supported;
+	return /^claude-(3-7|(sonnet|opus|haiku)-[4-9]|fable)/.test(m.id || '') ? true : null;
+}
+
 // Anthropic: GET /v1/models. Every Claude model can call tools.
 function anthropic(provider, callback) {
 	request('GET', provider.url.replace(/\/+$/, '') + '/v1/models?limit=100', null, null, 8000, function(err, json) {
@@ -144,7 +152,7 @@ function anthropic(provider, callback) {
 			return;
 		}
 
-		callback(null, (json.data || []).map(m => ({ id: m.id, name: m.display_name || m.id, context: m.max_input_tokens || null, tools: true, reasoning: null, vision: true, free: false, size: null })));
+		callback(null, (json.data || []).map(m => ({ id: m.id, name: m.display_name || m.id, context: m.max_input_tokens || null, tools: true, reasoning: claudethinks(m), vision: true, free: false, size: null })));
 	}, { 'x-api-key': provider.key || '', 'anthropic-version': '2023-06-01' });
 }
 

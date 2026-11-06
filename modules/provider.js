@@ -11,6 +11,10 @@ exports.id = 'provider';
 
 var MAXTOKENS = 8192;
 
+// Tokens that a model may spend thinking, per level of the interface (none and the default send nothing)
+var THINKBUDGET = { low: 2048, medium: 8192, high: 16384 };
+var GEMINIBUDGET = { low: 1024, medium: 8192, high: 24576 };
+
 // Sends one streaming request. spec: { url, headers, body, parser, sniff(object, state) } where sniff reads from every event of the
 // stream what the parser of the framework does not keep (usage, signatures). It fills state.usage and state.calls.
 function stream(ai, callback, spec) {
@@ -72,6 +76,10 @@ function stream(ai, callback, spec) {
 			if (state.usage)
 				output.usage = state.usage;
 
+			// Claude asks for its thinking block, with the signature, to come back in the same turn when the step called a tool
+			if (output.thinking && output.thinking_signature)
+				output.thinkingblocks = [{ type: 'thinking', thinking: output.thinking, signature: output.thinking_signature }];
+
 			// Gemini 3 asks for the signature of a function call to come back with it
 			(output.tools || []).forEach(function(tool, index) {
 				if (state.calls[index])
@@ -118,9 +126,13 @@ exports.openai = function(ai, callback) {
 	var config = ai.config;
 	// The signatures of Gemini function calls are not part of this format
 	var messages = ai.payload.messages.map(function(m) {
-		if (!m.tool_calls)
+		if (!m.tool_calls && !m.thinking_blocks)
 			return m;
-		return Object.assign({}, m, { tool_calls: m.tool_calls.map(c => ({ id: c.id, type: c.type, function: c.function })) });
+		var copy = Object.assign({}, m);
+		delete copy.thinking_blocks;
+		if (m.tool_calls)
+			copy.tool_calls = m.tool_calls.map(c => ({ id: c.id, type: c.type, function: c.function }));
+		return copy;
 	});
 
 	var body = { model: config.model, messages: messages, stream: true, stream_options: { include_usage: true } };
@@ -286,7 +298,7 @@ exports.toanthropic = function(messages) {
 
 		if (m.role === 'assistant') {
 
-			var blocks = [];
+			var blocks = (m.thinking_blocks || []).slice();
 
 			if (m.content)
 				blocks.push({ type: 'text', text: m.content });
@@ -321,6 +333,14 @@ exports.anthropic = function(ai, callback) {
 
 	if (converted.system)
 		body.system = converted.system;
+
+	// Extended thinking: a budget of tokens for the models that think. The answer needs room after it.
+	var budget = config.reasoning === true ? THINKBUDGET[ai.payload.reasoning] : 0;
+
+	if (budget) {
+		body.thinking = { type: 'enabled', budget_tokens: budget };
+		body.max_tokens = budget + MAXTOKENS;
+	}
 
 	if (ai.payload.tools && ai.payload.tools.length)
 		body.tools = ai.payload.tools.map(t => ({ name: t.function.name, description: t.function.description, input_schema: t.function.parameters }));
@@ -426,6 +446,18 @@ exports.gemini = function(ai, callback) {
 
 	if (converted.system)
 		body.systemInstruction = { parts: [{ text: converted.system }] };
+
+	// Thinking: Gemini 3 takes a level, Gemini 2.5 a budget of tokens (0 switches it off, except in Pro, which keeps a minimum). The thoughts come back
+	// as parts marked as thoughts, which the parser turns into reasoning.
+	var level = ai.payload.reasoning;
+
+	if (config.reasoning === true && (GEMINIBUDGET[level] || level === 'none')) {
+		if (/gemini-3/.test(config.model)) {
+			if (level !== 'none')
+				body.generationConfig = { thinkingConfig: { thinkingLevel: level === 'low' ? 'low' : 'high', includeThoughts: true } };
+		} else
+			body.generationConfig = { thinkingConfig: { thinkingBudget: level === 'none' ? (/pro/.test(config.model) ? 128 : 0) : GEMINIBUDGET[level], includeThoughts: level !== 'none' } };
+	}
 
 	if (ai.payload.tools && ai.payload.tools.length)
 		body.tools = [{ functionDeclarations: ai.payload.tools.map(t => ({ name: t.function.name, description: t.function.description, parameters: geminischema(t.function.parameters) })) }];

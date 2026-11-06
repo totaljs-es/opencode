@@ -503,6 +503,10 @@ function request(run, finish, fail) {
 
 		// The assistant message of this step for the next request
 		var msg = { role: 'assistant', content: output.content || null };
+		// The thinking of Claude goes back with the tool calls of the same turn (it is not stored: only this run needs it)
+		if (tools.length && output.thinkingblocks)
+			msg.thinking_blocks = output.thinkingblocks;
+
 		if (tools.length)
 			msg.tool_calls = tools.map(t => withsignature({ id: t.id, type: 'function', function: { name: t.name, arguments: JSON.stringify(t.arguments || {}) } }, t.thoughtSignature));
 

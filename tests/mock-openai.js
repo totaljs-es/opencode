@@ -45,6 +45,15 @@ function anthropic(res, payload) {
 
 	res.writeHead(200, { 'content-type': 'text/event-stream' });
 	sse(res, 'message_start', { message: { id: 'msg_1', role: 'assistant', usage: { input_tokens: 21, output_tokens: 1 } } });
+
+	// With extended thinking on, the model thinks first and signs the thought
+	if (payload.thinking && !result) {
+		sse(res, 'content_block_start', { index: 0, content_block: { type: 'thinking', thinking: '' } });
+		sse(res, 'content_block_delta', { index: 0, delta: { type: 'thinking_delta', thinking: 'Claude thinks about it.' } });
+		sse(res, 'content_block_delta', { index: 0, delta: { type: 'signature_delta', signature: 'SIGNED-THOUGHT' } });
+		sse(res, 'content_block_stop', { index: 0 });
+	}
+
 	sse(res, 'content_block_start', { index: 0, content_block: { type: 'text', text: '' } });
 
 	var reply = result ? ('Anthropic saw the result: ' + result.content) : (/file/.test(text) ? 'Let me read it.' : ('Anthropic echo: ' + text));
@@ -71,7 +80,11 @@ function gemini(res, payload) {
 
 	res.writeHead(200, { 'content-type': 'text/event-stream' });
 
+	var thinks = payload.generationConfig && payload.generationConfig.thinkingConfig && payload.generationConfig.thinkingConfig.includeThoughts;
+
 	function send(parts, usage) {
+		if (thinks && !response && parts[0] && parts[0].text)
+			parts = [{ text: 'Gemini thinks about it.', thought: true }].concat(parts);
 		var data = { candidates: [{ content: { role: 'model', parts: parts } }] };
 		if (usage)
 			data.usageMetadata = { promptTokenCount: 30, candidatesTokenCount: 7 };

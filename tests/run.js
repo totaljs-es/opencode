@@ -1753,6 +1753,65 @@ Test.push('the icons in use exist in the icon font', function(next) {
 	next();
 });
 
+Test.push('reasoning of Claude and Gemini', async function(next) {
+
+	var mock = require('./mock-openai');
+	var root = 'http://127.0.0.1:8111';
+
+	await api('providers_save', { name: 'Claude think', url: root, kind: 'anthropic', key: 'test-key', models: ['claude-test'], meta: { 'claude-test': { id: 'claude-test', reasoning: true, tools: true } } });
+	await api('providers_save', { name: 'Gemini think', url: root, kind: 'gemini', key: 'test-key', models: ['gemini-test'], meta: { 'gemini-test': { id: 'gemini-test', reasoning: true, tools: true } } });
+	await new Promise(resolve => setTimeout(resolve, 300));
+
+	// Claude: a budget of tokens, and the signed thought comes back with the tool call
+	var id = await session({ model: 'claude-think:claude-test', reasoning: 'medium' });
+	events.length = 0;
+	mock.calls.length = 0;
+	await api('sessions_prompt/' + id, { text: 'please read the file' });
+	await idle(id);
+	var calls = mock.calls.filter(c => c.kind === 'anthropic');
+	check('Claude gets a thinking budget and room for the answer after it', calls[0].body.thinking && calls[0].body.thinking.type === 'enabled' && calls[0].body.thinking.budget_tokens === 8192 && calls[0].body.max_tokens > 8192);
+	var turn = calls[1].body.messages.find(m => m.role === 'assistant');
+	check('the thought and its signature go first in the assistant turn of the tool call', turn.content[0].type === 'thinking' && turn.content[0].signature === 'SIGNED-THOUGHT' && turn.content[0].thinking === 'Claude thinks about it.' && turn.content.some(b => b.type === 'tool_use'));
+	var r = await api('sessions_messages/' + id);
+	check('the thought is shown as reasoning', r.response.find(m => m.role === 'assistant').parts.some(p => p.type === 'reasoning' && /Claude thinks/.test(p.data.text)));
+
+	// Without a level or with "none" nothing is sent
+	events.length = 0;
+	mock.calls.length = 0;
+	await api('sessions_prompt/' + id, { text: 'plain hello', reasoning: 'none' });
+	await idle(id);
+	calls = mock.calls.filter(c => c.kind === 'anthropic');
+	check('"none" sends no thinking to Claude', !calls[0].body.thinking && calls[0].body.max_tokens === 8192);
+
+	// A model that does not think is never sent the setting
+	id = await session({ model: 'claude-mock:claude-test', reasoning: 'high' });
+	events.length = 0;
+	mock.calls.length = 0;
+	await api('sessions_prompt/' + id, { text: 'plain hello' });
+	await idle(id);
+	check('a model that is not known to think gets no thinking', !mock.calls.filter(c => c.kind === 'anthropic')[0].body.thinking);
+
+	// Gemini 2.5: a budget; the thoughts become reasoning
+	id = await session({ model: 'gemini-think:gemini-test', reasoning: 'high' });
+	events.length = 0;
+	mock.calls.length = 0;
+	await api('sessions_prompt/' + id, { text: 'plain hello' });
+	await idle(id);
+	var g = mock.calls.filter(c => c.kind === 'gemini')[0];
+	check('Gemini 2.5 gets a thinking budget and asks for the thoughts', g.body.generationConfig.thinkingConfig.thinkingBudget === 24576 && g.body.generationConfig.thinkingConfig.includeThoughts === true);
+	r = await api('sessions_messages/' + id);
+	var parts = r.response.find(m => m.role === 'assistant').parts;
+	check('the thoughts of Gemini are reasoning, not text', parts.some(p => p.type === 'reasoning' && /Gemini thinks/.test(p.data.text)) && !parts.some(p => p.type === 'text' && /thinks about it/.test(p.data.text)));
+
+	events.length = 0;
+	mock.calls.length = 0;
+	await api('sessions_prompt/' + id, { text: 'again', reasoning: 'none' });
+	await idle(id);
+	g = mock.calls.filter(c => c.kind === 'gemini')[0];
+	check('"none" switches the thinking of Gemini 2.5 off', g.body.generationConfig.thinkingConfig.thinkingBudget === 0 && g.body.generationConfig.thinkingConfig.includeThoughts === false);
+	next();
+});
+
 Test.push('cleanup', async function(next) {
 	var r = await api('projects_remove/' + projectid);
 	check('removing a project removes its sessions', r.response.success === true);
