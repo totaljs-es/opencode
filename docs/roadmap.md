@@ -27,7 +27,7 @@ Pages in `docs/`, the repository skeleton, `AGENTS.md`, the conventions check. *
 
 **Done when** one week of real work on Forge and a Total.js app uses it without leaving for another tool, and the test suite covers undo, compaction and secret scanning.
 
-Status: snapshots, per-session diff, undo, auto-accept, `AGENTS.md`, skills, patch/fetch/todo/ask tools, retry, two levels of compaction, secret scanning, the changes panel, shortcuts (`Esc` stops, `Alt+D` toggles changes), `totem` and `totem run` are in code with tests. Not done yet: more languages than English and Spanish (the mechanism and the Spanish resource are done), and shipping the Total.js conventions skills with Totem. The week of real use has not happened.
+Status: snapshots, per-session diff, undo, auto-accept, `AGENTS.md`, skills, patch/fetch/todo/ask tools, retry, two levels of compaction, secret scanning, the changes panel, shortcuts (`Esc` stops, `Alt+D` toggles changes), `totem` and `totem run` are in code with tests. Not done yet: more languages than English, Spanish and Slovak, and shipping the Total.js conventions skills with Totem. The week of real use has not happened.
 
 ## Phase 3: breadth (in progress)
 
