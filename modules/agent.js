@@ -11,7 +11,12 @@ var TOOLS = {
 	grep: { action: 'Tools|grep', readonly: true },
 	write: { action: 'Tools|write' },
 	edit: { action: 'Tools|edit' },
-	bash: { action: 'Tools|bash' }
+	bash: { action: 'Tools|bash' },
+	patch: { action: 'Tools|patch' },
+	fetch: { action: 'Tools|fetch', readonly: true },
+	todo: { action: 'Tools|todo' },
+	ask: { action: 'Tools|ask' },
+	skill: { action: 'Tools|skill', readonly: true }
 };
 
 exports.tools = TOOLS;
@@ -31,9 +36,96 @@ exports.definitions = function() {
 };
 
 function system(run) {
+
 	var text = MAIN.base;
 	text += '\nWorking directory: {0}\nPlatform: {1}\nDate: {2}\n'.format(run.root, Total.Os.platform(), new Date().format('yyyy-MM-dd'));
+
+	var instructions = MODS.instructions.text(run.root);
+	if (instructions)
+		text += '\nInstructions of this project (AGENTS.md):\n' + instructions + '\n';
+
+	var skills = MODS.instructions.skills(run.root);
+	if (skills.length) {
+		text += '\nSkills of this project. Load one with the skill tool when it applies:\n';
+		for (var skill of skills)
+			text += '- {0}: {1}\n'.format(skill.name, skill.description);
+	}
+
 	return text;
+}
+
+// Rough size of the request in tokens
+function estimate(messages) {
+	var size = 0;
+	for (var m of messages)
+		size += (m.content ? m.content.length : 0) + (m.tool_calls ? JSON.stringify(m.tool_calls).length : 0);
+	return Math.ceil(size / 4);
+}
+
+// Level 1 of compaction: the output of old tool calls becomes one line. The stored history is not touched.
+function trimoutput(messages, keep) {
+	var count = 0;
+	for (var i = messages.length - 1; i >= 0; i--) {
+		if (messages[i].role === 'tool' && ++count > keep && messages[i].content.length > 200)
+			messages[i] = { role: 'tool', tool_call_id: messages[i].tool_call_id, content: '[output omitted: {0} characters]'.format(messages[i].content.length) };
+	}
+}
+
+// Level 2: the older turns become a summary written by the model of the session. callback(err)
+function summarize(run, callback) {
+
+	var cut = Math.max(run.messages.length - 8, 0);
+
+	// Never separate a tool call from its results
+	while (cut > 0 && run.messages[cut].role === 'tool')
+		cut--;
+
+	if (cut < 2) {
+		callback();
+		return;
+	}
+
+	var older = run.messages.slice(0, cut);
+	var transcript = older.map(m => (m.role + ': ' + (m.content || (m.tool_calls ? JSON.stringify(m.tool_calls) : ''))).substring(0, 1500)).join('\n');
+
+	var ai = AIMODEL(run.model);
+	ai.payload.messages = [
+		{ role: 'system', content: 'Summarize the conversation for an assistant that continues the work. Keep goals, decisions, files changed and open problems. Under 300 words.' },
+		{ role: 'user', content: transcript }
+	];
+
+	ai.callback(function(err, output) {
+		if (err || !output || !output.content) {
+			callback();
+			return;
+		}
+		run.messages = [{ role: 'user', content: 'Summary of the earlier conversation:\n' + output.content }].concat(run.messages.slice(cut));
+		addpart(run, 'compaction', { removed: older.length, summary: output.content }, true);
+		callback();
+	});
+}
+
+function compact(run, callback) {
+
+	var limit = CONF.contextlimit;
+
+	if (estimate(run.messages) <= limit) {
+		callback();
+		return;
+	}
+
+	trimoutput(run.messages, 6);
+
+	if (estimate(run.messages) <= limit) {
+		callback();
+		return;
+	}
+
+	summarize(run, callback);
+}
+
+function retryable(err) {
+	return typeof(err) === 'string' && /^(429|5\d\d)\b|ECONNRESET|ETIMEDOUT|ECONNREFUSED|socket hang up|network|fetch failed|Timeout/i.test(err);
 }
 
 // Converts the stored parts of a session into the messages of the provider
@@ -112,6 +204,7 @@ exports.run = function(session, project, message, callback) {
 		model: session.model,
 		parts: {},
 		seq: 0,
+		attempts: 0,
 		open: {},
 		messages: [],
 		ai: null
@@ -122,9 +215,12 @@ exports.run = function(session, project, message, callback) {
 	function finish(status, error) {
 		delete MAIN.running[session.id];
 		NOSQL('sessions').modify({ status: status, dtupdated: NOW }).where('id', session.id).callback(NOOP);
-		FUNC.emit(session.id, 'session.status', { status: status });
+
+		// The error comes first so that a client that stops at the final status has already seen it
 		if (error)
 			FUNC.emit(session.id, 'error', { message: error, retry: false });
+
+		FUNC.emit(session.id, 'session.status', { status: status });
 		callback && callback(error || null);
 	}
 
@@ -170,6 +266,19 @@ function step(run, finish, fail) {
 
 	run.steps++;
 
+	compact(run, function() {
+		request(run, finish, fail);
+	});
+}
+
+function request(run, finish, fail) {
+
+	if (run.aborted) {
+		closeparts(run);
+		finish('aborted');
+		return;
+	}
+
 	var ai = AIMODEL(run.model);
 	ai.payload.messages = [{ role: 'system', content: system(run) }].concat(run.messages);
 	ai.payload.tools = exports.definitions();
@@ -197,10 +306,24 @@ function step(run, finish, fail) {
 		}
 
 		if (err) {
-			fail(typeof(err) === 'string' ? err : (err.message || 'Model error'));
+
+			var message = typeof(err) === 'string' ? err : (err.message || 'Model error');
+
+			// Transient errors are retried with backoff; the partial answer stays stored
+			if (retryable(message) && run.attempts < CONF.retries) {
+				run.attempts++;
+				run.steps--;
+				closeparts(run);
+				FUNC.emit(run.sessionid, 'error', { message: message, retry: true });
+				setTimeout(() => step(run, finish, fail), CONF.retrybase * Math.pow(2, run.attempts - 1));
+				return;
+			}
+
+			fail(message);
 			return;
 		}
 
+		run.attempts = 0;
 		closeparts(run);
 
 		var tools = output.tools || [];
@@ -287,6 +410,8 @@ function runtools(run, tools, callback) {
 		part.data.input = tool.arguments || {};
 
 		function result(status, output, error) {
+			output = FUNC.scrub(output);
+			error = FUNC.scrub(error);
 			part.data.status = status;
 			part.data.output = output || '';
 			part.data.error = error || '';
@@ -313,7 +438,7 @@ function runtools(run, tools, callback) {
 			part.data.status = 'running';
 			FUNC.emit(run.sessionid, 'part.updated', { part: part });
 
-			var user = { id: 'agent', sa: true, root: run.root, sessionid: run.sessionid, projectid: run.projectid };
+			var user = { id: 'agent', sa: true, root: run.root, sessionid: run.sessionid, projectid: run.projectid, messageid: run.message.id };
 
 			ACTION(meta.action, part.data.input).user(user).callback(function(err, response) {
 				if (run.aborted)

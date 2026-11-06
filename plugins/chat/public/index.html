@@ -22,9 +22,35 @@
 	.CLASS .ask code { display: block; margin: 6px 0; white-space: pre-wrap; }
 	.CLASS .empty { text-align: center; color: #888; margin-top: 18vh; }
 	.CLASS .compose { border-top: 1px solid var(--border, #E0E0E0); padding: 10px 16px; }
-	.CLASS .compose .row { max-width: 860px; margin: 0 auto; display: flex; gap: 8px; align-items: center; }
-	.CLASS .compose .grow { flex: 1; }
+	.CLASS .compose .row { max-width: 860px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+	.CLASS .compose .grow { flex: 1 1 220px; min-width: 160px; }
 	.CLASS .compose .model { width: 220px; }
+	.CLASS .layout { flex: 1; display: flex; min-height: 0; }
+	.CLASS .layout .col { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+	.CLASS .side { width: 380px; flex: 0 0 380px; border-left: 1px solid var(--border, #E0E0E0); overflow: auto; padding: 12px; }
+	.CLASS .file { margin-bottom: 10px; border: 1px solid var(--border, #E0E0E0); border-radius: 8px; overflow: hidden; }
+	.CLASS .file summary { cursor: pointer; padding: 6px 10px; display: flex; gap: 8px; align-items: center; background: rgba(0,0,0,0.03); }
+	.CLASS .file summary b { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.CLASS .file pre { margin: 0; padding: 6px 0; overflow: auto; font-size: 12px; max-height: 360px; }
+	.CLASS .file pre span { display: block; padding: 0 10px; white-space: pre; }
+	.CLASS .file pre .add { background: rgba(46,160,67,0.18); }
+	.CLASS .file pre .del { background: rgba(248,81,73,0.18); }
+	.CLASS .file pre .hunk { color: #888; background: rgba(0,0,0,0.04); }
+	.CLASS .plus { color: #27AE60; }
+	.CLASS .minus { color: #C0392B; }
+	.CLASS .undo { font-size: 12px; margin-top: 4px; }
+	.CLASS .note { text-align: center; font-size: 12px; color: #888; margin: 10px 0; }
+	.CLASS .todos { max-width: 860px; margin: 0 auto 8px; font-size: 13px; }
+	.CLASS .todos div { padding: 1px 0; }
+	.CLASS .todos .completed { color: #888; text-decoration: line-through; }
+	.CLASS .todos .in_progress { font-weight: bold; }
+	.CLASS .ask.question { border-color: #3498DB; }
+	@media (prefers-color-scheme: dark) {
+		.CLASS .msg-user .bubble { background: rgba(255,255,255,0.12); }
+		.CLASS .tool { background: rgba(255,255,255,0.04); }
+		.CLASS .file summary { background: rgba(255,255,255,0.06); }
+		.CLASS .file pre .hunk { background: rgba(255,255,255,0.06); }
+	}
 </style>
 
 <ui-plugin class="CLASS">
@@ -32,8 +58,12 @@
 	<div class="bar">
 		<b><ui-bind path="?.session" config="template" class="block"><script type="text/html">{{ if value }}{{ value.name }}{{ else }}@(No session){{ fi }}</script></ui-bind></b>
 		<ui-bind path="?.status" config="template" class="status"><script type="text/html"><span class="status {{ value }}">{{ value }}</span></script></ui-bind>
-		<ui-bind path="?.status" config="show:value === 'running'" class="hidden"><button class="exec" data-exec="?/abort" title="@(Stop)"><i class="ti ti-player-stop"></i>@(Stop)</button></ui-bind>
+		<ui-bind path="?.status" config="show:value === 'running'" class="hidden"><button class="exec" data-exec="?/abort" title="@(Stop, Esc)"><i class="ti ti-player-stop"></i>@(Stop)</button></ui-bind>
+		<button class="exec" data-exec="?/changes" title="@(Files changed by Totem)"><i class="ti ti-git-compare"></i>@(Changes)<ui-bind path="?.files" config="template" class="inline"><script type="text/html">{{ if value && value.length }} ({{ value.length }}){{ fi }}</script></ui-bind></button>
 	</div>
+
+	<div class="layout">
+	<div class="col">
 
 	<div class="scroll" id="chatscroll">
 		<div class="inner">
@@ -52,6 +82,9 @@
 							{{ if p.type === 'text' && m.role !== 'user' }}
 							<div class="part">{{ p.data.text | markdown({ wrap: false }) }}</div>
 							{{ fi }}
+							{{ if p.type === 'compaction' }}
+							<div class="note"><i class="ti ti-arrows-minimize"></i> @(Earlier turns were summarized to keep the conversation short.)</div>
+							{{ fi }}
 							{{ if p.type === 'reasoning' }}
 							<div class="part reasoning">{{ p.data.text }}</div>
 							{{ fi }}
@@ -64,6 +97,9 @@
 							</div>
 							{{ fi }}
 						{{ end }}
+						{{ if m.role === 'assistant' && m.changed }}
+						<div class="undo"><span class="exec link" data-exec="?/undo" data-id="{{ m.id }}"><i class="ti ti-arrow-back-up"></i> @(Undo these changes)</span></div>
+						{{ fi }}
 					</div>
 					{{ end }}
 				</script>
@@ -83,17 +119,60 @@
 				</script>
 			</ui-bind>
 
+			<ui-bind path="?.questions" config="template" class="block">
+				<script type="text/html">
+					{{ foreach q in value }}
+					<div class="ask question">
+						<b><i class="ti ti-help-circle"></i> {{ q.text }}</b>
+						<div class="mt10">
+							{{ foreach o in q.options }}
+							<button class="exec" data-exec="?/answer" data-id="{{ q.id }}" data-answer="{{ o }}">{{ o }}</button>
+							{{ end }}
+						</div>
+						<div class="mt10" style="display:flex;gap:8px"><input type="text" class="answertext" data-id="{{ q.id }}" placeholder="@(Type an answer)" style="flex:1" /><button class="exec" data-exec="?/answer" data-id="{{ q.id }}" data-custom="1">@(Answer)</button></div>
+					</div>
+					{{ end }}
+				</script>
+			</ui-bind>
+
 		</div>
 	</div>
+
+	<ui-bind path="?.todos" config="template" class="block">
+		<script type="text/html">
+			{{ if value && value.length }}
+			<div class="todos">
+				{{ foreach t in value }}<div class="{{ t.status }}"><i class="ti ti-{{ if t.status === 'completed' }}circle-check{{ else }}circle{{ fi }}"></i> {{ t.text }}</div>{{ end }}
+			</div>
+			{{ fi }}
+		</script>
+	</ui-bind>
 
 	<div class="compose">
 		<ui-component name="enter" config="exec:?/send;validate:false;trigger:button[name=send]">
 			<div class="row">
 				<div class="grow"><ui-component name="input" path="?.text" config="placeholder:@(Ask Totem...);autofocus:true"></ui-component></div>
 				<div class="model"><ui-component name="input" path="?.model" config="placeholder:@(Model);dirsource:?.models;dirempty:@(Add a provider in Settings)"></ui-component></div>
+				<ui-component name="input" path="?.autoaccept" config="type:checkbox">@(Auto-accept edits)</ui-component>
 				<button name="send" class="exec" data-exec="?/send"><i class="ti ti-send"></i>@(Send)</button>
 			</div>
 		</ui-component>
+	</div>
+	</div>
+
+	<ui-bind path="?.showdiff" config="show:value" class="hidden side">
+		<ui-bind path="?.files" config="template" class="block">
+			<script type="text/html">
+				{{ if !value || !value.length }}<div class="gray">@(Totem has not changed any file in this session.)</div>{{ fi }}
+				{{ foreach f in value }}
+				<details class="file" open>
+					<summary><i class="ti ti-file"></i><b>{{ f.path }}</b><span class="badge badge-small">{{ f.status }}</span><span class="plus">+{{ f.additions }}</span><span class="minus">-{{ f.deletions }}</span></summary>
+					<pre>{{ f.patch | diffhtml }}</pre>
+				</details>
+				{{ end }}
+			</script>
+		</ui-bind>
+	</ui-bind>
 	</div>
 
 </ui-plugin>
@@ -105,11 +184,45 @@
 		var sessionid = null;
 		var parts = {};
 
+		var diffjob = null;
+		var registered = false;
+		var EDITS = { write: 1, edit: 1, patch: 1 };
+
 		exports.reload = function() {
 			exports.set('items', []);
 			exports.set('asks', []);
+			exports.set('questions', []);
+			exports.set('todos', []);
+			exports.set('files', []);
 			exports.models();
+
+			if (!registered) {
+				registered = true;
+				SETTER(true, 'shortcuts/register', 'esc', function() {
+					if (exports.model.status === 'running')
+						exports.abort();
+				});
+				SETTER(true, 'shortcuts/register', 'alt + d', function() {
+					exports.changes();
+				});
+			}
 		};
+
+		// A message that edited files can be undone
+		function mark(m) {
+			m.changed = (m.parts || []).some(function(p) {
+				return p.type === 'tool' && EDITS[p.data.tool] && p.data.status === 'done';
+			});
+		}
+
+		function refreshdiff() {
+			diffjob && clearTimeout(diffjob);
+			diffjob = setTimeout(function() {
+				sessionid && exports.tapi('sessions_diff/' + sessionid, function(files) {
+					exports.set('files', files);
+				});
+			}, 300);
+		}
 
 		exports.models = function() {
 			exports.tapi('providers_models', function(response) {
@@ -125,6 +238,9 @@
 			parts = {};
 			exports.set('items', []);
 			exports.set('asks', []);
+			exports.set('questions', []);
+			exports.set('todos', []);
+			exports.set('files', []);
 			exports.set('status', 'idle');
 			exports.set('session', null);
 
@@ -137,12 +253,20 @@
 				exports.set('status', session.status);
 				if (session.model)
 					exports.set('model', session.model);
+				exports.set('autoaccept', !!session.autoaccept);
 			});
+
+			exports.tapi('sessions_todos/' + id, function(todos) {
+				exports.set('todos', todos);
+			});
+
+			refreshdiff();
 
 			exports.tapi('sessions_messages/' + id + ' ERROR', function(items) {
 				for (var m of items) {
 					for (var p of m.parts)
 						parts[p.id] = p;
+					mark(m);
 				}
 				exports.set('items', items);
 				scroll();
@@ -217,8 +341,29 @@
 					var tool = parts[data.part.id];
 					if (tool) {
 						tool.data = data.part.data;
+						var owner = find(tool.messageid);
+						owner && mark(owner);
 						exports.update('items', true);
 					}
+					break;
+
+				case 'diff.updated':
+					refreshdiff();
+					break;
+
+				case 'todo.updated':
+					exports.set('todos', data.items);
+					break;
+
+				case 'question.ask':
+					var questions = exports.model.questions || [];
+					questions.push({ id: data.id, text: data.text, options: data.options || [] });
+					exports.update('questions', true);
+					scroll();
+					break;
+
+				case 'question.replied':
+					exports.set('questions', (exports.model.questions || []).filter(function(q) { return q.id !== data.id; }));
 					break;
 
 				case 'permission.ask':
@@ -252,11 +397,35 @@
 
 			var text = model.text;
 			exports.set('text', '');
-			exports.tapi('sessions_prompt/' + sessionid + ' ERROR', { text: text, model: model.model }, NOOP);
+			exports.tapi('sessions_prompt/' + sessionid + ' ERROR', { text: text, model: model.model, autoaccept: !!model.autoaccept }, NOOP);
 		};
 
 		exports.abort = function() {
 			sessionid && exports.tapi('sessions_abort/' + sessionid, NOOP);
+		};
+
+		exports.changes = function() {
+			exports.set('showdiff', !exports.model.showdiff);
+			refreshdiff();
+		};
+
+		exports.undo = function(el) {
+			var id = ATTRD(el);
+			SETTER('approve/show', '@(Restore the files as they were before these changes?)', ':ti ti-arrow-back-up: @(Undo)', function() {
+				exports.tapi('sessions_undo/' + sessionid + ' ERROR', { messageid: id }, function(restored) {
+					SETTER('notify/success', '@(Restored files:) ' + restored.length);
+					refreshdiff();
+				});
+			});
+		};
+
+		exports.answer = function(el) {
+			var id = ATTRD(el);
+			var answer = el.attrd('answer');
+			if (el.attrd('custom'))
+				answer = el.closest('.question').find('.answertext').val();
+			if (answer)
+				exports.tapi('questions_reply/' + id + ' ERROR', { answer: answer }, NOOP);
 		};
 
 		exports.reply = function(el) {

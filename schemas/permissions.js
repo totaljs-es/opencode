@@ -33,3 +33,16 @@ NEWACTION('Permissions|remove', {
 		$.success();
 	}
 });
+
+
+NEWACTION('Questions|reply', {
+	name: 'Answer a question of the agent',
+	params: '*id',
+	input: '*answer:String',
+	action: function($, model) {
+		if (MODS.permissions.answer($.params.id, model.answer))
+			$.success();
+		else
+			$.invalid(404);
+	}
+});

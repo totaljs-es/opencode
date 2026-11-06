@@ -15,11 +15,14 @@ Routes use the `+API` style of the conventions (`$api` is `/api/`), each to an a
 | `-sessions_messages/{id}` | `Sessions\|messages` | Messages with parts |
 | `+sessions_prompt/{id}` | `Sessions\|prompt` | Send a prompt; answers `{ messageid }` immediately |
 | `-sessions_abort/{id}` | `Sessions\|abort` | Stop the run |
-| `-sessions_undo/{id}` | `Sessions\|undo` | Restore files from a message snapshot |
-| `-sessions_diff/{id}` | `Sessions\|diff` | Diff of the session |
+| `+questions_reply/{id}` | `Questions\|reply` | Answer a question of the `ask` tool |
+| `-sessions_todos/{id}` | `Sessions\|todos` | Task list of the session |
+| `+sessions_undo/{id}` | `Sessions\|undo` | Restore the files that a message and the later ones changed (input `messageid`) |
+| `-sessions_diff/{id}` | `Sessions\|diff` | Files changed in the session: `{ path, status, additions, deletions, patch }` |
 | `+permissions_reply/{id}` | `Permissions\|reply` | Answer a pending permission question |
-| `-providers`, `+providers_save`, `-providers_models/{id}` | `Providers\|...` | Providers and their model list |
-| `-settings_read`, `+settings_save` | `Settings\|...` | Application settings |
+| `-providers`, `+providers_save`, `-providers_remove/{id}`, `-providers_models` | `Providers\|...` | Providers (the key is write-only) and the models that a session can use |
+| `-permissions`, `-permissions_remove/{id}` | `Permissions\|...` | Permission rules of a project |
+| `+login`, `+logout` | `Account\|...` | Sign in with the access token (only when `token` is set) |
 
 Answers follow the conventions: `$.callback(data)`, `$.success(id)`, `$.invalid(...)`.
 
@@ -41,8 +44,9 @@ Every event: `{ type, sessionid, ts, data }`.
 | `permission.replied` | `{ id, reply }` | Answered (also by another client) |
 | `question.ask` | `{ id, text, options }` | The `ask` tool is waiting |
 | `todo.updated` | `{ items }` | Task list changed |
-| `diff.updated` | `{ files }` | Files changed in the session |
-| `error` | `{ message, retry }` | A run-level error |
+| `diff.updated` | `{ path }` or `{ paths }` | A file was snapshotted or restored: read `Sessions\|diff` again |
+| `question.replied` | `{ id }` | A question of the `ask` tool was answered |
+| `error` | `{ message, retry }` | A run-level error. `retry: true` means Totem retries after a pause. When the run ends with an error this event comes before the final `session.status` |
 
 Ordering: events of one session are sent in order. A client that reconnects calls `Sessions|messages` for the stored state and subscribes again; parts still open arrive as `part.created` followed by deltas from that point.
 

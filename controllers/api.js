@@ -17,10 +17,14 @@ exports.install = function() {
 	ROUTE('+API    ?    -sessions_messages/{id}     --> Sessions|messages');
 	ROUTE('+API    ?    +sessions_prompt/{id}       --> Sessions|prompt', 1024 * 1024);
 	ROUTE('+API    ?    -sessions_abort/{id}        --> Sessions|abort');
+	ROUTE('+API    ?    -sessions_diff/{id}         --> Sessions|diff');
+	ROUTE('+API    ?    +sessions_undo/{id}         --> Sessions|undo');
+	ROUTE('+API    ?    -sessions_todos/{id}        --> Sessions|todos');
 
 	// Permissions
 	ROUTE('+API    ?    +permissions_reply/{id}     --> Permissions|reply');
 	ROUTE('+API    ?    -permissions                --> Permissions|list');
+	ROUTE('+API    ?    +questions_reply/{id}       --> Questions|reply');
 	ROUTE('+API    ?    -permissions_remove/{id}    --> Permissions|remove');
 
 	// Providers

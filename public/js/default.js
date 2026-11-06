@@ -24,3 +24,13 @@ Thelpers.json = function(value) {
 		return '';
 	return Thelpers.encode(typeof(value) === 'string' ? value : JSON.stringify(value, null, 2));
 };
+
+// A unified patch as lines with a class per kind of line
+Thelpers.diffhtml = function(patch) {
+	if (!patch)
+		return '';
+	return patch.split('\n').map(function(line) {
+		var type = line.charAt(0) === '+' ? 'add' : (line.charAt(0) === '-' ? 'del' : (line.indexOf('@@') === 0 ? 'hunk' : ''));
+		return '<span' + (type ? (' class="' + type + '"') : '') + '>' + Thelpers.encode(line || ' ') + '</span>';
+	}).join('');
+};

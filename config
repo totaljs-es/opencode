@@ -13,3 +13,6 @@ token                       :
 maxsteps          (Number)  : 50
 bashtimeout       (Number)  : 120000
 maxoutput         (Number)  : 30000
+contextlimit      (Number)  : 100000
+retries           (Number)  : 3
+retrybase         (Number)  : 1000

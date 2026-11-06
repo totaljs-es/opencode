@@ -58,3 +58,28 @@ FUNC.glob = function(pattern) {
 	var value = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*\*\//g, '\u0001').replace(/\*\*/g, '\u0002').replace(/\*/g, '[^/]*').replace(/\?/g, '[^/]').replace(/\u0001/g, '(.*/)?').replace(/\u0002/g, '.*');
 	return new RegExp('^' + value + '$');
 };
+
+// Secrets that must never reach the model, the interface or the stored output: provider keys, the access token and the application secret
+MAIN.secrets = [];
+
+FUNC.scrub = function(text) {
+
+	if (!text || typeof(text) !== 'string')
+		return text;
+
+	var list = MAIN.secrets.slice();
+
+	if (CONF.token)
+		list.push(CONF.token);
+
+	if (CONF.secret)
+		list.push(CONF.secret);
+
+	for (var secret of list) {
+		if (secret && secret.length >= 8 && text.indexOf(secret) !== -1)
+			text = text.split(secret).join('[secret]');
+	}
+
+	// Common key formats
+	return text.replace(/\b(sk-[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9]{30,}|AKIA[0-9A-Z]{16})\b/g, '[secret]');
+};

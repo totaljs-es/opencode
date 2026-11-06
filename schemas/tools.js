@@ -147,6 +147,7 @@ NEWACTION('Tools|write', {
 			return;
 		}
 
+		MODS.snapshots.before($.user, model.path, path);
 		Total.Fs.mkdirSync(Total.Path.dirname(path), { recursive: true });
 		Total.Fs.writeFileSync(path, model.content, 'utf8');
 		$.callback('Written {0} ({1} lines)'.format(model.path, model.content.split('\n').length));
@@ -186,6 +187,7 @@ NEWACTION('Tools|edit', {
 		}
 
 		text = text.split(model.oldstring).join(model.newstring);
+		MODS.snapshots.before($.user, model.path, path);
 		Total.Fs.writeFileSync(path, text, 'utf8');
 		$.callback('Edited {0} ({1} replacement{2})'.format(model.path, count, count > 1 ? 's' : ''));
 	}
@@ -241,5 +243,116 @@ NEWACTION('Tools|bash', {
 		});
 
 		child.on('error', err => $.invalid(err.message));
+	}
+});
+
+
+NEWACTION('Tools|patch', {
+	name: 'Apply a patch',
+	summary: 'Applies a multi-file patch. Format: "*** Begin Patch", then for each file "*** Add File: path" (lines start with +), "*** Delete File: path" or "*** Update File: path" with hunks that start with @@ and have lines that begin with a space (context), - (remove) or + (add), and finally "*** End Patch". Nothing is written when any hunk does not match.',
+	input: '*patch:String // The text of the patch',
+	action: function($, model) {
+
+		var parsed = MODS.patch.parse(model.patch);
+		if (parsed.error) {
+			$.invalid(parsed.error);
+			return;
+		}
+
+		var plan = MODS.patch.plan($.user.root, parsed.ops);
+		if (plan.error) {
+			$.invalid(plan.error);
+			return;
+		}
+
+		var summary = [];
+
+		for (var change of plan.changes) {
+			MODS.snapshots.before($.user, change.path, change.full);
+			if (change.kind === 'delete')
+				Total.Fs.unlinkSync(change.full);
+			else {
+				Total.Fs.mkdirSync(Total.Path.dirname(change.full), { recursive: true });
+				Total.Fs.writeFileSync(change.full, change.content, 'utf8');
+			}
+			summary.push('{0} {1}'.format(change.kind, change.path));
+		}
+
+		$.callback(summary.join('\n'));
+	}
+});
+
+NEWACTION('Tools|fetch', {
+	name: 'Fetch a web page',
+	summary: 'Downloads an http(s) URL and returns its text (HTML is reduced to text). Limited to 1 MB.',
+	input: '*url:String // The address, for example https://totaljs.com',
+	action: function($, model) {
+		MODS.fetcher.get(model.url, function(err, text) {
+			if (err)
+				$.invalid(err);
+			else
+				$.callback(FUNC.truncate(text));
+		});
+	}
+});
+
+NEWACTION('Tools|todo', {
+	name: 'Update the task list',
+	summary: 'Replaces the visible task list of the session. Use it to plan multi-step work and to mark progress.',
+	input: '*todos:String // JSON array of { "text": "...", "status": "pending" | "in_progress" | "completed" }',
+	action: async function($, model) {
+
+		var items;
+		try {
+			items = JSON.parse(model.todos);
+		} catch (e) {
+			$.invalid('@(The todos must be a JSON array)');
+			return;
+		}
+
+		if (!Array.isArray(items)) {
+			$.invalid('@(The todos must be a JSON array)');
+			return;
+		}
+
+		var list = items.slice(0, 50).map(function(item, index) {
+			var status = ['pending', 'in_progress', 'completed'].indexOf(item.status) === -1 ? 'pending' : item.status;
+			return { id: UID(), sessionid: $.user.sessionid, text: ('' + (item.text || '')).substring(0, 300), status: status, index: index };
+		});
+
+		await NOSQL('todos').remove().where('sessionid', $.user.sessionid).promise();
+
+		for (var todo of list)
+			await NOSQL('todos').insert(todo).promise();
+
+		FUNC.emit($.user.sessionid, 'todo.updated', { items: list });
+		$.callback('Task list updated ({0} items)'.format(list.length));
+	}
+});
+
+NEWACTION('Tools|ask', {
+	name: 'Ask the user',
+	summary: 'Asks the user a question and waits for the answer. Use it when you need a decision that you cannot make yourself.',
+	input: '*question:String // The question, options:[String] // Suggested answers',
+	action: function($, model) {
+
+		var id = UID();
+		var sessionid = $.user.sessionid;
+
+		MAIN.asks[id] = { kind: 'question', sessionid: sessionid, callback: answer => $.callback(answer) };
+		FUNC.emit(sessionid, 'question.ask', { id: id, text: model.question, options: model.options || [] });
+	}
+});
+
+NEWACTION('Tools|skill', {
+	name: 'Load a skill',
+	summary: 'Returns the instructions of a skill of the project. The available skills are listed in the system prompt.',
+	input: '*name:String // The name of the skill',
+	action: function($, model) {
+		var body = MODS.instructions.skill($.user.root, model.name);
+		if (body == null)
+			$.invalid('@(Skill not found)');
+		else
+			$.callback(body);
 	}
 });

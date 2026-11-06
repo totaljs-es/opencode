@@ -11,5 +11,11 @@
 	},
 	"dependencies": {
 		"total5": "beta"
+	},
+	"bin": {
+		"totem": "bin/totem.js"
+	},
+	"engines": {
+		"node": ">=22"
 	}
 }

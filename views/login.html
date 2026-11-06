@@ -7,6 +7,10 @@
 	<meta charset="utf-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1" />
 	<meta name="robots" content="noindex" />
+	<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+	<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+	<link rel="manifest" href="/site.webmanifest" />
+	<meta name="theme-color" content="#101915" />
 	<link href="https://cdn.componentator.com/spa.min@20.css" rel="stylesheet" />
 	<script src="https://cdn.componentator.com/spa.min@20.js"></script>
 	<script src="@{REPO.ui}"></script>
@@ -18,6 +22,7 @@
 	<ui-component name="exec"></ui-component>
 
 	<div class="login">
+		<img src="/img/totem.svg" alt="" width="56" height="56" />
 		<h2>@{CONF.name}</h2>
 		<ui-component name="enter" config="exec:login" path="login">
 			<ui-component name="input" path="login.token" config="type:password;required:1;autofocus:1;placeholder:@(Access token)">@(Token)</ui-component>

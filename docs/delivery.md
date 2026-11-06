@@ -9,16 +9,16 @@ npm install
 node index.js 8000
 ```
 
-`bin/totem` wraps it for users:
+`bin/totem.js` (`bin` of `package.json`, Node.js 22 or newer) wraps it for users:
 
 | Command | Does |
 |---|---|
-| `totem` | Starts the server on a free local port and opens the browser |
+| `totem` | Starts the server on port 8000 and opens the browser |
 | `totem serve [port]` | Starts only the server |
-| `totem run "prompt" [--project path] [--model name]` | Headless: creates a session, sends the prompt through the API, prints the events as text, exits with a status |
+| `totem run "prompt" [--project path] [--model name] [--url server] [--token t] [--auto-accept] [--yes]` | Headless: creates a session, subscribes to its events, sends the prompt, prints the answer on stdout and tool calls on stderr, exits 0 when the run ends idle and 1 otherwise. Without `--url` it starts a temporary local server. Permission questions are rejected unless `--yes` (allow once) or `--auto-accept` (file edits) is given |
 | `totem config` | Prints the path of the config and data folders |
 
-The user config and the data folder live in the platform's application folder (`~/.totem` or the OS equivalent); a project can carry `.totem/` for agent and command definitions only.
+Today the data folder is `databases/` inside the application folder (`totem config` prints it). Moving it to a per-user folder is an open decision. A project can carry `.totem/` for skills.
 
 ## Docker
 

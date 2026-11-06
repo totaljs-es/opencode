@@ -2,7 +2,7 @@
 
 exports.id = 'permissions';
 
-var READONLY = { read: 1, glob: 1, grep: 1, todo: 1 };
+var READONLY = { read: 1, glob: 1, grep: 1, todo: 1, ask: 1, skill: 1 };
 var READONLY_COMMANDS = /^(ls|pwd|cat|head|tail|wc|echo|git (status|diff|log|show|branch)|node --check|rg|grep|find)( |$)/;
 
 // Subject of a tool call that a rule pattern is compared with
@@ -67,7 +67,7 @@ exports.check = function(run, tool, input, callback) {
 exports.reply = function(id, reply) {
 
 	var ask = MAIN.asks[id];
-	if (!ask)
+	if (!ask || ask.kind === 'question')
 		return false;
 
 	delete MAIN.asks[id];
@@ -80,10 +80,28 @@ exports.reply = function(id, reply) {
 	return true;
 };
 
-// Rejects every pending question of a session (abort or removal)
+// The user answered a question of the ask tool
+exports.answer = function(id, answer) {
+
+	var ask = MAIN.asks[id];
+	if (!ask || ask.kind !== 'question')
+		return false;
+
+	delete MAIN.asks[id];
+	FUNC.emit(ask.sessionid, 'question.replied', { id: id });
+	ask.callback(answer);
+	return true;
+};
+
+// Rejects every pending permission question and closes every question of a session (abort or removal)
 exports.cancel = function(sessionid) {
 	for (var id in MAIN.asks) {
-		if (MAIN.asks[id].sessionid === sessionid)
+		var ask = MAIN.asks[id];
+		if (ask.sessionid !== sessionid)
+			continue;
+		if (ask.kind === 'question')
+			exports.answer(id, '(no answer: the run was stopped)');
+		else
 			exports.reply(id, 'reject');
 	}
 };

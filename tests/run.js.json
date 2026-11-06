@@ -1,6 +1,6 @@
 {
-	"pid": 27029,
-	"date": "2026-11-06T15:52:17.477Z",
+	"pid": 29055,
+	"date": "2026-11-06T16:16:44.298Z",
 	"stats": [
 		{
 			"id": "",
@@ -10,18 +10,18 @@
 				"build": 5020,
 				"app": "0.0.1"
 			},
-			"pid": 27029,
+			"pid": 29055,
 			"mode": "release",
 			"overload": 0,
 			"app": {
 				"name": "Total.js Totem"
 			},
-			"date": "2026-11-06T15:53:17.593Z",
-			"memory": 12.34,
-			"rm": 9,
+			"date": "2026-11-06T16:16:44.298Z",
+			"memory": 17.47,
+			"rm": 0,
 			"fm": 0,
 			"wm": 0,
-			"em": 9,
+			"em": 0,
 			"mm": 0,
 			"om": 0,
 			"dm": 0,
@@ -29,19 +29,18 @@
 			"pm": 0,
 			"sm": 0,
 			"cm": 0,
-			"dbrm": 12,
-			"dbwm": 16,
+			"dbrm": 0,
+			"dbwm": 0,
 			"usage": 0,
-			"requests": 9,
+			"requests": 67,
 			"pending": 0,
 			"external": 0,
-			"errors": 1,
+			"errors": 0,
 			"timeouts": 0,
 			"online": 0,
-			"uptime": 1,
+			"uptime": 0,
 			"download": 0,
-			"upload": 0,
-			"lasterror": "2026-11-06T15:52:17.753Z Error: ENOENT: no such file or directory, open '/var/folders/h2/rly4qptx4gd4hg73ffhfz2xw0000gn/T/totem-test-qQyLKu/project/src/b.txt'\n    at Object.readFileSync (node:fs:440:20)\n    at Object.fn (/Volumes/Grey/GitHub/totem/tests/run.js:160:60)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)"
+			"upload": 0
 		}
 	]
 }

@@ -13,7 +13,7 @@ Everything is local. The data folder (`config`: `data`, default `databases/` nex
 | **part** | `id`, `messageid`, `sessionid`, `type`, `data`, `dtcreated` | NoSQL `parts` |
 | **permission rule** | `id`, `projectid` (or global), `tool`, `pattern`, `action` (`allow`, `ask`, `deny`) | NoSQL `permissions` |
 | **provider** | `id`, `name`, `url`, `key` (encrypted), `models[]`, `disabled` | NoSQL `providers` |
-| **snapshot** | `id`, `sessionid`, `messageid`, `files[]` (path, hash, blob id) | NoSQL `snapshots` + FILESTORAGE blobs |
+| **snapshot** | `id`, `sessionid`, `messageid`, `path`, `existed`, `size`, `dtcreated` | NoSQL `snapshots` + a file per snapshot |
 | **todo** | `id`, `sessionid`, `text`, `status` | NoSQL `todos` |
 
 Names follow the conventions: lowercase, short, `id`, `dtcreated`, `dtupdated`; ids are `UID()`, dates are `NOW`.
@@ -30,12 +30,13 @@ A message is an ordered list of parts, so the interface renders any step uniform
 | `file` | `{ name, mime, blob }` (attachments) |
 | `patch` | `{ files: [{ path, additions, deletions }] }` summary of the edits of a step |
 | `step` | `{ tokens, cost, finish }` end of one model call |
+| `compaction` | `{ removed, summary }` older turns were replaced by a summary in what is sent to the model (the stored history is untouched) |
 
 Streaming deltas are not stored one by one: the loop buffers a part and writes it when it closes, and a crash leaves the last completed part.
 
 ## Snapshots and undo
 
-Before a tool changes a file, `modules/snapshots.js` stores the previous content (FILESTORAGE blob, keyed by hash) and records it for the message. Undo of a message restores those files. If the project is a git repository the diff shown to the user is computed from snapshots, not from `git`, so unrelated uncommitted work never appears in a session's diff. The agent does not commit unless asked.
+Before a tool changes a file, `modules/snapshots.js` stores the previous content (a file in `databases/snapshots/<id>`, up to 2 MB; larger files are recorded without content and cannot be restored) and a `snapshots` document for the message. Only the first change of a file in a message is kept. Undo of a message restores those files. If the project is a git repository the diff shown to the user is computed from snapshots, not from `git`, so unrelated uncommitted work never appears in a session's diff. The agent does not commit unless asked.
 
 ## Settings and secrets
 

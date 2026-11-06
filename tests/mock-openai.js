@@ -52,9 +52,36 @@ exports.start = function(port, callback) {
 
 			res.writeHead(200, { 'content-type': 'text/event-stream' });
 
+			if (last.role === 'tool' && /Written|Task list/.test(last.content)) {
+				words(res, 'Done. ' + last.content, function() {
+					chunk(res, {}, 'stop');
+					res.end('data: [DONE]\n\n');
+				});
+				return;
+			}
+
 			if (last.role === 'tool') {
 				words(res, 'I read the file. It has ' + (last.content.split('\n').length) + ' lines.', function() {
 					chunk(res, {}, 'stop');
+					res.end('data: [DONE]\n\n');
+				});
+				return;
+			}
+
+			if (user && /write a note/.test(user.content)) {
+				words(res, 'I will write the note.', function() {
+					chunk(res, { tool_calls: [{ index: 0, id: 'call_w', type: 'function', function: { name: 'write', arguments: '' } }] });
+					chunk(res, { tool_calls: [{ index: 0, function: { arguments: JSON.stringify({ path: 'notes.txt', content: 'hello\nfrom Totem\n' }) } }] });
+					chunk(res, {}, 'tool_calls');
+					res.end('data: [DONE]\n\n');
+				});
+				return;
+			}
+
+			if (user && /plan it/.test(user.content)) {
+				words(res, 'Planning.', function() {
+					chunk(res, { tool_calls: [{ index: 0, id: 'call_t', type: 'function', function: { name: 'todo', arguments: JSON.stringify({ todos: JSON.stringify([{ text: 'Read the code', status: 'completed' }, { text: 'Write the feature', status: 'in_progress' }, { text: 'Run the tests', status: 'pending' }]) }) } }] });
+					chunk(res, {}, 'tool_calls');
 					res.end('data: [DONE]\n\n');
 				});
 				return;

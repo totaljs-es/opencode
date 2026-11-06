@@ -33,6 +33,8 @@ NEWACTION('Sessions|remove', {
 	action: async function($) {
 		var id = $.params.id;
 		MODS.agent.abort(id);
+		await new Promise(resolve => MODS.snapshots.clear(id, resolve));
+		await NOSQL('todos').remove().where('sessionid', id).promise($);
 		await NOSQL('parts').remove().where('sessionid', id).promise($);
 		await NOSQL('messages').remove().where('sessionid', id).promise($);
 		await NOSQL('sessions').remove().where('id', id).promise($);
@@ -77,8 +79,9 @@ NEWACTION('Sessions|prompt', {
 		if (model.model)
 			session.model = model.model;
 
-		if (model.autoaccept != null)
-			session.autoaccept = model.autoaccept;
+		// A Boolean input is false when it is missing: only an explicit value changes the session
+		if ($.body && $.body.autoaccept !== undefined)
+			session.autoaccept = !!model.autoaccept;
 
 		if (!session.model || !F.aimodels[session.model]) {
 			$.invalid('@(Choose a model first)');
@@ -107,5 +110,48 @@ NEWACTION('Sessions|abort', {
 	action: function($) {
 		MODS.agent.abort($.params.id);
 		$.success();
+	}
+});
+
+
+NEWACTION('Sessions|diff', {
+	name: 'Files changed by the agent in a session',
+	params: '*id',
+	action: async function($) {
+		var session = await NOSQL('sessions').read().where('id', $.params.id).error(404).promise($);
+		var project = await NOSQL('projects').read().where('id', session.projectid).error(404).promise($);
+		MODS.snapshots.files(session, project, (err, files) => $.callback(files));
+	}
+});
+
+NEWACTION('Sessions|undo', {
+	name: 'Undo the changes of a message and the later ones',
+	params: '*id',
+	input: '*messageid:String',
+	action: async function($, model) {
+
+		if (MAIN.running[$.params.id]) {
+			$.invalid('@(The session is running)');
+			return;
+		}
+
+		var session = await NOSQL('sessions').read().where('id', $.params.id).error(404).promise($);
+		var project = await NOSQL('projects').read().where('id', session.projectid).error(404).promise($);
+
+		MODS.snapshots.undo(session, project, model.messageid, function(err, restored) {
+			if (err)
+				$.invalid(err);
+			else
+				$.callback(restored);
+		});
+	}
+});
+
+NEWACTION('Sessions|todos', {
+	name: 'Task list of a session',
+	params: '*id',
+	action: async function($) {
+		var items = await NOSQL('todos').find().where('sessionid', $.params.id).sort('index').promise($);
+		$.callback(items);
 	}
 });

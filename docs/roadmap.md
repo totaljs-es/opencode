@@ -17,7 +17,7 @@ Pages in `docs/`, the repository skeleton, `AGENTS.md`, the conventions check. *
 
 **Done when** a native test starts the server with a disposable data folder and a scripted fake provider, sends a prompt, and verifies the whole chain (stream events, a file edit, a permission ask, abort), and a manual session with a real model edits a Total.js project and the project still starts.
 
-## Phase 2: review, context, daily use
+## Phase 2: review, context, daily use (implemented, see the notes below)
 
 - Snapshots, per-session diff, undo; git status; auto-accept mode.
 - `AGENTS.md` instructions, skills, patch/fetch/todo/ask tools, compaction, retry.
@@ -26,6 +26,8 @@ Pages in `docs/`, the repository skeleton, `AGENTS.md`, the conventions check. *
 - The Total.js skill pack and conventions check available to the agent.
 
 **Done when** one week of real work on Forge and a Total.js app uses it without leaving for another tool, and the test suite covers undo, compaction and secret scanning.
+
+Status: snapshots, per-session diff, undo, auto-accept, `AGENTS.md`, skills, patch/fetch/todo/ask tools, retry, two levels of compaction, secret scanning, the changes panel, shortcuts (`Esc` stops, `Alt+D` toggles changes), `totem` and `totem run` are in code with tests. Not done yet: git status in the interface, terminal output panel, a full dark theme, translations, and shipping the Total.js conventions skills with Totem. The week of real use has not happened.
 
 ## Phase 3: breadth
 

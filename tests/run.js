@@ -34,7 +34,18 @@ function fake(ai, callback) {
 
 	requests.push(ai.payload);
 
+	// A request to summarize is answered without using the script
+	if (ai.payload.messages[0].content.indexOf('Summarize the conversation') === 0) {
+		callback(null, { content: 'SUMMARY of the work', thinking: '', tools: [] });
+		return;
+	}
+
 	var step = script.shift();
+
+	if (step && step.error) {
+		callback(step.error);
+		return;
+	}
 	if (!step) {
 		callback('script ended');
 		return;
@@ -105,7 +116,7 @@ Test.push('boot', function(next) {
 Test.push('tool definitions', function(next) {
 	var defs = MODS.agent.definitions();
 	var read = defs.find(d => d.function.name === 'read');
-	check('every core tool has a definition', defs.length === 6);
+	check('every tool has a definition', defs.length === 11);
 	check('arguments are flattened', read && read.function.parameters.properties.path && read.function.parameters.required.indexOf('path') !== -1);
 	check('the descriptions of the fields reach the model', read && !!read.function.parameters.properties.path.description);
 	next();
@@ -214,6 +225,188 @@ Test.push('bash and abort', async function(next) {
 	next();
 });
 
+
+function session(options) {
+	return api('sessions_create', Object.assign({ projectid: projectid, model: 'fake' }, options || {})).then(r => r.response.id);
+}
+
+function idle(id) {
+	return until(() => events.filter(e => e.sessionid === id && e.type === 'session.status' && e.data.status === 'idle').length > 0);
+}
+
+Test.push('diff', function(next) {
+	var diff = MODS.snapshots.diff;
+	var r = diff('a\nb\nc\nd\ne\nf\ng\nh\n', 'a\nb\nX\nd\ne\nf\ng\nh\ni\n');
+	check('diff counts additions and deletions', r.additions === 2 && r.deletions === 1);
+	check('diff has a unified hunk with context', r.patch.indexOf('@@ -1,') === 0 && r.patch.indexOf('-c') !== -1 && r.patch.indexOf('+X') !== -1 && r.patch.indexOf(' b') !== -1);
+	check('equal texts have no diff', diff('a\nb\n', 'a\nb\n').patch === '');
+	check('an empty original is all additions', diff('', 'x\ny\n').additions === 2);
+	next();
+});
+
+Test.push('snapshots: diff and undo', async function(next) {
+
+	var id = await session({ autoaccept: true });
+	events.length = 0;
+	script = [
+		{ tools: [{ id: 's1', name: 'write', arguments: { path: 'n.txt', content: 'new file\n' } }, { id: 's2', name: 'edit', arguments: { path: 'a.txt', oldstring: 'two', newstring: 'TWO' } }] },
+		{ content: 'Changed.' }
+	];
+
+	await api('sessions_prompt/' + id, { text: 'change things' });
+	await idle(id);
+	check('auto-accept lets edits run without asking', !events.some(e => e.type === 'permission.ask') && Total.Fs.existsSync(Total.Path.join(PROJECT, 'n.txt')));
+
+	var r = await api('sessions_diff/' + id);
+	var files = r.response;
+	var a = files.find(f => f.path === 'a.txt');
+	var n = files.find(f => f.path === 'n.txt');
+	check('the diff lists the changed files', files.length === 2 && a.status === 'modified' && n.status === 'added');
+	check('the diff has the lines', a.additions === 1 && a.deletions === 1 && a.patch.indexOf('-two') !== -1 && a.patch.indexOf('+TWO') !== -1);
+
+	r = await api('sessions_messages/' + id);
+	var assistant = r.response.find(m => m.role === 'assistant');
+	r = await api('sessions_undo/' + id, { messageid: assistant.id });
+	check('undo restores the files', Total.Fs.readFileSync(Total.Path.join(PROJECT, 'a.txt'), 'utf8') === 'one\ntwo\nthree\n' && !Total.Fs.existsSync(Total.Path.join(PROJECT, 'n.txt')));
+	r = await api('sessions_diff/' + id);
+	check('the diff is empty after undo', r.response.length === 0);
+	next();
+});
+
+Test.push('patch tool', async function(next) {
+
+	var user = { id: 'agent', sa: true, root: PROJECT, sessionid: 'x', projectid: projectid };
+	Total.Fs.writeFileSync(Total.Path.join(PROJECT, 'p.txt'), 'alpha\nbeta\ngamma\n');
+	Total.Fs.writeFileSync(Total.Path.join(PROJECT, 'gone.txt'), 'bye\n');
+
+	var patch = ['*** Begin Patch', '*** Update File: p.txt', '@@', ' alpha', '-beta', '+BETA', '+beta2', ' gamma', '*** Add File: q/new.txt', '+hello', '*** Delete File: gone.txt', '*** End Patch'].join('\n');
+	var out = await ACTION('Tools|patch', { patch: patch }).user(user).promise();
+	check('a patch updates, adds and deletes', Total.Fs.readFileSync(Total.Path.join(PROJECT, 'p.txt'), 'utf8') === 'alpha\nBETA\nbeta2\ngamma\n' && Total.Fs.readFileSync(Total.Path.join(PROJECT, 'q/new.txt'), 'utf8') === 'hello\n' && !Total.Fs.existsSync(Total.Path.join(PROJECT, 'gone.txt')));
+
+	var bad = ['*** Begin Patch', '*** Add File: z.txt', '+z', '*** Update File: p.txt', '@@', '-does not exist', '+x', '*** End Patch'].join('\n');
+	var failed = false;
+	try {
+		await ACTION('Tools|patch', { patch: bad }).user(user).promise();
+	} catch (e) {
+		failed = true;
+	}
+	check('a patch that does not match writes nothing', failed && !Total.Fs.existsSync(Total.Path.join(PROJECT, 'z.txt')));
+
+	failed = false;
+	try {
+		await ACTION('Tools|patch', { patch: ['*** Begin Patch', '*** Add File: ../escape.txt', '+x', '*** End Patch'].join('\n') }).user(user).promise();
+	} catch (e) {
+		failed = true;
+	}
+	check('a patch outside the project is refused', failed);
+	next();
+});
+
+Test.push('instructions and skills', async function(next) {
+
+	Total.Fs.writeFileSync(Total.Path.join(PROJECT, 'AGENTS.md'), '# Rules\nAlways use tabs.\n');
+	Total.Fs.mkdirSync(Total.Path.join(PROJECT, '.claude/skills/demo'), { recursive: true });
+	Total.Fs.writeFileSync(Total.Path.join(PROJECT, '.claude/skills/demo/SKILL.md'), '---\nname: demo\ndescription: A demonstration skill\n---\n\n# Demo\nDo the demo steps.\n');
+
+	var id = await session();
+	events.length = 0;
+	requests.length = 0;
+	script = [{ tools: [{ id: 'k1', name: 'skill', arguments: { name: 'demo' } }] }, { content: 'ok' }];
+	await api('sessions_prompt/' + id, { text: 'use the skill' });
+	await idle(id);
+
+	var system = requests[0].messages[0].content;
+	check('AGENTS.md is part of the system prompt', system.indexOf('Always use tabs.') !== -1);
+	check('the skills are listed with their description', system.indexOf('- demo: A demonstration skill') !== -1);
+	check('the skill tool returns the body', requests[1].messages.some(m => m.role === 'tool' && m.content.indexOf('Do the demo steps.') !== -1));
+	check('the skill tool ran without asking', !events.some(e => e.type === 'permission.ask'));
+	next();
+});
+
+Test.push('todo and ask tools', async function(next) {
+
+	var id = await session();
+	events.length = 0;
+	script = [
+		{ tools: [{ id: 't1', name: 'todo', arguments: { todos: JSON.stringify([{ text: 'one', status: 'in_progress' }, { text: 'two', status: 'pending' }]) } }] },
+		{ tools: [{ id: 't2', name: 'ask', arguments: { question: 'Which database?', options: ['PostgreSQL', 'NoSQL'] } }] },
+		{ content: 'Thanks.' }
+	];
+
+	await api('sessions_prompt/' + id, { text: 'plan' });
+	var question = await until(() => events.find(e => e.type === 'question.ask'));
+	check('the todo tool updates the list and emits it', events.some(e => e.type === 'todo.updated' && e.data.items.length === 2));
+	check('the ask tool waits for the user', !!question && question.data.options.length === 2);
+	var r = await api('sessions_todos/' + id);
+	check('the task list is stored', r.response.length === 2 && r.response[0].status === 'in_progress');
+
+	await api('questions_reply/' + question.data.id, { answer: 'PostgreSQL' });
+	await idle(id);
+	r = await api('sessions_messages/' + id);
+	var ask = r.response.find(m => m.role === 'assistant').parts.find(p => p.type === 'tool' && p.data.tool === 'ask');
+	check('the answer returns to the model as the tool result', ask && ask.data.output === 'PostgreSQL');
+	next();
+});
+
+Test.push('retry', async function(next) {
+
+	CONF.retrybase = 10;
+	var id = await session();
+	events.length = 0;
+	script = [{ error: '503: overloaded' }, { error: 'ECONNRESET' }, { content: 'Recovered.' }];
+	await api('sessions_prompt/' + id, { text: 'hello' });
+	await idle(id);
+	check('transient errors are retried and reported', events.filter(e => e.type === 'error' && e.data.retry === true).length === 2);
+
+	events.length = 0;
+	script = [{ error: '401: invalid key' }];
+	await api('sessions_prompt/' + id, { text: 'again' });
+	await until(() => events.some(e => e.type === 'session.status' && e.data.status === 'error'));
+	check('an authentication error is not retried', events.filter(e => e.type === 'error').length === 1 && events.find(e => e.type === 'error').data.retry === false);
+
+	events.length = 0;
+	script = [{ error: '503: a' }, { error: '503: b' }, { error: '503: c' }, { error: '503: d' }];
+	await api('sessions_prompt/' + id, { text: 'again' });
+	await until(() => events.some(e => e.type === 'session.status' && e.data.status === 'error'));
+	check('retries stop after the limit', events.filter(e => e.type === 'error' && e.data.retry === true).length === 3);
+	next();
+});
+
+Test.push('compaction', async function(next) {
+
+	Total.Fs.writeFileSync(Total.Path.join(PROJECT, 'big.txt'), ('x'.repeat(99) + '\n').repeat(50));
+
+	async function reads(count) {
+		var id = await session();
+		events.length = 0;
+		requests.length = 0;
+		script = [];
+		for (var i = 0; i < count; i++)
+			script.push({ tools: [{ id: 'r' + i, name: 'read', arguments: { path: 'big.txt' } }] });
+		script.push({ content: 'Finished.' });
+		await api('sessions_prompt/' + id, { text: 'read it many times' });
+		await idle(id);
+		return id;
+	}
+
+	// Level 1: about 1300 tokens per read, the limit allows the six newest outputs
+	CONF.contextlimit = 9500;
+	var id = await reads(9);
+	check('old tool output is reduced to one line', requests.some(r => r.messages.some(m => m.role === 'tool' && m.content.indexOf('[output omitted') === 0)));
+	check('level 1 does not call the model to summarize', !requests.some(r => r.messages[0].content.indexOf('Summarize the conversation') === 0));
+
+	// Level 2: the limit is lower than six outputs
+	CONF.contextlimit = 600;
+	id = await reads(9);
+	check('older turns become a summary', requests.some(r => r.messages.some(m => m.role === 'user' && m.content.indexOf('Summary of the earlier conversation') === 0)));
+	var r = await api('sessions_messages/' + id);
+	var parts = r.response.find(m => m.role === 'assistant').parts;
+	check('the stored history keeps everything and notes the compaction', parts.filter(p => p.type === 'tool').length === 9 && parts.some(p => p.type === 'compaction'));
+
+	CONF.contextlimit = 100000;
+	next();
+});
+
 Test.push('real provider over HTTP', async function(next) {
 
 	var mock = require('./mock-openai');
@@ -246,12 +439,49 @@ Test.push('real provider over HTTP', async function(next) {
 	var texts = assistant.parts.filter(p => p.type === 'text').map(p => p.data.text).join('|');
 	check('the stream of the provider was parsed into text and a tool call', texts.indexOf('Let me look at the file.') !== -1 && tool && tool.data.tool === 'read' && tool.data.input.path === 'README.md');
 	check('the answer follows the tool result', texts.indexOf('I read the file.') !== -1);
-	check('the provider received the key and the tools', mock.requests.length === 2 && mock.requests[0].tools.length === 6 && mock.requests[0].model === 'mock');
+	check('the provider received the key and the tools', mock.requests.length === 2 && mock.requests[0].tools.length === 11 && mock.requests[0].model === 'mock');
 
 	events.length = 0;
 	await api('sessions_prompt/' + id, { text: 'please fail' });
 	await until(() => events.some(e => e.type === 'session.status' && e.data.status === 'error'));
 	check('a provider error ends the run with a visible error', events.some(e => e.type === 'error' && /401/.test(e.data.message)));
+	next();
+});
+
+Test.push('command line', async function(next) {
+
+	function cli(args) {
+		return new Promise(resolve => Total.Child.execFile(process.execPath, [Total.Path.join(ROOT, 'bin/totem.js')].concat(args), { timeout: 30000 }, (err, stdout, stderr) => resolve({ code: err ? err.code : 0, stdout: stdout, stderr: stderr })));
+	}
+
+	var base = ['--project', PROJECT, '--model', 'mock:mock', '--url', 'http://127.0.0.1:' + PORT];
+	var r = await cli(['run', 'hello there'].concat(base));
+	check('totem run prints the answer and exits with 0', r.code === 0 && r.stdout.indexOf('Hello from the mock model. You said: hello there') !== -1);
+
+	r = await cli(['run', 'please read the file'].concat(base));
+	check('totem run reports tool calls on stderr', r.code === 0 && /\[read\] (done|error)/.test(r.stderr) && r.stdout.indexOf('I read the file.') !== -1);
+
+	r = await cli(['run', 'please fail'].concat(base));
+	check('totem run exits with 1 on an error', r.code === 1 && r.stderr.indexOf('401') !== -1);
+
+	r = await cli(['run']);
+	check('totem run without a prompt explains the usage', r.code === 2 && r.stderr.indexOf('Missing prompt') !== -1);
+
+	r = await cli(['config']);
+	check('totem config prints the folders', r.stdout.indexOf('Data folder:') !== -1);
+	next();
+});
+
+Test.push('secrets', async function(next) {
+
+	var id = await session();
+	events.length = 0;
+	script = [{ tools: [{ id: 'z1', name: 'bash', arguments: { command: 'echo secret-key and sk-abcdefghijklmnopqrstuvwxyz123456' } }] }, { content: 'ok' }];
+	await api('sessions_prompt/' + id, { text: 'leak it' });
+	await idle(id);
+	var r = await api('sessions_messages/' + id);
+	var part = r.response.find(m => m.role === 'assistant').parts.find(p => p.type === 'tool');
+	check('provider keys and key-like strings never reach the output', part.data.output.indexOf('secret-key') === -1 && part.data.output.indexOf('sk-abcdefghijkl') === -1 && part.data.output.indexOf('[secret]') !== -1);
 	next();
 });
 
