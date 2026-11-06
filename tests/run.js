@@ -1903,6 +1903,43 @@ Test.push('git state of a project', async function(next) {
 	next();
 });
 
+Test.push('languages', async function(next) {
+
+	var Http = require('http');
+
+	function page(headers) {
+		return new Promise(resolve => Http.get({ host: '127.0.0.1', port: PORT, path: '/_chat/index.html', headers: headers || {} }, function(res) {
+			var text = '';
+			res.on('data', chunk => text += chunk);
+			res.on('end', () => resolve(text));
+		}));
+	}
+
+	var english = await page();
+	check('the interface is in English without a preference', english.indexOf('placeholder:Ask Totem...') !== -1);
+	var spanish = await page({ 'accept-language': 'es-ES,es;q=0.9,en;q=0.8' });
+	check('the language of the browser is used when there is a resource for it', spanish.indexOf('placeholder:Pregunta a Totem...') !== -1);
+	var other = await page({ 'accept-language': 'xx,fr;q=0.8' });
+	check('a language without resource falls back to English', other.indexOf('placeholder:Ask Totem...') !== -1);
+	var chosen = await page({ 'accept-language': 'es', cookie: 'totemlang=en' });
+	check('the choice of Settings (a cookie) wins over the browser', chosen.indexOf('placeholder:Ask Totem...') !== -1);
+	chosen = await page({ cookie: 'totemlang=es' });
+	check('and works without the header', chosen.indexOf('placeholder:Pregunta a Totem...') !== -1);
+
+	var r = await api('account');
+	check('the account lists the languages', r.response.language === 'en' && r.response.languages.some(l => l.id === 'es' && l.name === 'Español'));
+
+	// Every text of the interface has a translation in every language of private/languages.json
+	var translations = require('../scripts/translations');
+	var problems = [];
+	translations.languages().forEach(id => {
+		var missing = translations.missing(id);
+		missing.length && problems.push(id + ': ' + missing.slice(0, 3).join(' | '));
+	});
+	check('every text has its translation' + (problems.length ? ' (' + problems.join('; ') + ')' : ''), problems.length === 0);
+	next();
+});
+
 Test.push('cleanup', async function(next) {
 	var r = await api('projects_remove/' + projectid);
 	check('removing a project removes its sessions', r.response.success === true);

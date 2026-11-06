@@ -122,3 +122,7 @@ The top of the Changes panel shows the branch of the project and the files that 
 ## Terminal panel
 
 The Terminal button next to Changes opens a panel with every command that Totem ran in the session (`bash` calls with their state and output, as stored) and, above them, the commands running in the background, read again every two seconds while the panel is open, with a Stop link (`Sessions|jobs` and `Sessions|jobstop`). It is a record of what the agent ran, not a shell: an interactive terminal is phase 4.
+
+## Languages
+
+Every text of the interface is English inside the translation marker; Total.js translates it for each request with `resources/<language>.resource`. The language is the one chosen in Settings (the cookie `totemlang`), else the first language of the browser that has a resource, else English (`definitions/00-languages.js`; the list is `private/languages.json`). Plugins, views and API errors use the same resources. `node scripts/translations.js` lists the missing texts per language, `export <lang>` prints them as JSON to translate and `import <lang> <file>` writes them into the resource; a test fails when a language of the list misses a text. English and Spanish are complete. To add a language, add it to `private/languages.json`, export, translate and import it.

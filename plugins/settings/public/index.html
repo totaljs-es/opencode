@@ -10,6 +10,15 @@
 				</div>
 			</script>
 		</ui-bind>
+		<div class="caption mb10"><label><i class="ti ti-language"></i>@(Language)</label></div>
+		<ui-bind path="?.languages" config="template" class="block mb10">
+			<script type="text/html">
+				<div style="display:flex;gap:8px;flex-wrap:wrap">
+					<button class="tbtn exec{{ if !value.chosen }} tbtn-primary{{ fi }}" data-exec="?/language" data-id=""><i class="ti ti-desktop"></i>@(Auto)</button>
+					{{ foreach l in value.items }}<button class="tbtn exec{{ if value.chosen === l.id }} tbtn-primary{{ fi }}" data-exec="?/language" data-id="{{ l.id }}">{{ l.name }}</button>{{ end }}
+				</div>
+			</script>
+		</ui-bind>
 		<div class="caption mb10"><label><i class="ti ti-plug-alt"></i>@(Providers)</label></div>
 		<div class="help mb10">@(A provider is any server with an OpenAI-compatible API: OpenRouter, OpenAI, Ollama, LM Studio... Prompts go only to the providers you add here.)</div>
 		<div class="mb10">
@@ -59,6 +68,17 @@
 
 		exports.reload = function() {
 			exports.refresh();
+			exports.tapi('account', function(account) {
+				var match = document.cookie.match(/(?:^|; )totemlang=([^;]*)/);
+				exports.set('languages', { items: account.languages || [], chosen: match ? decodeURIComponent(match[1]) : '' });
+			});
+		};
+
+		// The language is a cookie that the server reads for every request; empty goes back to the language of the browser
+		exports.language = function(el) {
+			var id = ATTRD(el);
+			document.cookie = 'totemlang=' + encodeURIComponent(id) + '; path=/; max-age=' + (id ? 31536000 : 0) + '; samesite=lax';
+			location.reload();
 		};
 
 		exports.refresh = function() {
