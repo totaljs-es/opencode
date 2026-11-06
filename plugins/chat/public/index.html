@@ -70,9 +70,21 @@
 	<div class="scroll" id="chatscroll">
 		<div class="inner">
 
+			<ui-bind path="?.session" config="template" class="block">
+				<script type="text/html">
+					{{ if !value }}
+					<div class="empty">
+						<img class="logo-light" src="/img/totem-light.svg" alt="" width="72" height="72" /><img class="logo-dark" src="/img/totem-dark.svg" alt="" width="72" height="72" />
+						<div>@(Open a folder to start. Totem works inside the folder of a project.)</div>
+						<div class="mt10"><button class="tbtn tbtn-primary exec" data-exec="?/folder"><i class="ti ti-folder-plus"></i>@(Open a folder)</button></div>
+					</div>
+					{{ fi }}
+				</script>
+			</ui-bind>
+
 			<ui-bind path="?.items" config="template" class="block">
 				<script type="text/html">
-					{{ if !value || !value.length }}
+					{{ if value && !value.length }}
 					<div class="empty"><img class="logo-light" src="/img/totem-light.svg" alt="" width="72" height="72" /><img class="logo-dark" src="/img/totem-dark.svg" alt="" width="72" height="72" /><div>@(Ask Totem to read, change or run something in this project.)</div></div>
 					{{ fi }}
 					{{ foreach m in value }}
@@ -206,7 +218,7 @@
 		var EDITS = { write: 1, edit: 1, patch: 1 };
 
 		exports.reload = function() {
-			exports.set('items', []);
+			exports.set('items', null);
 			exports.set('asks', []);
 			exports.set('questions', []);
 			exports.set('todos', []);
@@ -276,7 +288,7 @@
 		exports.open = function(id) {
 			sessionid = id;
 			parts = {};
-			exports.set('items', []);
+			exports.set('items', id ? [] : null);
 			exports.set('asks', []);
 			exports.set('questions', []);
 			exports.set('todos', []);
@@ -437,8 +449,14 @@
 			var input = $('.compose input[type="text"]').first();
 			var typed = (input.val() || model.text || '').trim();
 
-			if (!sessionid || !typed)
+			if (!typed)
 				return;
+
+			// Without a session there is nothing to talk to: the folder of a project comes first
+			if (!sessionid) {
+				exports.nosession(typed);
+				return;
+			}
 
 			model.text = typed;
 
@@ -458,6 +476,29 @@
 
 		exports.abort = function() {
 			sessionid && exports.tapi('sessions_abort/' + sessionid, NOOP);
+		};
+
+		// A prompt without a session: when a project is selected the session is created, otherwise the folder is asked for
+		exports.nosession = function(typed) {
+
+			var projectid = window.common && common.projectid;
+
+			if (!projectid) {
+				SETTER('notify/warning', '@(Open the folder of a project first.)');
+				exports.folder();
+				return;
+			}
+
+			exports.tapi('sessions_create ERROR', { projectid: projectid, model: exports.model.model || '' }, function(session) {
+				PLUGINS.projects && PLUGINS.projects.session(session.id, projectid);
+				exports.set('text', typed);
+				$('.compose input[type="text"]').first().val(typed);
+				setTimeout(exports.send, 50);
+			});
+		};
+
+		exports.folder = function() {
+			PLUGINS.projects && PLUGINS.projects.open();
 		};
 
 		exports.usecommand = function(el) {

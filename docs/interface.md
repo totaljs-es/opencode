@@ -31,7 +31,7 @@ The folder of a project is chosen with the component `folder` (j-Folder), which 
 
 ## Prompt box
 
-`Enter` sends (the component `enter` with no delay). The text is read from the input at that moment, because the input copies its value to the model a little later than the key arrives.
+Without a session there is nothing to talk to, so the chat shows "Open a folder to start" with a button. A prompt typed anyway creates a session in the selected project, or, with no project, says so and opens the folder picker; it never does nothing silently. `Enter` sends (the component `enter` with no delay). The text is read from the input at that moment, because the input copies its value to the model a little later than the key arrives.
 
 ## Design
 
