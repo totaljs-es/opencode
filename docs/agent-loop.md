@@ -108,11 +108,19 @@ Tools from MCP servers (stdio and HTTP) are registered at session start by `modu
 
 A file `.totem/commands/<name>.md` with a `description` and a prompt becomes `/name arguments`. `$ARGUMENTS` in the prompt is replaced by the arguments. The conversation shows what the user typed; the model receives the expanded text, also in later turns. The chat shows the commands of the project as chips above the prompt box. Text that starts with `/` but is not a command of the project is sent as it is.
 
+## Total.js by default
+
+Totem writes Total.js 5 and jComponent 20 unless the project is clearly something else. With `totaljs : auto` in the `config` (the default) a project is a Total.js project when its `package.json` depends on `total5`, or when the folder is new: no `package.json` and no file of another kind of project (`pom.xml`, `Cargo.toml`, `go.mod`, `pyproject.toml`...). `always` and `never` decide for every project.
+
+In a Total.js project the system prompt carries a primer (`private/prompts/totaljs.txt`): the shape of a project, one action, one route, one jComponent, the rules, a warning that jComponent is not Java Swing, and the instruction to look things up instead of inventing functions. The sub-agents get it too.
+
+**Forge in front of the prompt.** When the Forge server is connected, Totem searches Forge with the prompt before the first step: the filler words are dropped (Spanish and English), the Spanish words of the topic are translated, the search is limited to the product the prompt is about (jComponent or Total.js 5), and a request to make a component asks for the recipe that writes one. The two best pages (`forgepages`, `forgechars` characters each) go into the system prompt and the other results are listed for the page tool. The conversation shows which pages were used. A short prompt ("hola") and a command are not searched. A small model that does not call tools well then starts from the documentation: with `qwen2.5:1.5b` the question "quiero hacer un componente jcomponent" went from a Java Swing class to a `COMPONENT()` with `self.make` and `self.setter`.
+
 ## Knowledge for Total.js projects
 
-In a project that depends on `total5` Totem adds three things, each one switched off with `forge : false` or `conventions : false` in the `config`:
+In a Total.js project Totem adds three more things, each one switched off with `forge : false` or `conventions : false` in the `config`:
 
-1. **The conventions skill** (`private/skills/totaljs-conventions`): the rules of the conventions in short form and how to look things up. A skill of the project with the same name replaces it.
+1. **The conventions skill** (`private/skills/totaljs-conventions`; the primer already carries the short form): the rules of the conventions in short form and how to look things up. A skill of the project with the same name replaces it.
 2. **Forge as an MCP server** (`private/mcp.json`): the tools `forge__Forge_search`, `forge__Forge_page`, `forge__Forge_verify_api`, `forge__Forge_source` and three more of https://forge.totaljs.es/mcp/ (read only, no account). Like every MCP server it asks before it starts, and the question says where it goes; the searches are sent to that site. A project replaces it by declaring a server named `forge`.
 3. **The check of the conventions on every file that `write`, `edit` and `patch` produce** (`private/conventions/check.js`, a copy of `tools/check.js` of the conventions repository): the findings come back in the result of the tool so that the model corrects them. Projects that do not depend on `total5` are not checked.
 

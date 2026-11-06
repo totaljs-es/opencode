@@ -48,6 +48,9 @@ exports.run = function(parent, name, prompt, callid, callback) {
 	}
 
 	var system = def.prompt + '\n\nWorking directory: {0}\nPlatform: {1}\n'.format(child.root, Total.Os.platform());
+	if (MODS.instructions.istotaljs(child.root))
+		system += '\n' + MODS.instructions.primer() + '\n';
+
 	var instructions = MODS.instructions.text(child.root);
 
 	if (instructions)

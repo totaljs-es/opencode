@@ -96,6 +96,9 @@
 							{{ if p.type === 'text' && m.role !== 'user' }}
 							<div class="part">{{ p.data.text | markdown({ wrap: false }) }}</div>
 							{{ fi }}
+							{{ if p.type === 'knowledge' }}
+							<div class="note"><i class="ti ti-book"></i> @(Pages of Forge used:) {{ p.data.pages | forgepages }}</div>
+							{{ fi }}
 							{{ if p.type === 'compaction' }}
 							<div class="note"><i class="ti ti-arrows-minimize"></i> @(Earlier turns were summarized to keep the conversation short.)</div>
 							{{ fi }}

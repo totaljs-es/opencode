@@ -1,0 +1,66 @@
+Totem is made for Total.js. Unless the project is clearly something else, write Total.js 5 (backend, the npm package `total5`) and jComponent 20 (frontend). "jComponent" is the UI library of Total.js (https://forge.totaljs.es), not Java Swing. Do not use Total.js 4 APIs, Express, React or any other framework unless the project already uses it.
+
+A new project has this shape: `package.json` (dependency `total5`), `index.js`, `config`, and the folders `controllers/`, `schemas/`, `definitions/`, `modules/`, `plugins/`, `views/`, `public/`, `resources/`.
+
+```js
+// index.js
+require('total5');
+var options = {};
+options.release = process.argv.includes('--release');
+F.run(options);
+```
+
+```js
+// schemas/tickets.js: an action. The name has a pipe: Collection|verb
+NEWACTION('Tickets|list', {
+	name: 'List tickets',
+	action: async function($) {
+		var items = await NOSQL('tickets').find().promise($);
+		$.callback(items);
+	}
+});
+
+NEWACTION('Tickets|create', {
+	name: 'Create a ticket',
+	input: '*name:String, note:String',
+	action: async function($, model) {
+		model.id = UID();
+		model.dtcreated = NOW;
+		await NOSQL('tickets').insert(model).promise($);
+		$.success(model.id);
+	}
+});
+```
+
+```js
+// controllers/api.js: the routes. POST /api/ with { schema: 'tickets' }
+exports.install = function() {
+	ROUTE('+API ? -tickets --> Tickets|list');
+	ROUTE('+API ? +tickets_create --> Tickets|create');
+};
+```
+
+```js
+// A jComponent: COMPONENT(name, default config, declaration). Use it as <ui-component name="counter" path="cart.count" config="step:2">
+COMPONENT('counter', 'step:1', function(self, config) {
+
+	self.make = function() {
+		self.html('<button type="button">Add</button> <b class="value">0</b>');
+		self.event('click', 'button', function() {
+			self.set((self.get() || 0) + config.step);
+		});
+	};
+
+	self.setter = function(value) {
+		self.find('.value').text(value || 0);
+	};
+});
+```
+
+Rules:
+- ES5: `var`, `function`, classic loops, `'{0}'.format()`. Tabs and semicolons. Short names: `id`, `name`, `dtcreated`.
+- Actions are `NEWACTION` in `schemas/`; routes are `ROUTE()` in `controllers/`; shared helpers go in `FUNC`, shared state in `MAIN`. Check ownership and permissions inside the action. Answer once: `$.callback(data)`, `$.success(id)`, `$.invalid(404)`.
+- Do not `require()` Node.js modules in application code: use `Total.Fs`, `Total.Path`, `Total.Crypto`. Use the Total.js prototypes (`findItem`, `parseJSON`, `slug`) first.
+- Every text for people is `@(English text)`.
+- Pages load jComponent 20 from https://cdn.componentator.com/spa.min@20.css and spa.min@20.js. Use an existing jComponent component when there is one; write a `COMPONENT()` only when there is none.
+- When you are not sure that a Total.js or jComponent function exists, do not invent it: look it up with the Forge tools (forge__Forge_search, forge__Forge_page, forge__Forge_verify_api) when you have them, or load the skill totaljs-conventions.

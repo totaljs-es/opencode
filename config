@@ -17,6 +17,12 @@ contextlimit      (Number)  : 100000
 retries           (Number)  : 3
 retrybase         (Number)  : 1000
 
+// Totem writes Total.js unless the project is clearly something else: auto, always or never
+totaljs                     : auto
+
 // The knowledge that Totem brings to Total.js 5 projects: the documentation of Forge (asks before it starts) and the check of the conventions
 forge                       : true
+// How many pages of Forge are read for a prompt, and how many characters of each
+forgepages        (Number)  : 2
+forgechars        (Number)  : 3500
 conventions                 : true

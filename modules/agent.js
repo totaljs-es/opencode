@@ -43,9 +43,17 @@ function system(run) {
 	var text = MAIN.base;
 	text += '\nWorking directory: {0}\nPlatform: {1}\nDate: {2}\n'.format(run.root, Total.Os.platform(), new Date().format('yyyy-MM-dd'));
 
+	// Total.js is the default: the rules, a few examples and where to look things up
+	if (MODS.instructions.istotaljs(run.root))
+		text += '\n' + MODS.instructions.primer() + '\n';
+
 	var instructions = MODS.instructions.text(run.root);
 	if (instructions)
 		text += '\nInstructions of this project (AGENTS.md):\n' + instructions + '\n';
+
+	// The pages of Forge that the search found for this request
+	if (run.knowledge)
+		text += '\n' + run.knowledge + '\n';
 
 	var agents = MODS.agents.list(run.root);
 	if (agents.length) {
@@ -272,7 +280,14 @@ exports.run = function(session, project, message, callback) {
 
 			// The MCP servers of the project that the user allows; their tools join the ones of Totem
 			MODS.mcpclient.connect(run, function() {
-				step(run, finish, fail);
+
+				// The pages of Forge that match the request go into the prompt, so that even a small model starts from the documentation
+				var last = run.messages[run.messages.length - 1];
+				MODS.knowledge.prefetch(run, last && last.role === 'user' ? last.content : '', function(pages) {
+					if (pages.length)
+						addpart(run, 'knowledge', { pages: pages }, true);
+					step(run, finish, fail);
+				});
 			});
 		});
 	});

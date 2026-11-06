@@ -12,6 +12,8 @@ const URL = 'http://127.0.0.1:' + PORT + '/api/';
 
 ['databases', 'tmp', 'logs', 'project'].forEach(name => Total.Fs.mkdirSync(Total.Path.join(TMP, name)));
 Total.Fs.writeFileSync(Total.Path.join(PROJECT, 'a.txt'), 'one\ntwo\nthree\n');
+// A plain Node.js project: Totem does not write Total.js in it
+Total.Fs.writeFileSync(Total.Path.join(PROJECT, 'package.json'), '{ "name": "plain" }');
 process.chdir(ROOT);
 
 function check(message, ok) {
@@ -914,6 +916,102 @@ Test.push('folders and provider icons', async function(next) {
 	var plain = r.response.find(m => m.id === 'no-icon:plain-x');
 	check('the catalogue names the provider and its icon for every model', gpt.provider === 'OpenAI' && gpt.icon === 'openai' && gem.provider === 'Google Gemini' && gem.icon === 'gemini' && plain.provider === 'No icon' && plain.icon === '');
 	check('every icon of the templates exists as a file', JSON.parse(Total.Fs.readFileSync(Total.Path.join(ROOT, 'private/providers.json'), 'utf8')).filter(t => t.icon).every(t => Total.Fs.existsSync(Total.Path.join(ROOT, 'public/img/providers', t.icon + '.svg'))));
+	next();
+});
+
+Test.push('Total.js by default, with Forge in front of the prompt', async function(next) {
+
+	var mock = require('./mock-openai');
+	var mcp = require('./mock-mcp');
+
+	// Which folders are Total.js projects
+	var fresh = Total.Path.join(TMP, 'fresh');
+	var java = Total.Path.join(TMP, 'java');
+	var node = Total.Path.join(TMP, 'node');
+	var tjs = Total.Path.join(TMP, 'tjs2');
+	[fresh, java, node, tjs].forEach(dir => Total.Fs.mkdirSync(dir, { recursive: true }));
+	Total.Fs.writeFileSync(Total.Path.join(java, 'pom.xml'), '<project/>');
+	Total.Fs.writeFileSync(Total.Path.join(node, 'package.json'), '{ "dependencies": { "express": "1" } }');
+	Total.Fs.writeFileSync(Total.Path.join(tjs, 'package.json'), '{ "dependencies": { "total5": "latest" } }');
+
+	check('a new folder is a Total.js project', MODS.instructions.istotaljs(fresh) === true);
+	check('a project of another kind is not', MODS.instructions.istotaljs(java) === false && MODS.instructions.istotaljs(node) === false);
+	check('a project that depends on total5 is', MODS.instructions.istotaljs(tjs) === true);
+	CONF.totaljs = 'never';
+	check('never switches it off for every project', MODS.instructions.istotaljs(fresh) === false && MODS.instructions.istotaljs(tjs) === false);
+	CONF.totaljs = 'always';
+	check('always switches it on for every project', MODS.instructions.istotaljs(java) === true);
+	CONF.totaljs = 'auto';
+
+	// The primer in the system prompt of a new folder, not in a plain Node.js project
+	var project = (await api('projects_open', { path: fresh })).response;
+	var id = (await api('sessions_create', { projectid: project.id, model: 'fake' })).response.id;
+	events.length = 0;
+	requests.length = 0;
+	script = [{ content: 'Hello.' }];
+	var rejecter = setInterval(() => events.filter(e => e.type === 'permission.ask').forEach(e => api('permissions_reply/' + e.data.id, { reply: 'reject' })), 30);
+	await api('sessions_prompt/' + id, { text: 'quiero hacer un componente jcomponent' });
+	await idle(id);
+	clearInterval(rejecter);
+	var system = requests[0].messages[0].content;
+	check('a new folder gets the Total.js primer with the jComponent warning', system.indexOf('not Java Swing') !== -1 && system.indexOf('NEWACTION(\'Tickets|list\'') !== -1 && system.indexOf("COMPONENT('counter'") !== -1);
+
+	events.length = 0;
+	requests.length = 0;
+	script = [{ content: 'Hello.' }];
+	var plain = (await api('sessions_create', { projectid: projectid, model: 'fake' })).response.id;
+	await api('sessions_prompt/' + plain, { text: 'quiero hacer un componente jcomponent' });
+	await idle(plain);
+	check('a plain Node.js project does not', requests[0].messages[0].content.indexOf('not Java Swing') === -1);
+
+	// Forge in front of the prompt: its search and its best pages go into the system prompt
+	Total.Fs.mkdirSync(Total.Path.join(tjs, '.totem'), { recursive: true });
+	Total.Fs.writeFileSync(Total.Path.join(tjs, '.totem/mcp.json'), JSON.stringify({ servers: { forge: { url: 'http://127.0.0.1:8111/mcp' } } }));
+	project = (await api('projects_open', { path: tjs })).response;
+	id = (await api('sessions_create', { projectid: project.id, model: 'fake' })).response.id;
+	events.length = 0;
+	requests.length = 0;
+	mcp.calls.length = 0;
+	script = [{ content: 'Done.' }];
+	var approver = setInterval(() => events.filter(e => e.type === 'permission.ask' && e.data.tool === 'mcp-start').forEach(e => api('permissions_reply/' + e.data.id, { reply: 'once' })), 30);
+	await api('sessions_prompt/' + id, { text: 'how do I write a custom jcomponent component' });
+	await idle(id);
+	clearInterval(approver);
+
+	system = requests[0].messages[0].content;
+	check('the words that matter are the search of Forge, limited to jComponent', mcp.calls.filter(c => c.tool === 'search').length === 1 && mcp.calls[0].input.query === 'custom jcomponent component' && mcp.calls[0].input.product === 'jcomponent');
+	check('the routing drops the filler words in Spanish and English', MODS.knowledge.route('quiero hacer un componente jcomponent').query === 'custom component jcomponent' && MODS.knowledge.route('quiero hacer un componente jcomponent').product === 'jcomponent' && MODS.knowledge.route('how to create a NEWACTION with input').product === 'total5' && MODS.knowledge.route('fix the button').product === '');
+	check('the best two pages are read', mcp.calls.filter(c => c.tool === 'page').length === 2 && mcp.calls.filter(c => c.tool === 'page')[0].input.slug === 'custom-component');
+	check('their text is in the system prompt', system.indexOf('PAGE custom-component: a component is declared') !== -1 && system.indexOf('PAGE component-lifecycle') !== -1 && system.indexOf('Pages of Forge') !== -1);
+	check('the other results are listed for the page tool', system.indexOf('Extra page (docs extra-page)') !== -1);
+
+	var r = await api('sessions_messages/' + id);
+	var knowledge = r.response.find(m => m.role === 'assistant').parts.find(p => p.type === 'knowledge');
+	check('the conversation shows the pages that were used', knowledge && knowledge.data.pages.length === 2 && knowledge.data.pages[0].url.indexOf('https://forge.totaljs.es') === 0);
+
+	// A greeting is not worth a search
+	events.length = 0;
+	requests.length = 0;
+	mcp.calls.length = 0;
+	script = [{ content: 'Hi.' }];
+	approver = setInterval(() => events.filter(e => e.type === 'permission.ask' && e.data.tool === 'mcp-start').forEach(e => api('permissions_reply/' + e.data.id, { reply: 'once' })), 30);
+	await api('sessions_prompt/' + id, { text: 'hola' });
+	await idle(id);
+	clearInterval(approver);
+	check('a short prompt does not search', mcp.calls.length === 0 && requests[0].messages[0].content.indexOf('Pages of Forge') === -1);
+
+	// It can be switched off
+	CONF.forgepages = 0;
+	events.length = 0;
+	mcp.calls.length = 0;
+	script = [{ content: 'Done.' }];
+	approver = setInterval(() => events.filter(e => e.type === 'permission.ask' && e.data.tool === 'mcp-start').forEach(e => api('permissions_reply/' + e.data.id, { reply: 'once' })), 30);
+	await api('sessions_prompt/' + id, { text: 'how do I write a custom jcomponent component' });
+	await idle(id);
+	clearInterval(approver);
+	CONF.forgepages = 2;
+	check('forgepages 0 turns the prefetch off', mcp.calls.length === 0);
+	Total.Fs.unlinkSync(Total.Path.join(tjs, '.totem/mcp.json'));
 	next();
 });
 

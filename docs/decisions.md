@@ -17,6 +17,7 @@
 | `grep` and `glob` use the system `rg` when present and a built-in search otherwise | Works in a minimal Docker image and in native builds |
 | Model lists come from the provider itself (`/api/tags` + `/api/show` for Ollama, `/models` for catalogues), not from a list bundled in Totem | A bundled list gets old; the provider knows its own models, context windows and prices |
 | Total.js knowledge comes from Forge (MCP, asks first) and from the conventions (a skill and a check of what the tools write), only in projects that depend on `total5` | The agent knows Total.js without a bundled copy of the documentation, and other projects are not affected |
+| Total.js is the default for new and Total.js folders, with the primer in the prompt and Forge searched before the first step | A small model does not call tools reliably, but it writes well from the page in front of it; the search is explicit and its pages are shown to the user |
 | MIT licence, same holder as the other `totaljs-es` repositories | No inherited attribution: no code from the earlier prototype is copied |
 
 ## Open

@@ -27,6 +27,13 @@ Thelpers.tokens = function(items) {
 	return total ? (total.format(0) + ' tokens' + (cost ? (' · $' + (cost < 0.01 ? cost.toFixed(4) : cost.toFixed(2))) : '')) : '';
 };
 
+// The pages of Forge that were used for a prompt, as links
+Thelpers.forgepages = function(pages) {
+	return (pages || []).map(function(p) {
+		return '<a href="' + Thelpers.encode(p.url || '#') + '" target="_blank" rel="noopener">' + Thelpers.encode(p.title) + '</a>';
+	}).join(' · ');
+};
+
 Thelpers.shortpath = function(path) {
 	if (!path)
 		return '';

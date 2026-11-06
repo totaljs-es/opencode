@@ -299,7 +299,7 @@ exports.connect = function(run, callback) {
 };
 
 // callback(err, text)
-exports.call = function(run, id, args, callback) {
+exports.call = function(run, id, args, callback, timeout) {
 
 	var item = run.mcp && run.mcp.tools[id];
 
@@ -308,7 +308,7 @@ exports.call = function(run, id, args, callback) {
 		return;
 	}
 
-	item.client.transport.send('tools/call', { name: item.tool, arguments: args || {} }, 60000, function(err, result) {
+	item.client.transport.send('tools/call', { name: item.tool, arguments: args || {} }, timeout || 60000, function(err, result) {
 
 		if (err) {
 			callback(err);

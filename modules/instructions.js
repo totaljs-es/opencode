@@ -28,14 +28,43 @@ function frontmatter(text) {
 
 exports.frontmatter = frontmatter;
 
-// A Total.js 5 project depends on total5. The knowledge that Totem brings for Total.js applies only to them.
+// Files that show a project of another kind
+var OTHER = ['pom.xml', 'build.gradle', 'build.gradle.kts', 'Cargo.toml', 'go.mod', 'pyproject.toml', 'requirements.txt', 'Gemfile', 'composer.json', 'mix.exs', 'Package.swift', 'CMakeLists.txt'];
+
+// Totem writes Total.js unless the project is clearly something else. With `totaljs : auto` in the config a project is a Total.js project
+// when its package.json depends on total5, or when the folder is new (it has no package.json and no file of another kind of project).
+// `always` and `never` decide for every project.
 exports.istotaljs = function(root) {
-	try {
-		var json = JSON.parse(Total.Fs.readFileSync(Total.Path.join(root, 'package.json'), 'utf8'));
-		return !!((json.dependencies && json.dependencies.total5) || (json.devDependencies && json.devDependencies.total5));
-	} catch (e) {
+
+	var mode = CONF.totaljs || 'auto';
+
+	if (mode === 'never')
 		return false;
-	}
+
+	if (mode === 'always')
+		return true;
+
+	var json = null;
+
+	try {
+		json = JSON.parse(Total.Fs.readFileSync(Total.Path.join(root, 'package.json'), 'utf8'));
+	} catch (e) {}
+
+	if (json)
+		return !!((json.dependencies && json.dependencies.total5) || (json.devDependencies && json.devDependencies.total5));
+
+	var names = [];
+
+	try {
+		names = Total.Fs.readdirSync(root);
+	} catch (e) {}
+
+	return !names.some(name => OTHER.indexOf(name) !== -1 || /\.(csproj|sln)$/.test(name));
+};
+
+// The primer of Total.js that goes into the system prompt of a Total.js project
+exports.primer = function() {
+	return MAIN.primer || '';
 };
 
 exports.text = function(root) {

@@ -42,7 +42,7 @@ Every event: `{ type, sessionid, ts, data }`.
 |---|---|---|
 | `session.status` | `{ status }` | `running`, `idle`, `aborted`, `error` |
 | `message.created` | `{ message }` | New user or assistant message |
-| `part.created` | `{ part }` | A part opened (text, reasoning, tool) |
+| `part.created` | `{ part }` | A part opened (text, reasoning, tool, knowledge) |
 | `part.delta` | `{ partid, text }` | Appended text of an open part |
 | `part.updated` | `{ part }` | A part changed state (a tool went `running` → `done`) |
 | `part.closed` | `{ partid }` | The part is complete and stored |
