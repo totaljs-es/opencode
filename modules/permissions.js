@@ -34,6 +34,12 @@ exports.check = function(run, tool, input, callback) {
 		return;
 	}
 
+	// The rules of the agent that runs (a sub-agent): deny always, allow only for what would otherwise ask
+	if (run.rules && run.rules[tool] === 'deny') {
+		callback('deny', 'This agent is not allowed to use ' + tool + '. Do not try again; say what you needed.');
+		return;
+	}
+
 	// The rules of the project and the global ones (an empty project)
 	NOSQL('permissions').find().in('projectid', [run.projectid, '']).callback(function(err, rules) {
 
@@ -59,6 +65,8 @@ exports.check = function(run, tool, input, callback) {
 			else if (READONLY[tool] || (tool === 'bash' && READONLY_COMMANDS.test(text) && !CHAINED.test(text)))
 				found = 'allow';
 			else if ((tool === 'write' || tool === 'edit' || tool === 'patch') && run.autoaccept)
+				found = 'allow';
+			else if (run.rules && run.rules[tool] === 'allow' && !(tool === 'bash' && CHAINED.test(text)))
 				found = 'allow';
 			else
 				found = 'ask';

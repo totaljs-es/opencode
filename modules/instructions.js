@@ -4,6 +4,8 @@ exports.id = 'instructions';
 
 var SKILLS = ['.totem/skills', '.claude/skills', '.agents/skills', 'skills'];
 var MAXTEXT = 20000;
+var MAXFILES = 20;
+var SKIPDIRS = { node_modules: 1, '.git': 1, databases: 1, tmp: 1 };
 
 function read(path) {
 	try {
@@ -67,9 +69,68 @@ exports.primer = function() {
 	return MAIN.primer || '';
 };
 
+// More instruction files, chosen by the project in .totem/instructions.json: a list of paths or patterns relative to the root
+// (["docs/*.md", "CONTRIBUTING.md"]). Only files inside the project are read; there are no URLs, Totem does not fetch anything by itself.
+function extra(root) {
+
+	var list;
+
+	try {
+		list = JSON.parse(read(Total.Path.join(root, '.totem/instructions.json')) || '[]');
+	} catch (e) {
+		return [];
+	}
+
+	if (!Array.isArray(list))
+		return [];
+
+	var found = [];
+
+	for (var item of list.filter(item => typeof(item) === 'string' && item && item.indexOf('://') === -1)) {
+
+		if (item.indexOf('*') === -1) {
+			found.push(item);
+			continue;
+		}
+
+		var test = FUNC.glob(item);
+		var queue = [''];
+
+		while (queue.length && found.length < MAXFILES) {
+			var base = queue.shift();
+			var names;
+			try {
+				names = Total.Fs.readdirSync(Total.Path.join(root, base), { withFileTypes: true });
+			} catch (e) {
+				continue;
+			}
+			for (var entry of names.sort((a, b) => a.name.localeCompare(b.name))) {
+				var relative = base ? (base + '/' + entry.name) : entry.name;
+				if (entry.isDirectory()) {
+					if (!SKIPDIRS[entry.name])
+						queue.push(relative);
+				} else if (test.test(relative))
+					found.push(relative);
+			}
+		}
+	}
+
+	return found.filter((path, index) => found.indexOf(path) === index && FUNC.resolve(root, path)).slice(0, MAXFILES);
+}
+
+exports.extra = extra;
+
 exports.text = function(root) {
+
 	var text = read(Total.Path.join(root, 'AGENTS.md')) || read(Total.Path.join(root, 'CLAUDE.md'));
-	return text.length > MAXTEXT ? (text.substring(0, MAXTEXT) + '\n[truncated]') : text;
+
+	for (var path of extra(root)) {
+		var content = read(FUNC.resolve(root, path));
+		if (content)
+			text += '\n\n# {0}\n{1}'.format(path, content.length > MAXTEXT ? (content.substring(0, MAXTEXT) + '\n[truncated]') : content);
+	}
+
+	return text.length > MAXTEXT * 2 ? (text.substring(0, MAXTEXT * 2) + '\n[truncated]') : text;
 };
 
 // [{ name, description, file }]

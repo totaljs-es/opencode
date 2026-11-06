@@ -240,7 +240,12 @@ function open(name, config, run, callback) {
 				return;
 			}
 
-			callback(null, { transport: transport, tools: (result && result.tools) || [] });
+			var tools = (result && result.tools) || [];
+
+			// Prompts are optional: a server without them answers with an error, which is not one
+			transport.send('prompts/list', {}, 10000, function(err, listed) {
+				callback(null, { transport: transport, tools: tools, prompts: err ? [] : ((listed && listed.prompts) || []) });
+			});
 		});
 	});
 }
@@ -251,7 +256,7 @@ exports.connect = function(run, callback) {
 	var servers = exports.servers(run.root);
 	var names = Object.keys(servers);
 
-	run.mcp = { clients: [], tools: {}, defs: [], notes: [] };
+	run.mcp = { clients: [], tools: {}, defs: [], notes: [], prompts: {} };
 
 	if (!names.length) {
 		callback();
@@ -295,11 +300,46 @@ exports.connect = function(run, callback) {
 					run.mcp.defs.push({ type: 'function', function: { name: id, description: '[{0}] {1}'.format(name, tool.description || tool.name), parameters: tool.inputSchema || { type: 'object', properties: {} } } });
 				}
 
+				for (var prompt of (client.prompts || []))
+					run.mcp.prompts[name + ':' + prompt.name] = { server: name, prompt: prompt, client: client };
+
 				next();
 			});
 		});
 
-	}, callback);
+	}, function() {
+
+		// One tool for every prompt of the servers: the model sees the list in its description
+		var ids = Object.keys(run.mcp.prompts);
+
+		if (ids.length) {
+			var text = ids.map(id => '{0}{1}'.format(id, run.mcp.prompts[id].prompt.description ? (' (' + run.mcp.prompts[id].prompt.description + ')') : '')).join('; ');
+			run.mcp.defs.push({ type: 'function', function: { name: 'mcp_prompt', description: 'Gets a prompt (instructions or a template) that a connected MCP server offers. Available: ' + text, parameters: { type: 'object', properties: { name: { type: 'string', description: 'server:prompt' }, arguments: { type: 'object', description: 'Arguments of the prompt, as text values' } }, required: ['name'] } } });
+		}
+
+		callback();
+	});
+};
+
+// callback(err, text) with the messages of a prompt
+exports.prompt = function(run, name, args, callback) {
+
+	var item = run.mcp && run.mcp.prompts[name];
+
+	if (!item) {
+		callback('Unknown prompt: ' + name);
+		return;
+	}
+
+	item.client.transport.send('prompts/get', { name: item.prompt.name, arguments: args || {} }, 30000, function(err, result) {
+
+		if (err) {
+			callback(err);
+			return;
+		}
+
+		callback(null, ((result && result.messages) || []).map(m => m.content && m.content.type === 'text' ? m.content.text : '[' + ((m.content && m.content.type) || 'content') + ']').join('\n\n'));
+	});
 };
 
 // callback(err, text)

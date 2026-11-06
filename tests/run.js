@@ -786,6 +786,19 @@ Test.push('MCP client', async function(next) {
 	check('a tool that fails is an error for the model', tools[2].data.status === 'error' && tools[2].data.error === 'it failed');
 	check('the program of the server stops with the run', !MAIN.children[id]);
 
+	// The prompts of a server are offered through one tool
+	id = await session();
+	events.length = 0;
+	requests.length = 0;
+	script = [{ tools: [{ id: 'mp', name: 'mcp_prompt', arguments: { name: 'mock:review', arguments: { file: 'a.js' } } }] }, { content: 'Reviewed.' }];
+	timer = approver(() => 'once');
+	await api('sessions_prompt/' + id, { text: 'use the prompt' });
+	await idle(id);
+	clearInterval(timer);
+	var promptdef = requests[0].tools.find(t => t.function.name === 'mcp_prompt');
+	check('the prompts of the servers are one tool that lists them', !!promptdef && /mock:review \(Review code\)/.test(promptdef.function.description));
+	check('a prompt gives its text to the model without asking', requests[1].messages.some(m => m.role === 'tool' && m.content === 'Review a.js for bugs.') && !events.some(e => e.type === 'permission.ask' && /prompt/.test(e.data.tool)));
+
 	// When the user refuses to start the servers, their tools do not exist
 	id = await session();
 	events.length = 0;
@@ -1632,20 +1645,62 @@ Test.push('redo, fork and background commands', async function(next) {
 	check('the model gets the job id and its first output', requests[1].messages.some(m => m.role === 'tool' && /job j[0-9A-Za-z]+/.test(m.content) && /started/.test(m.content)));
 	check('the job tool lists it', requests[2].messages.some(m => m.role === 'tool' && m.content.indexOf(job.id) !== -1 && /running/.test(m.content)));
 
+	events.length = 0;
 	script = [{ tools: [{ id: 'b3', name: 'job', arguments: { id: job.id, stop: true } }] }, { content: 'Stopped.' }];
 	await api('sessions_prompt/' + id, { text: 'stop it' });
 	await idle(id);
 	check('the job is stopped', job.status === 'stopped');
 
+	events.length = 0;
 	script = [{ tools: [{ id: 'b4', name: 'bash', arguments: { command: 'sleep 30', background: true } }] }, { content: 'again' }];
 	await api('sessions_prompt/' + id, { text: 'again' });
-	ask = await until(() => events.filter(e => e.type === 'permission.ask').length > 1 && events.filter(e => e.type === 'permission.ask')[1]);
+	ask = await until(() => events.find(e => e.type === 'permission.ask'));
 	await api('permissions_reply/' + ask.data.id, { reply: 'once' });
 	await idle(id);
 	var live = Object.keys(MAIN.jobs).map(k => MAIN.jobs[k]).filter(j => j.status === 'running');
 	check('another job runs', live.length === 1);
 	await api('sessions_remove/' + id);
 	check('removing the session ends its jobs', Object.keys(MAIN.jobs).length === 0);
+	next();
+});
+
+Test.push('instruction files and rules of an agent', async function(next) {
+
+	Total.Fs.mkdirSync(Total.Path.join(PROJECT, 'docs'), { recursive: true });
+	Total.Fs.writeFileSync(Total.Path.join(PROJECT, 'docs/style.md'), 'USE TABS ALWAYS');
+	Total.Fs.writeFileSync(Total.Path.join(PROJECT, 'docs/rules.md'), 'NO SEMICOLON JOKES');
+	Total.Fs.writeFileSync(Total.Path.join(PROJECT, 'CONTRIB.md'), 'SMALL COMMITS');
+	Total.Fs.writeFileSync(Total.Path.join(PROJECT, '.totem/instructions.json'), JSON.stringify(['docs/*.md', 'CONTRIB.md', '../outside.md', 'https://example.com/x.md']));
+
+	var text = MODS.instructions.text(PROJECT);
+	check('the instruction files of the project are read, patterns included', text.indexOf('USE TABS ALWAYS') !== -1 && text.indexOf('NO SEMICOLON JOKES') !== -1 && text.indexOf('SMALL COMMITS') !== -1);
+	check('a path outside the project and a URL are not read', MODS.instructions.extra(PROJECT).join(',') === 'docs/rules.md,docs/style.md,CONTRIB.md');
+
+	var id = await session();
+	events.length = 0;
+	requests.length = 0;
+	script = [{ content: 'ok' }];
+	await api('sessions_prompt/' + id, { text: 'hello' });
+	await idle(id);
+	check('they reach the system prompt', requests[0].messages[0].content.indexOf('USE TABS ALWAYS') !== -1);
+	Total.Fs.rmSync(Total.Path.join(PROJECT, '.totem/instructions.json'));
+
+	// An agent can deny or allow tools by itself
+	Total.Fs.mkdirSync(Total.Path.join(PROJECT, '.totem/agents'), { recursive: true });
+	Total.Fs.writeFileSync(Total.Path.join(PROJECT, '.totem/agents/careful.md'), '---\nname: careful\ndescription: Writes only notes\ntools: read, write, bash\nallow: write\ndeny: bash\n---\nYou write notes.\n');
+	events.length = 0;
+	requests.length = 0;
+	script = [
+		{ tools: [{ id: 'k1', name: 'task', arguments: { agent: 'careful', prompt: 'write a note' } }] },
+		{ tools: [{ id: 'k2', name: 'write', arguments: { path: 'note.txt', content: 'n' } }, { id: 'k3', name: 'bash', arguments: { command: 'touch denied.txt' } }] },
+		{ content: 'Done.' },
+		{ content: 'The agent finished.' }
+	];
+	await api('sessions_prompt/' + id, { text: 'delegate' });
+	await idle(id);
+	check('a tool that the agent allows does not ask', Total.Fs.existsSync(Total.Path.join(PROJECT, 'note.txt')) && !events.some(e => e.type === 'permission.ask' && e.data.tool === 'write'));
+	check('a tool that the agent denies is refused without asking', !Total.Fs.existsSync(Total.Path.join(PROJECT, 'denied.txt')) && !events.some(e => e.type === 'permission.ask' && e.data.tool === 'bash') && requests[2].messages.some(m => m.role === 'tool' && /not allowed to use bash/.test(m.content)));
+	Total.Fs.rmSync(Total.Path.join(PROJECT, '.totem/agents/careful.md'));
 	next();
 });
 

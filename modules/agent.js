@@ -610,6 +610,21 @@ function runtools(run, tools, callback) {
 
 		var meta = TOOLS[tool.name];
 
+		// A prompt of an MCP server (the server was already allowed to start). Its text is data from that server.
+		if (!meta && tool.name === 'mcp_prompt' && run.mcp && Object.keys(run.mcp.prompts || {}).length) {
+			part.data.status = 'running';
+			FUNC.emit(run.sessionid, 'part.updated', { part: part });
+			MODS.mcpclient.prompt(run, part.data.input.name, part.data.input.arguments, function(err, text) {
+				if (run.aborted)
+					next();
+				else if (err)
+					result('error', '', typeof(err) === 'string' ? err : 'MCP error');
+				else
+					result('done', text);
+			});
+			return;
+		}
+
 		// A tool of an MCP server: it always asks, like the tools that change things
 		if (!meta && run.mcp && run.mcp.tools[tool.name]) {
 

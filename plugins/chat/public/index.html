@@ -461,6 +461,22 @@
 
 		exports.online = online;
 
+		// A notice of the system when Totem finishes or needs an answer while this tab is not in front. The browser asks for the permission
+		// the first time the user sends a prompt.
+		function notice(title, body) {
+			try {
+				if (document.hidden && window.Notification && Notification.permission === 'granted')
+					new Notification(title, { body: body, tag: 'totem-' + sessionid, icon: '/img/totem-dark.svg' });
+			} catch (e) {}
+		}
+
+		function allownotices() {
+			try {
+				if (window.Notification && Notification.permission === 'default')
+					Notification.requestPermission();
+			} catch (e) {}
+		}
+
 		// The chat follows the answer only while the reader is at the bottom: scrolling up stops it, going back down starts it again
 		var stick = true;
 		var dirty = {};
@@ -553,6 +569,8 @@
 				case 'session.status':
 					exports.set('status', data.status);
 					PLUGINS.projects && PLUGINS.projects.refresh();
+					if (data.status === 'idle' || data.status === 'error')
+						notice(data.status === 'error' ? '@(Totem stopped with an error)' : '@(Totem finished)', (exports.model.session && exports.model.session.name) || '');
 					break;
 
 				case 'message.created':
@@ -627,6 +645,7 @@
 				case 'permission.ask':
 					var asks = exports.model.asks || [];
 					asks.push({ id: data.id, tool: data.tool, text: data.patterns[0] || JSON.stringify(data.input) });
+					notice('@(Totem needs your answer)', data.tool + ': ' + (data.patterns[0] || ''));
 					exports.update('asks', true);
 					scroll();
 					break;
@@ -674,6 +693,7 @@
 			if (attachments.length && (model.attachments || []).some(a => a.kind === 'image') && catalog[model.model] && catalog[model.model].vision === false)
 				SETTER('notify/warning', '@(This model cannot read images: it will only get a note.)');
 
+			allownotices();
 			input.val('');
 			exports.set('text', '');
 			exports.set('attachments', []);

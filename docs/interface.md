@@ -99,3 +99,10 @@ After `write`, `edit` and `patch` Totem runs the formatter that the project alre
 ## Redo, fork and background commands
 
 After an undo the bar shows Redo, which puts the changes back (the snapshots and the files of the undo are kept until the next prompt). Every answer has "Fork from here" and the menu of a session has Fork: the new session copies the conversation and its attachments, not the file changes. The `bash` tool takes `background: true` for a development server or a watcher: it returns at once with a job id and the first output, Stop does not end it, and the `job` tool lists the jobs of the session, reads their output and ends them (`stop`). Jobs end when the session is removed or the server stops.
+
+## More instructions, rules of an agent, MCP prompts, notices
+
+- `.totem/instructions.json` lists more instruction files of the project (`["docs/*.md", "CONTRIBUTING.md"]`, patterns allowed, at most 20 files); their text follows `AGENTS.md` in the system prompt. Only files inside the project are read: URLs are ignored, Totem does not fetch anything by itself.
+- An agent file (`.totem/agents/name.md`) can have `allow:` and `deny:` lines with tool names. `deny` always wins and is checked after the project boundary and Plan mode; `allow` only removes the question for that tool (never for a chained command). The tools of a sub-agent are still the list in `tools:`.
+- The prompts of the MCP servers that the user allowed to start are offered to the model as one tool, `mcp_prompt`, which lists them (`server:prompt`) and returns their text. Starting the server is what asks; reading a prompt does not.
+- When the tab is in the background, the browser shows a notice when Totem finishes, stops with an error or asks for permission. The browser asks to allow notices the first time a prompt is sent; nothing is sent to any server.

@@ -22,6 +22,12 @@ exports.handle = function(msg) {
 			{ name: 'Forge_page', description: 'Read a page of Forge', inputSchema: { type: 'object', properties: { input: { type: 'object', properties: { section: { type: 'string' }, slug: { type: 'string' } }, required: ['section', 'slug'] } }, required: ['input'] } }
 		] } };
 
+	if (msg.method === 'prompts/list')
+		return { result: { prompts: [{ name: 'review', description: 'Review code', arguments: [{ name: 'file', required: true }] }] } };
+
+	if (msg.method === 'prompts/get')
+		return { result: { messages: [{ role: 'user', content: { type: 'text', text: 'Review ' + ((msg.params.arguments || {}).file || 'nothing') + ' for bugs.' } }] } };
+
 	if (msg.method === 'tools/call') {
 		if (msg.params.name === 'echo')
 			return { result: { content: [{ type: 'text', text: 'echo: ' + msg.params.arguments.text }] } };

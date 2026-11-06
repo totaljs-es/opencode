@@ -24,6 +24,8 @@ function load(dir, found) {
 			name: name,
 			description: parsed.meta.description || '',
 			tools: (parsed.meta.tools || 'read, glob, grep').split(',').map(t => t.trim()).filter(Boolean),
+			allow: (parsed.meta.allow || '').split(',').map(t => t.trim()).filter(Boolean),
+			deny: (parsed.meta.deny || '').split(',').map(t => t.trim()).filter(Boolean),
 			maxsteps: parseInt(parsed.meta.maxsteps) || 20,
 			prompt: parsed.body.trim()
 		};

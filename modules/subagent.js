@@ -6,6 +6,15 @@ exports.id = 'subagent';
 
 var MAXDENIALS = 3;
 
+// The agent can allow or deny tools by itself (allow: and deny: in its file); deny wins. They only narrow what the project already decided
+// for the questions: the boundary of the project and the Plan mode are checked first.
+function rules(def) {
+	var map = {};
+	(def.allow || []).forEach(tool => map[tool] = 'allow');
+	(def.deny || []).forEach(tool => map[tool] = 'deny');
+	return map;
+}
+
 // callback(err, text)
 exports.run = function(parent, name, prompt, callid, callback) {
 
@@ -25,6 +34,7 @@ exports.run = function(parent, name, prompt, callid, callback) {
 		root: parent.root,
 		autoaccept: parent.autoaccept,
 		mode: parent.mode,
+		rules: rules(def),
 		model: parent.model,
 		aborted: false,
 		steps: 0,
