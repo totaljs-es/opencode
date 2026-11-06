@@ -58,8 +58,9 @@ exports.check = function(run, tool, input, callback) {
 
 		// Ask the user and wait for Permissions|reply
 		var id = UID();
-		MAIN.asks[id] = { sessionid: run.sessionid, tool: tool, text: text, callback: callback, projectid: run.projectid };
-		FUNC.emit(run.sessionid, 'permission.ask', { id: id, tool: tool, input: input, patterns: [text] });
+		var event = { type: 'permission.ask', data: { id: id, tool: tool, input: input, patterns: [text] } };
+		MAIN.asks[id] = { sessionid: run.sessionid, tool: tool, text: text, callback: callback, projectid: run.projectid, event: event };
+		FUNC.emit(run.sessionid, event.type, event.data);
 	});
 };
 
@@ -78,6 +79,17 @@ exports.reply = function(id, reply) {
 	FUNC.emit(ask.sessionid, 'permission.replied', { id: id, reply: reply });
 	ask.callback(reply === 'reject' ? 'deny' : 'allow', reply === 'reject' ? 'The user rejected this action. Do not try it again; explain what you wanted to change and ask how to proceed.' : null);
 	return true;
+};
+
+// The questions that wait for an answer in a session, as events: a client that opens the session later has to see them
+exports.pending = function(sessionid) {
+	var list = [];
+	for (var id in MAIN.asks) {
+		var ask = MAIN.asks[id];
+		if (ask.sessionid === sessionid && ask.event)
+			list.push(ask.event);
+	}
+	return list;
 };
 
 // The user answered a question of the ask tool

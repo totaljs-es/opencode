@@ -36,6 +36,13 @@
 	.CLASS .todos .in_progress { font-weight: bold; }
 	.CLASS .compose { border-top: 1px solid var(--t-border); padding: 10px 16px 14px; }
 	.CLASS .compose .row { max-width: 860px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+	.CLASS .attached { max-width: 860px; margin: 0 auto 8px; display: flex; gap: 8px; flex-wrap: wrap; }
+	.CLASS .attached .item { border: 1px solid var(--t-border); border-radius: var(--radius, 6px); padding: 3px 6px 3px 3px; display: flex; gap: 6px; align-items: center; font-size: 12px; background: var(--t-card); max-width: 220px; }
+	.CLASS .attached .item img { width: 34px; height: 34px; object-fit: cover; border-radius: 4px; }
+	.CLASS .attached .item span.name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.CLASS .files { margin-top: 6px; display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+	.CLASS .files img { max-width: 220px; max-height: 160px; border-radius: 8px; border: 1px solid var(--t-border); display: block; }
+	.CLASS .files a.chip { text-decoration: none; color: inherit; }
 	.CLASS .compose .grow { flex: 1 1 220px; min-width: 160px; }
 	.CLASS .compose .model { width: 210px; }
 	.CLASS .note { text-align: center; font-size: 12px; color: var(--t-muted); margin: 10px 0; }
@@ -49,6 +56,15 @@
 	.CLASS .file pre .add { background: var(--t-add); }
 	.CLASS .file pre .del { background: var(--t-del); }
 	.CLASS .file pre .hunk { color: var(--t-muted); background: var(--t-soft); }
+	.CLASS .side.wide { width: min(780px, 62%); flex-basis: min(780px, 62%); }
+	.CLASS .split { width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed; font-family: Menlo, Consolas, monospace; }
+	.CLASS .split td { padding: 0 6px; vertical-align: top; }
+	.CLASS .split td.n { width: 36px; text-align: right; color: var(--t-muted); user-select: none; }
+	.CLASS .split td.c { white-space: pre-wrap; word-break: break-all; width: 50%; }
+	.CLASS .split td.del { background: var(--t-del); }
+	.CLASS .split td.add { background: var(--t-add); }
+	.CLASS .split td.empty { background: var(--t-soft); }
+	.CLASS .split tr.hunk td { color: var(--t-muted); background: var(--t-soft); }
 	.CLASS .plus { color: #27AE60; }
 	.CLASS .minus { color: #D63A32; }
 </style>
@@ -95,6 +111,11 @@
 							{{ fi }}
 							{{ if p.type === 'text' && m.role !== 'user' }}
 							<div class="part">{{ p.data.text | markdown({ wrap: false }) }}</div>
+							{{ fi }}
+							{{ if p.type === 'file' }}
+							<div class="files">
+								{{ if p.data.kind === 'image' }}<a href="/attachments/{{ p.data.id }}/" target="_blank" rel="noopener"><img src="/attachments/{{ p.data.id }}/" alt="{{ p.data.name }}" loading="lazy" /></a>{{ else }}<a class="chip" href="/attachments/{{ p.data.id }}/" target="_blank" rel="noopener"><i class="ti ti-file-text"></i> {{ p.data.name }}</a>{{ fi }}
+							</div>
 							{{ fi }}
 							{{ if p.type === 'knowledge' }}
 							<div class="note"><i class="ti ti-book"></i> @(Pages of Forge used:) {{ p.data.pages | forgepages }}</div>
@@ -178,8 +199,24 @@
 	</ui-bind>
 
 	<div class="compose">
+		<ui-bind path="?.attachments" config="template" class="block">
+			<script type="text/html">
+				{{ if value && value.length }}
+				<div class="attached">
+					{{ foreach a in value }}
+					<div class="item">
+						{{ if a.kind === 'image' }}<img src="{{ a.url }}" alt="" />{{ else }}<i class="ti ti-file-text" style="font-size:20px;margin:0 4px"></i>{{ fi }}
+						<span class="name" title="{{ a.name }}">{{ a.name }}</span>
+						<span class="exec" data-exec="?/unattach" data-index="{{ $index }}" title="@(Remove)" style="cursor:pointer"><i class="ti ti-x"></i></span>
+					</div>
+					{{ end }}
+				</div>
+				{{ fi }}
+			</script>
+		</ui-bind>
 		<ui-component name="enter" config="exec:?/send;validate:false;delay:0;timeout:400">
 			<div class="row">
+				<button class="tbtn tbtn-icon exec" data-exec="?/attach" title="@(Attach images or text files)" aria-label="@(Attach images or text files)"><i class="ti ti-paperclip"></i></button>
 				<div class="grow"><ui-component name="input" path="?.text" config="placeholder:@(Ask Totem...);autofocus:true"></ui-component></div>
 				<ui-bind path="?.current" config="template" class="inline"><script type="text/html">{{ if value }}{{ value.icon | provicon(value.provider) }}{{ fi }}</script></ui-bind>
 				<div class="model"><ui-component name="input" path="?.model" config="placeholder:@(Model);dirsource:?.models"></ui-component></div>
@@ -192,13 +229,21 @@
 	</div>
 
 	<ui-bind path="?.showdiff" config="show:value" class="hidden side">
+		<ui-bind path="?.splitmode" config="template" class="block">
+			<script type="text/html">
+				<div class="mb10" style="display:flex;gap:6px">
+					<button class="tbtn tbtn-small exec{{ if !value }} tbtn-primary{{ fi }}" data-exec="?/diffmode" data-mode="unified">@(Unified)</button>
+					<button class="tbtn tbtn-small exec{{ if value }} tbtn-primary{{ fi }}" data-exec="?/diffmode" data-mode="split">@(Split)</button>
+				</div>
+			</script>
+		</ui-bind>
 		<ui-bind path="?.files" config="template" class="block">
 			<script type="text/html">
 				{{ if !value || !value.length }}<div class="gray">@(Totem has not changed any file in this session.)</div>{{ fi }}
 				{{ foreach f in value }}
 				<details class="file" open>
 					<summary><i class="ti ti-file"></i><b>{{ f.path }}</b><span class="badge badge-small">{{ f.status }}</span><span class="plus">+{{ f.additions }}</span><span class="minus">-{{ f.deletions }}</span></summary>
-					<pre>{{ f.patch | diffhtml }}</pre>
+					{{ if f.split }}{{ f.patch | splitdiff }}{{ else }}<pre>{{ f.patch | diffhtml }}</pre>{{ fi }}
 				</details>
 				{{ end }}
 			</script>
@@ -216,12 +261,14 @@
 		var parts = {};
 
 		var diffjob = null;
+		var rawfiles = [];
 		var catalog = {};
 		var registered = false;
 		var EDITS = { write: 1, edit: 1, patch: 1 };
 
 		exports.reload = function() {
 			exports.set('items', null);
+			exports.set('attachments', []);
 			exports.set('asks', []);
 			exports.set('questions', []);
 			exports.set('todos', []);
@@ -232,6 +279,26 @@
 
 			if (!registered) {
 				registered = true;
+
+				// An image pasted into the prompt box, or files dropped on the chat
+				document.addEventListener('paste', function(e) {
+					if (!$(document.activeElement).closest('.compose').length || !e.clipboardData)
+						return;
+					var files = Array.from(e.clipboardData.files || []);
+					if (files.length) {
+						e.preventDefault();
+						exports.addfiles(files);
+					}
+				});
+
+				document.addEventListener('dragover', e => $(e.target).closest('.CLASS').length && e.preventDefault());
+				document.addEventListener('drop', function(e) {
+					if (!$(e.target).closest('.CLASS').length || !e.dataTransfer || !e.dataTransfer.files.length)
+						return;
+					e.preventDefault();
+					exports.addfiles(e.dataTransfer.files);
+				});
+
 				exports.watch('model', exports.watchmodel);
 				SETTER(true, 'shortcuts/register', 'esc', function() {
 					if (exports.model.status === 'running')
@@ -250,11 +317,25 @@
 			});
 		}
 
+		// The files with the view that is chosen: unified lines or two columns
+		function showfiles() {
+			var split = !!exports.model.splitmode;
+			exports.set('files', rawfiles.map(f => Object.assign({}, f, { split: split })));
+		}
+
+		exports.diffmode = function(el) {
+			var split = el.attrd('mode') === 'split';
+			exports.set('splitmode', split);
+			$('.side').tclass('wide', split);
+			showfiles();
+		};
+
 		function refreshdiff() {
 			diffjob && clearTimeout(diffjob);
 			diffjob = setTimeout(function() {
 				sessionid && exports.tapi('sessions_diff/' + sessionid, function(files) {
-					exports.set('files', files);
+					rawfiles = files;
+					showfiles();
 				});
 			}, 300);
 		}
@@ -477,9 +558,15 @@
 				SETTER('notify/warning', '@(This model cannot use tools: it will only chat.)');
 
 			var text = model.text;
+			var attachments = (model.attachments || []).map(a => ({ name: a.name, mime: a.mime, data: a.data }));
+
+			if (attachments.length && (model.attachments || []).some(a => a.kind === 'image') && catalog[model.model] && catalog[model.model].vision === false)
+				SETTER('notify/warning', '@(This model cannot read images: it will only get a note.)');
+
 			input.val('');
 			exports.set('text', '');
-			exports.tapi('sessions_prompt/' + sessionid + ' ERROR', { text: text, model: model.model, autoaccept: !!model.autoaccept, reasoning: model.reasoning || '' }, NOOP);
+			exports.set('attachments', []);
+			exports.tapi('sessions_prompt/' + sessionid + ' ERROR', { text: text, model: model.model, autoaccept: !!model.autoaccept, reasoning: model.reasoning || '', attachments: attachments }, NOOP);
 		};
 
 		exports.abort = function() {
@@ -507,6 +594,64 @@
 
 		exports.folder = function() {
 			PLUGINS.projects && PLUGINS.projects.open();
+		};
+
+		// Files for the next prompt: images and text files, read in the browser and sent with the prompt
+		var reading = 0;
+		var TEXTEXT = /\.(txt|md|markdown|json|jsonc|js|mjs|cjs|ts|tsx|jsx|css|scss|less|html|htm|xml|svg|yml|yaml|toml|ini|sql|sh|bash|zsh|py|rb|php|java|kt|go|rs|c|h|cpp|hpp|cs|swift|csv|tsv|log|env|conf|config|gitignore|vue|svelte)$/i;
+		var IMAGES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
+
+		exports.attach = function() {
+			var opt = {};
+			opt.multiple = true;
+			opt.accept = 'image/png,image/jpeg,image/gif,image/webp,text/*,.md,.json,.js,.ts,.css,.html,.yml,.yaml,.sql,.sh,.py,.csv,.log,.xml,.txt';
+			opt.callback = files => exports.addfiles(files);
+			SETTER('filebrowser/show', opt);
+		};
+
+		exports.addfiles = function(files) {
+
+			var list = exports.model.attachments || [];
+
+			Array.from(files || []).forEach(function(file) {
+
+				var image = IMAGES.indexOf(file.type) !== -1;
+				var text = !image && (/^text\//.test(file.type) || file.type === 'application/json' || TEXTEXT.test(file.name));
+
+				if (!image && !text) {
+					SETTER('notify/warning', '@(This kind of file cannot be attached:) ' + file.name);
+					return;
+				}
+
+				if (file.size > (image ? 5 * 1024 * 1024 : 200 * 1024)) {
+					SETTER('notify/warning', '@(The file is too large:) ' + file.name);
+					return;
+				}
+
+				if (list.length + reading >= 6) {
+					SETTER('notify/warning', '@(Too many files: the limit is) 6');
+					return;
+				}
+
+				var reader = new FileReader();
+				reading++;
+
+				reader.onload = function() {
+					reading--;
+					var url = reader.result;
+					var current = exports.model.attachments || [];
+					current.push({ name: file.name, mime: file.type || 'text/plain', kind: image ? 'image' : 'text', size: file.size, data: url.substring(url.indexOf(',') + 1), url: image ? url : '' });
+					exports.set('attachments', current.slice());
+				};
+
+				reader.readAsDataURL(file);
+			});
+		};
+
+		exports.unattach = function(el) {
+			var current = (exports.model.attachments || []).slice();
+			current.splice(+el.attrd('index'), 1);
+			exports.set('attachments', current);
 		};
 
 		exports.usecommand = function(el) {

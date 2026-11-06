@@ -30,6 +30,7 @@ A message is an ordered list of parts, so the interface renders any step uniform
 | `file` | `{ name, mime, blob }` (attachments) |
 | `patch` | `{ files: [{ path, additions, deletions }] }` summary of the edits of a step |
 | `step` | `{ tokens: { input, output }, cost (dollars, from the price of the model), finish }` end of one model call |
+| `file` | `{ id, name, mime, kind: 'image' \| 'text', size }` a file attached to the prompt (the content is in `databases/attachments/<id>`) |
 | `knowledge` | `{ pages: [{ title, url }] }` the pages of Forge that were put in the system prompt for this prompt |
 | `compaction` | `{ removed, summary }` older turns were replaced by a summary in what is sent to the model (the stored history is untouched) |
 

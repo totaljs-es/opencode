@@ -1084,6 +1084,152 @@ Test.push('sessions: name, rename, delete', async function(next) {
 	next();
 });
 
+Test.push('attachments', async function(next) {
+
+	var mock = require('./mock-openai');
+	var PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+	var note = Buffer.from('hello notes').toString('base64');
+	var dir = Total.Path.join(TMP, 'databases', 'attachments');
+
+	var id = await session();
+	events.length = 0;
+	requests.length = 0;
+	script = [{ content: 'Seen.' }, { content: 'Again.' }];
+	var r = await api('sessions_prompt/' + id, { text: 'look at these', attachments: [{ name: 'a.png', mime: 'image/png', data: PNG }, { name: 'notes.md', mime: 'text/markdown', data: note }] });
+	check('a prompt with files is accepted', !!(r.response && r.response.messageid));
+	await idle(id);
+
+	var content = requests[0].messages[requests[0].messages.length - 1].content;
+	check('the text file goes into the prompt, the image goes as a data URL', Array.isArray(content) && content[0].text.indexOf('look at these') === 0 && content[0].text.indexOf('<file name="notes.md">\nhello notes\n</file>') !== -1 && content[1].type === 'image_url' && content[1].image_url.url === 'data:image/png;base64,' + PNG);
+
+	r = await api('sessions_messages/' + id);
+	var parts = r.response.find(m => m.role === 'user').parts;
+	var files = parts.filter(p => p.type === 'file');
+	check('the conversation keeps a part per file with its metadata and no content', files.length === 2 && files[0].data.kind === 'image' && files[0].data.name === 'a.png' && files[1].data.kind === 'text' && files[1].data.size === 11 && JSON.stringify(files).indexOf(PNG) === -1);
+	check('the files are kept on disk', Total.Fs.readdirSync(dir).length === 2);
+
+	// The history sends the files again in the next turn
+	await api('sessions_prompt/' + id, { text: 'and now?' });
+	await idle(id);
+	var earlier = requests[1].messages.find(m => Array.isArray(m.content));
+	check('the next turn still has the image of the first one', !!earlier && earlier.content[1].image_url.url.indexOf('data:image/png;base64,') === 0);
+
+	// The files can be read back
+	var get = (url) => new Promise(resolve => Total.Http.get(url, function(res) {
+		var chunks = [];
+		res.on('data', c => chunks.push(c));
+		res.on('end', () => resolve({ type: res.headers['content-type'], body: Buffer.concat(chunks), status: res.statusCode }));
+	}));
+	var image = await get('http://127.0.0.1:' + PORT + '/attachments/' + files[0].data.id + '/');
+	var text = await get('http://127.0.0.1:' + PORT + '/attachments/' + files[1].data.id + '/');
+	check('an image is served with its type', image.status === 200 && image.type === 'image/png' && image.body.toString('base64') === PNG);
+	check('a text file is served as plain text', text.status === 200 && /^text\/plain/.test(text.type) && text.body.toString() === 'hello notes');
+	var missing = await get('http://127.0.0.1:' + PORT + '/attachments/nope/');
+	check('a file that does not exist is a 404', missing.status === 404);
+
+	// What cannot be attached
+	var before = (await api('sessions_messages/' + id)).response.length;
+	var bad = async (attachments) => (await api('sessions_prompt/' + id, { text: 'x', attachments: attachments })).err;
+	check('a program is refused', !!(await bad([{ name: 'x.exe', mime: 'application/octet-stream', data: note }])));
+	check('a binary file named .txt is refused', !!(await bad([{ name: 'b.txt', mime: 'text/plain', data: Buffer.from([65, 0, 66]).toString('base64') }])));
+	check('too many files are refused', !!(await bad([1, 2, 3, 4, 5, 6, 7].map(i => ({ name: 'f' + i + '.txt', mime: 'text/plain', data: note })))));
+	check('a text file over the limit is refused', !!(await bad([{ name: 'big.txt', mime: 'text/plain', data: Buffer.alloc(201 * 1024, 65).toString('base64') }])));
+	check('an image over the limit is refused', !!(await bad([{ name: 'big.png', mime: 'image/png', data: Buffer.alloc(5 * 1024 * 1024 + 1, 1).toString('base64') }])));
+	check('a refused prompt leaves no message', (await api('sessions_messages/' + id)).response.length === before);
+
+	// A model that cannot see gets the text and a note
+	var base = 'http://127.0.0.1:8111/v1';
+	await api('providers_save', { name: 'No vision', url: base, kind: 'openai', models: ['m'], meta: { m: { id: 'm', vision: false, tools: true } } });
+	await new Promise(resolve => setTimeout(resolve, 200));
+	var blind = await session({ model: 'no-vision:m' });
+	events.length = 0;
+	mock.requests.length = 0;
+	await api('sessions_prompt/' + blind, { text: 'what is in this picture', attachments: [{ name: 'a.png', mime: 'image/png', data: PNG }] });
+	await idle(blind);
+	var last = mock.requests[0].messages[mock.requests[0].messages.length - 1].content;
+	check('a model that cannot see gets a text and a note instead of the image', typeof(last) === 'string' && last.indexOf('what is in this picture') === 0 && last.indexOf('1 image omitted') !== -1);
+
+	var cat = (await api('providers_catalog')).response.find(m => m.id === 'no-vision:m');
+	check('the catalogue says if a model can see', cat.vision === false);
+
+	// The format of the other providers
+	var multi = [{ role: 'user', content: [{ type: 'text', text: 'hi' }, { type: 'image_url', image_url: { url: 'data:image/png;base64,' + PNG } }] }];
+	var a = MODS.provider.toanthropic(multi).messages[0].content;
+	var g = MODS.provider.togemini(multi).contents[0].parts;
+	check('Anthropic receives the image as a base64 block', a[0].type === 'text' && a[1].type === 'image' && a[1].source.type === 'base64' && a[1].source.media_type === 'image/png' && a[1].source.data === PNG);
+	check('Gemini receives the image as inline data', g[0].text === 'hi' && g[1].inlineData.mimeType === 'image/png' && g[1].inlineData.data === PNG);
+
+	// A server that refuses images, with no flag in its metadata: the prompt is tried again without them
+	await api('providers_save', { name: 'Refuses', url: base, kind: 'openai', models: ['noimg'] });
+	await new Promise(resolve => setTimeout(resolve, 200));
+	var refusing = await session({ model: 'refuses:noimg' });
+	events.length = 0;
+	mock.requests.length = 0;
+	await api('sessions_prompt/' + refusing, { text: 'describe it', attachments: [{ name: 'a.png', mime: 'image/png', data: PNG }] });
+	await idle(refusing);
+	check('a refusal of images is retried without them', mock.requests.length === 2 && Array.isArray(mock.requests[0].messages[mock.requests[0].messages.length - 1].content) && typeof(mock.requests[1].messages[mock.requests[1].messages.length - 1].content) === 'string' && events.some(e => e.type === 'error' && e.data.retry === true && /cannot read images/.test(e.data.message)));
+	check('the run still ends well and the model is remembered as blind', !events.some(e => e.type === 'session.status' && e.data.status === 'error') && MAIN.modelmeta['refuses:noimg'].vision === false);
+	events.length = 0;
+	mock.requests.length = 0;
+	await api('sessions_prompt/' + refusing, { text: 'again', attachments: [{ name: 'b.png', mime: 'image/png', data: PNG }] });
+	await idle(refusing);
+	check('the next prompt does not send the images at all', mock.requests.length === 1 && typeof(mock.requests[0].messages[mock.requests[0].messages.length - 1].content) === 'string');
+
+	// Adding a provider that exists refreshes it
+	await api('providers_save', { name: 'Twice', url: base, kind: 'openai', models: ['one'] });
+	await api('providers_save', { name: 'Twice', url: base, kind: 'openai', models: ['one', 'two'] });
+	var twice = (await api('providers')).response.filter(p => p.id === 'twice');
+	check('a provider added twice is one provider with the new models', twice.length === 1 && twice[0].models.length === 2);
+
+	// Deleting the session deletes its files
+	await api('sessions_remove/' + id);
+	check('deleting the session deletes its files', Total.Fs.readdirSync(dir).length === 0 || Total.Fs.readdirSync(dir).every(name => name !== files[0].data.id && name !== files[1].data.id));
+	next();
+});
+
+Test.push('a client that opens the session later sees what it waits for', async function(next) {
+
+	var id = await session();
+	events.length = 0;
+	script = [{ tools: [{ id: 'p1', name: 'write', arguments: { path: 'later.txt', content: 'x' } }] }, { content: 'done' }];
+	await api('sessions_prompt/' + id, { text: 'write it' });
+	var ask = await until(() => events.find(e => e.type === 'permission.ask' && e.sessionid === id));
+
+	// A new connection, after the question was sent to the ones that were open
+	var received = [];
+	var ws = new WebSocket('ws://127.0.0.1:' + PORT + '/api/');
+	ws.onmessage = e => received.push(JSON.parse(e.data));
+	await new Promise(resolve => ws.onopen = resolve);
+	ws.send(JSON.stringify({ type: 'subscribe', sessionid: id }));
+	var replayed = await until(() => received.find(m => m.type === 'permission.ask'));
+	check('a new client receives the question that is waiting', !!replayed && replayed.data.id === ask.data.id && replayed.data.tool === 'write' && replayed.sessionid === id);
+
+	await api('permissions_reply/' + ask.data.id, { reply: 'reject' });
+	await idle(id);
+
+	var other = [];
+	var ws2 = new WebSocket('ws://127.0.0.1:' + PORT + '/api/');
+	ws2.onmessage = e => other.push(JSON.parse(e.data));
+	await new Promise(resolve => ws2.onopen = resolve);
+	ws2.send(JSON.stringify({ type: 'subscribe', sessionid: id }));
+	await new Promise(resolve => setTimeout(resolve, 300));
+	check('once it is answered nothing is replayed', !other.some(m => m.type === 'permission.ask'));
+	ws.close();
+	ws2.close();
+	next();
+});
+
+Test.push('restart', async function(next) {
+
+	// A session that was running when the server stopped
+	var id = await session();
+	await NOSQL('sessions').modify({ status: 'running' }).where('id', id).promise();
+	var count = await new Promise(resolve => FUNC.recover(resolve));
+	var r = await api('sessions_read/' + id);
+	check('a session that was running before a restart is marked as aborted', count >= 1 && r.response.status === 'aborted');
+	next();
+});
+
 Test.push('command line', async function(next) {
 
 	function cli(args) {

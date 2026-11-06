@@ -102,3 +102,60 @@ Thelpers.provicon = function(icon, name, large) {
 		return '<span class="' + css + '" style="--i:url(/img/providers/' + icon + '.svg)"></span>';
 	return '<span class="' + css + ' mono">' + Thelpers.encode((name || '?').substring(0, 1).toUpperCase()) + '</span>';
 };
+
+// A unified patch as two columns: the old file on the left, the new one on the right. A block of removed lines is paired with the block of added lines that follows.
+Thelpers.splitdiff = function(patch) {
+
+	if (!patch)
+		return '';
+
+	var rows = [];
+	var left = [];
+	var right = [];
+	var ol = 0;
+	var nl = 0;
+
+	var flush = function() {
+		var count = Math.max(left.length, right.length);
+		for (var i = 0; i < count; i++)
+			rows.push({ l: left[i], r: right[i] });
+		left = [];
+		right = [];
+	};
+
+	patch.split('\n').forEach(function(line) {
+
+		if (line.indexOf('@@') === 0) {
+			flush();
+			var m = line.match(/@@ -(\d+)(?:,\d+)? \+(\d+)/);
+			ol = m ? +m[1] : 1;
+			nl = m ? +m[2] : 1;
+			rows.push({ hunk: line });
+			return;
+		}
+
+		var c = line.charAt(0);
+		var t = line.substring(1);
+
+		if (c === '-')
+			left.push({ n: ol++, t: t });
+		else if (c === '+')
+			right.push({ n: nl++, t: t });
+		else {
+			flush();
+			rows.push({ l: { n: ol++, t: t }, r: { n: nl++, t: t }, ctx: true });
+		}
+	});
+
+	flush();
+
+	var cell = function(side, css) {
+		return side ? ('<td class="n">' + side.n + '</td><td class="c ' + css + '">' + Thelpers.encode(side.t || ' ') + '</td>') : '<td class="n"></td><td class="c empty"></td>';
+	};
+
+	return '<div style="overflow:auto;max-height:420px"><table class="split">' + rows.map(function(row) {
+		if (row.hunk)
+			return '<tr class="hunk"><td colspan="4">' + Thelpers.encode(row.hunk) + '</td></tr>';
+		return '<tr>' + cell(row.l, row.ctx ? '' : 'del') + cell(row.r, row.ctx ? '' : 'add') + '</tr>';
+	}).join('') + '</table></div>';
+};

@@ -20,7 +20,7 @@ exports.install = function() {
 	ROUTE('+API    ?    +sessions_update/{id}       --> Sessions|update');
 	ROUTE('+API    ?    -sessions_remove/{id}       --> Sessions|remove');
 	ROUTE('+API    ?    -sessions_messages/{id}     --> Sessions|messages');
-	ROUTE('+API    ?    +sessions_prompt/{id}       --> Sessions|prompt', 1024 * 1024);
+	ROUTE('+API    ?    +sessions_prompt/{id}       --> Sessions|prompt', 1024 * 1024 * 20);
 	ROUTE('+API    ?    -sessions_abort/{id}        --> Sessions|abort');
 	ROUTE('+API    ?    -sessions_diff/{id}         --> Sessions|diff');
 	ROUTE('+API    ?    +sessions_undo/{id}         --> Sessions|undo');
@@ -56,8 +56,12 @@ function socket($) {
 	});
 
 	$.on('message', function(client, msg) {
-		if (msg.type === 'subscribe' && msg.sessionid)
+		if (msg.type === 'subscribe' && msg.sessionid) {
 			client.sessions[msg.sessionid] = true;
+
+			// What the session is waiting for, for a client that was not there when it was asked
+			MODS.permissions.pending(msg.sessionid).forEach(event => client.send({ type: event.type, sessionid: msg.sessionid, ts: Date.now(), data: event.data }));
+		}
 		else if (msg.type === 'unsubscribe' && msg.sessionid)
 			delete client.sessions[msg.sessionid];
 	});

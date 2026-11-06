@@ -52,6 +52,7 @@ NEWACTION('Projects|remove', {
 		if (ids.length) {
 			ids.forEach(sessionid => MODS.agent.abort(sessionid));
 			await new Promise(resolve => MODS.snapshots.clear(ids, resolve));
+			await new Promise(resolve => MODS.attachments.clear(ids, resolve));
 			await NOSQL('todos').remove().in('sessionid', ids).promise($);
 			await NOSQL('parts').remove().in('sessionid', ids).promise($);
 			await NOSQL('messages').remove().in('sessionid', ids).promise($);

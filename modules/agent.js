@@ -76,8 +76,43 @@ function system(run) {
 function estimate(messages) {
 	var size = 0;
 	for (var m of messages)
-		size += (m.content ? m.content.length : 0) + (m.tool_calls ? JSON.stringify(m.tool_calls).length : 0);
+		size += contentsize(m.content) + (m.tool_calls ? JSON.stringify(m.tool_calls).length : 0);
 	return Math.ceil(size / 4);
+}
+
+// The content of a message is a text or a list of parts; an image counts as about a thousand tokens
+function contentsize(content) {
+
+	if (!content)
+		return 0;
+
+	if (typeof(content) === 'string')
+		return content.length;
+
+	return content.reduce((total, part) => total + (part.type === 'text' ? part.text.length : 4000), 0);
+}
+
+// The text of a content, for the summary
+function textof(content) {
+
+	if (!content)
+		return '';
+
+	if (typeof(content) === 'string')
+		return content;
+
+	return content.map(part => part.type === 'text' ? part.text : '[image]').join('\n');
+}
+
+// A model that cannot see gets the text of the prompt and a note in place of each image
+function withoutimages(messages) {
+	return messages.map(function(m) {
+		if (!Array.isArray(m.content))
+			return m;
+		var text = m.content.filter(part => part.type === 'text').map(part => part.text).join('\n');
+		var count = m.content.length - m.content.filter(part => part.type === 'text').length;
+		return Object.assign({}, m, { content: text + (count ? ('\n[{0} image{1} omitted: this model cannot read images]'.format(count, count > 1 ? 's' : '')) : '') });
+	});
 }
 
 // Level 1 of compaction: the output of old tool calls becomes one line. The stored history is not touched.
@@ -104,7 +139,7 @@ function summarize(run, callback) {
 	}
 
 	var older = run.messages.slice(0, cut);
-	var transcript = older.map(m => (m.role + ': ' + (m.content || (m.tool_calls ? JSON.stringify(m.tool_calls) : ''))).substring(0, 1500)).join('\n');
+	var transcript = older.map(m => (m.role + ': ' + (textof(m.content) || (m.tool_calls ? JSON.stringify(m.tool_calls) : ''))).substring(0, 1500)).join('\n');
 
 	var ai = AIMODEL(run.model);
 	ai.payload.messages = [
@@ -174,12 +209,36 @@ function history(messages, parts) {
 		var items = (byid[message.id] || []).sort((a, b) => a.seq - b.seq);
 
 		if (message.role === 'user') {
+
 			var text = '';
+			var images = [];
+
 			for (var item of items) {
 				if (item.type === 'text')
 					text += item.data.expanded || item.data.text;
+				else if (item.type === 'file' && item.data.kind === 'text')
+					text += '\n\n<file name="{0}">\n{1}\n</file>'.format(item.data.name, MODS.attachments.text(item.data.id) || '(the file is not available)');
+				else if (item.type === 'file' && item.data.kind === 'image')
+					images.push(item.data);
 			}
-			output.push({ role: 'user', content: text });
+
+			if (!images.length) {
+				output.push({ role: 'user', content: text });
+				continue;
+			}
+
+			// With images the content is a list: the text, then each image as a data URL
+			var content = [{ type: 'text', text: text }];
+
+			for (var image of images) {
+				var url = MODS.attachments.dataurl(image);
+				if (url)
+					content.push({ type: 'image_url', image_url: { url: url } });
+				else
+					content[0].text += '\n[the image {0} is not available]'.format(image.name);
+			}
+
+			output.push({ role: 'user', content: content });
 			continue;
 		}
 
@@ -335,6 +394,10 @@ function request(run, finish, fail) {
 
 	// A model that is known not to support tools only chats: the request without tools is better than an error
 	var meta = (MAIN.modelmeta && MAIN.modelmeta[run.model]) || {};
+
+	if (meta.vision === false)
+		ai.payload.messages = withoutimages(ai.payload.messages);
+
 	ai.payload.tools = meta.tools === false ? [] : exports.definitions().concat((run.mcp && run.mcp.defs) || []);
 	ai.payload.reasoning = run.reasoning;
 	run.ai = ai;
@@ -363,6 +426,17 @@ function request(run, finish, fail) {
 		if (err) {
 
 			var message = typeof(err) === 'string' ? err : (err.message || 'Model error');
+
+			// A server that refuses the images of the prompt: the model cannot see. Try again without them and remember it.
+			if (!run.noimages && /multimodal|image|vision/i.test(message) && ai.payload.messages.some(m => Array.isArray(m.content))) {
+				run.noimages = true;
+				MAIN.modelmeta[run.model] = Object.assign({}, MAIN.modelmeta[run.model], { vision: false });
+				run.steps--;
+				closeparts(run);
+				FUNC.emit(run.sessionid, 'error', { message: 'This model cannot read images: they were left out and the prompt goes without them.', retry: true });
+				step(run, finish, fail);
+				return;
+			}
 
 			// Transient errors are retried with backoff; the partial answer stays stored
 			if (retryable(message) && run.attempts < CONF.retries) {

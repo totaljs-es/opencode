@@ -15,7 +15,8 @@ Routes use the `+API` style of the conventions (`$api` is `/api/`), each to an a
 | `-sessions`, `+sessions_create`, `-sessions_read/{id}`, `-sessions_remove/{id}` | `Sessions\|...` | Sessions of a project |
 | `+sessions_update/{id}` | `Sessions\|update` | Rename a session (input `name`) |
 | `-sessions_messages/{id}` | `Sessions\|messages` | Messages with parts |
-| `+sessions_prompt/{id}` | `Sessions\|prompt` | Send a prompt; answers `{ messageid }` immediately |
+| `+sessions_prompt/{id}` | `Sessions\|prompt` | Send a prompt (`text`, and optionally `model`, `autoaccept`, `reasoning` and `attachments: [{ name, mime, data (base64) }]`); answers `{ messageid }` immediately. The body can be up to 20 MB |
+| `GET /attachments/{id}/` | | A file that was attached to a prompt: images with their type, text files as plain text |
 | `-sessions_abort/{id}` | `Sessions\|abort` | Stop the run |
 | `-projects_commands/{id}` | `Projects\|commands` | Commands (`.totem/commands`) and agents of a project |
 | `+questions_reply/{id}` | `Questions\|reply` | Answer a question of the `ask` tool |
@@ -55,6 +56,8 @@ Every event: `{ type, sessionid, ts, data }`.
 | `diff.updated` | `{ path }` or `{ paths }` | A file was snapshotted or restored: read `Sessions\|diff` again |
 | `question.replied` | `{ id }` | A question of the `ask` tool was answered |
 | `error` | `{ message, retry }` | A run-level error. `retry: true` means Totem retries after a pause. When the run ends with an error this event comes before the final `session.status` |
+
+A client that subscribes to a session receives again the questions that are waiting there (`permission.ask`, `question.ask`), so a question is never lost because the page was closed or reloaded.
 
 Ordering: events of one session are sent in order. A client that reconnects calls `Sessions|messages` for the stored state and subscribes again; parts still open arrive as `part.created` followed by deltas from that point.
 

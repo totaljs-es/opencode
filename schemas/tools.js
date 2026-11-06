@@ -342,8 +342,9 @@ NEWACTION('Tools|ask', {
 		var id = UID();
 		var sessionid = $.user.sessionid;
 
-		MAIN.asks[id] = { kind: 'question', sessionid: sessionid, callback: answer => $.callback(answer) };
-		FUNC.emit(sessionid, 'question.ask', { id: id, text: model.question, options: model.options || [] });
+		var event = { type: 'question.ask', data: { id: id, text: model.question, options: model.options || [] } };
+		MAIN.asks[id] = { kind: 'question', sessionid: sessionid, callback: answer => $.callback(answer), event: event };
+		FUNC.emit(sessionid, event.type, event.data);
 	}
 });
 

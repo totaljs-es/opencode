@@ -92,7 +92,7 @@ function ollama(provider, callback) {
 							context = info.model_info[key];
 					}
 				}
-				item.meta = { id: item.name, name: item.name, context: context, tools: caps ? caps.indexOf('tools') !== -1 : null, reasoning: caps ? caps.indexOf('thinking') !== -1 : null, free: true, price: { input: 0, output: 0 }, size: item.size || null };
+				item.meta = { id: item.name, name: item.name, context: context, tools: caps ? caps.indexOf('tools') !== -1 : null, reasoning: caps ? caps.indexOf('thinking') !== -1 : null, vision: caps ? caps.indexOf('vision') !== -1 : null, free: true, price: { input: 0, output: 0 }, size: item.size || null };
 				next();
 			});
 		}, function() {
@@ -126,6 +126,7 @@ function openai(provider, callback) {
 				context: context,
 				tools: params ? params.indexOf('tools') !== -1 : null,
 				reasoning: params ? (params.indexOf('reasoning') !== -1 || params.indexOf('include_reasoning') !== -1) : null,
+				vision: m.architecture && Array.isArray(m.architecture.input_modalities) ? m.architecture.input_modalities.indexOf('image') !== -1 : null,
 				free: price === null ? null : price === 0,
 				price: price === null ? null : { input: price, output: output || 0 },
 				size: null
@@ -143,7 +144,7 @@ function anthropic(provider, callback) {
 			return;
 		}
 
-		callback(null, (json.data || []).map(m => ({ id: m.id, name: m.display_name || m.id, context: m.max_input_tokens || null, tools: true, reasoning: null, free: false, size: null })));
+		callback(null, (json.data || []).map(m => ({ id: m.id, name: m.display_name || m.id, context: m.max_input_tokens || null, tools: true, reasoning: null, vision: true, free: false, size: null })));
 	}, { 'x-api-key': provider.key || '', 'anthropic-version': '2023-06-01' });
 }
 
@@ -158,7 +159,7 @@ function gemini(provider, callback) {
 
 		var list = (json.models || []).filter(m => !m.supportedGenerationMethods || m.supportedGenerationMethods.indexOf('generateContent') !== -1);
 
-		callback(null, list.map(m => ({ id: (m.name || '').replace(/^models\//, ''), name: m.displayName || m.name, context: m.inputTokenLimit || null, tools: true, reasoning: typeof(m.thinking) === 'boolean' ? m.thinking : null, free: null, size: null })));
+		callback(null, list.map(m => ({ id: (m.name || '').replace(/^models\//, ''), name: m.displayName || m.name, context: m.inputTokenLimit || null, tools: true, reasoning: typeof(m.thinking) === 'boolean' ? m.thinking : null, vision: true, free: null, size: null })));
 	}, { 'x-goog-api-key': provider.key || '' });
 }
 
@@ -195,6 +196,7 @@ function litellm(provider, callback) {
 				context: info.max_input_tokens || info.max_tokens || null,
 				tools: typeof(info.supports_function_calling) === 'boolean' ? info.supports_function_calling : null,
 				reasoning: typeof(info.supports_reasoning) === 'boolean' ? info.supports_reasoning : null,
+				vision: typeof(info.supports_vision) === 'boolean' ? info.supports_vision : null,
 				free: input === null ? null : input === 0,
 				price: input === null ? null : { input: input, output: output || 0 },
 				size: null

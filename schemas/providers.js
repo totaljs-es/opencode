@@ -24,6 +24,13 @@ NEWACTION('Providers|save', {
 			return;
 		}
 
+		// Adding a provider that already exists (for example detecting Ollama again) refreshes it: no second one is created
+		if (!item) {
+			item = await NOSQL('providers').read().where('id', model.name.slug()).promise($);
+			if (item)
+				model.id = item.id;
+		}
+
 		var data = { name: model.name, url: model.url, kind: model.kind || 'openai', icon: model.icon || '', models: model.models || [], meta: model.meta || {}, disabled: !!model.disabled, dtupdated: NOW };
 
 		// An empty key keeps the stored one: the interface never receives it
@@ -121,7 +128,7 @@ NEWACTION('Providers|catalog', {
 		var items = Object.keys(F.aimodels).sort().map(function(id) {
 			var meta = MAIN.modelmeta[id] || {};
 			var provider = MAIN.modelprov[id] || {};
-			return { id: id, name: meta.name || id, provider: provider.name || '', icon: provider.icon || '', context: meta.context || null, tools: meta.tools === undefined ? null : meta.tools, reasoning: meta.reasoning === undefined ? null : meta.reasoning, free: meta.free === undefined ? null : meta.free };
+			return { id: id, name: meta.name || id, provider: provider.name || '', icon: provider.icon || '', context: meta.context || null, tools: meta.tools === undefined ? null : meta.tools, reasoning: meta.reasoning === undefined ? null : meta.reasoning, vision: meta.vision === undefined ? null : meta.vision, free: meta.free === undefined ? null : meta.free };
 		});
 		$.callback(items);
 	}

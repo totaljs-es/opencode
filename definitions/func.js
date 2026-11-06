@@ -1,3 +1,8 @@
+// A run does not survive a restart of the server: the sessions that were running are marked as aborted
+FUNC.recover = function(callback) {
+	NOSQL('sessions').modify({ status: 'aborted' }).where('status', 'running').callback((err, count) => callback && callback(count));
+};
+
 // Resolves a path inside the root of a project. Returns null when it leaves the root
 // (a relative path with .., an absolute path, or a symbolic link that points outside).
 FUNC.resolve = function(root, path) {

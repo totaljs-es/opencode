@@ -198,6 +198,13 @@ exports.start = function(port, callback) {
 
 			exports.requests.push(payload);
 
+			// A model that cannot see answers like Ollama does
+			if (payload.model === 'noimg' && messages.some(m => Array.isArray(m.content))) {
+				res.statusCode = 400;
+				res.end('{"error":{"message":"Multimodal data provided, but model does not support multimodal requests.","type":"invalid_request_error"}}');
+				return;
+			}
+
 			if (user && /fail/.test(user.content)) {
 				res.statusCode = 401;
 				res.end('{"error":"invalid key"}');

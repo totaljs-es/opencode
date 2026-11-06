@@ -25,6 +25,10 @@ Three plugins, mounted by the shell `views/index.html` with `page` components na
 
 The login page (`views/login.html`) is used only when `token` is set in `config`.
 
+## Attachments
+
+The paperclip next to the prompt box attaches images (PNG, JPEG, GIF, WebP, up to 5 MB) and text files (code, Markdown, JSON, CSV... up to 200 KB, at most 6 files and 12 MB together). They can also be pasted into the prompt box or dropped on the chat. The files wait as chips above the box until the prompt is sent; the conversation then shows the images and the names of the files. The text of a text file goes into the prompt inside a `<file name="...">` block; an image goes as an image to the models that can see (OpenAI-compatible, Anthropic and Gemini formats). A model that is known not to see (`vision: false` in its metadata) gets the text and a note instead of the image; a server that refuses images (Ollama says "does not support multimodal requests") makes Totem try again without them and remember it. The files are kept in `databases/attachments` and deleted with their session. The component `filebrowser` is used here, where it fits: it is the file chooser of the browser.
+
 ## Sessions
 
 A session has a name. It can be given when the folder is opened (an optional field in the picker) or from the menu of the project (New session with a name); without one the session starts as "New session" and takes its name from the first prompt (one short line). A name written by the user is never replaced. The menu of each session (the dots that appear on hover) renames it or deletes it with its messages; the files of the project are not touched. Other clients see the change through the event `session.updated`.
@@ -32,6 +36,10 @@ A session has a name. It can be given when the folder is opened (an optional fie
 ## Choosing a folder
 
 The folder of a project is chosen with the component `folder` (j-Folder), which browses the computer where Totem runs through `Folders|list`: a path bar, the folders of the current one, up, and shortcuts to Home, Volumes and Root. Only the names of folders are listed. The component `filebrowser` is not used: it is the file chooser of the browser, which never gives the path of a file on the computer, and a project needs a path. The picker uses `/` as separator; drives of Windows are not listed yet.
+
+## Changes panel
+
+`Alt+D` or the Changes button opens it. Each file can be shown as unified lines or as two columns (Split): the old file on the left in red, the new one on the right in green, with a removed block next to the block that replaces it. The panel widens in Split mode.
 
 ## Prompt box
 

@@ -16,6 +16,7 @@ ON('ready', function() {
 	MAIN.templates = Total.Fs.readFileSync(PATH.private('providers.json'), 'utf8').parseJSON();
 
 	FUNC.providers();
+	FUNC.recover();
 
-	COMPONENTATOR('ui', 'exec,locale,page,viewbox,navlayout,form,importer,input,box,validate,loading,intranetcss,notify,message,errorhandler,empty,menu,autofill,enter,approve,shortcuts,search,searchinput,directory,icons,listing,clipboard,virtualwire,markdown,websocket,miniform,datasource,tangular-filesize,folder,prompt', true);
+	COMPONENTATOR('ui', 'exec,locale,page,viewbox,navlayout,form,importer,input,box,validate,loading,intranetcss,notify,message,errorhandler,empty,menu,autofill,enter,approve,shortcuts,search,searchinput,directory,icons,listing,clipboard,virtualwire,markdown,websocket,miniform,datasource,tangular-filesize,folder,prompt,filebrowser', true);
 });

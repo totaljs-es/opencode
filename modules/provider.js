@@ -140,6 +140,16 @@ exports.openai = function(ai, callback) {
 // ---------------------------------------------------------------------------------------------------------------------
 // Anthropic Messages API
 
+// A part of a user message (text or image as a data URL) -> a block of the Messages API
+function anthropicpart(part) {
+
+	if (part.type !== 'image_url')
+		return { type: 'text', text: part.text };
+
+	var match = part.image_url.url.match(/^data:([^;]+);base64,(.*)$/);
+	return { type: 'image', source: { type: 'base64', media_type: match[1], data: match[2] } };
+}
+
 // Chat Completions messages -> { system, messages } of the Messages API
 exports.toanthropic = function(messages) {
 
@@ -154,7 +164,7 @@ exports.toanthropic = function(messages) {
 		}
 
 		if (m.role === 'user') {
-			output.push({ role: 'user', content: m.content || '' });
+			output.push({ role: 'user', content: Array.isArray(m.content) ? m.content.map(anthropicpart) : (m.content || '') });
 			continue;
 		}
 
@@ -230,6 +240,16 @@ function geminischema(schema) {
 	return out;
 }
 
+// A part of a user message (text or image as a data URL) -> a part of generateContent
+function geminipart(part) {
+
+	if (part.type !== 'image_url')
+		return { text: part.text };
+
+	var match = part.image_url.url.match(/^data:([^;]+);base64,(.*)$/);
+	return { inlineData: { mimeType: match[1], data: match[2] } };
+}
+
 // Chat Completions messages -> { system, contents } of generateContent
 exports.togemini = function(messages) {
 
@@ -245,7 +265,7 @@ exports.togemini = function(messages) {
 		}
 
 		if (m.role === 'user') {
-			contents.push({ role: 'user', parts: [{ text: m.content || '' }] });
+			contents.push({ role: 'user', parts: Array.isArray(m.content) ? m.content.map(geminipart) : [{ text: m.content || '' }] });
 			continue;
 		}
 

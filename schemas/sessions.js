@@ -58,6 +58,7 @@ NEWACTION('Sessions|remove', {
 		var id = $.params.id;
 		MODS.agent.abort(id);
 		await new Promise(resolve => MODS.snapshots.clear(id, resolve));
+		await new Promise(resolve => MODS.attachments.clear(id, resolve));
 		await NOSQL('todos').remove().where('sessionid', id).promise($);
 		await NOSQL('parts').remove().where('sessionid', id).promise($);
 		await NOSQL('messages').remove().where('sessionid', id).promise($);
@@ -88,7 +89,7 @@ NEWACTION('Sessions|messages', {
 NEWACTION('Sessions|prompt', {
 	name: 'Send a prompt to the agent',
 	params: '*id',
-	input: '*text:String, model:String, autoaccept:Boolean, reasoning:String',
+	input: '*text:String, model:String, autoaccept:Boolean, reasoning:String, attachments:[Object]',
 	action: async function($, model) {
 
 		var session = await NOSQL('sessions').read().where('id', $.params.id).error(404).promise($);
@@ -117,6 +118,14 @@ NEWACTION('Sessions|prompt', {
 
 		await NOSQL('sessions').modify({ model: session.model, autoaccept: session.autoaccept, reasoning: session.reasoning || '' }).where('id', session.id).promise($);
 
+		// The files of the prompt: images and text files
+		var files = await new Promise(resolve => MODS.attachments.save(session.id, model.attachments, (err, saved) => resolve(err ? { error: err } : saved)));
+
+		if (files.error) {
+			$.invalid(files.error);
+			return;
+		}
+
 		// A command of the project: /name arguments. The conversation shows what the user typed, the model gets the expanded text.
 		var command = MODS.commands.expand(project.path, model.text);
 		// The first prompt of a session that has no name of the user gives it one
@@ -143,6 +152,13 @@ NEWACTION('Sessions|prompt', {
 
 		FUNC.emit(session.id, 'message.created', { message: message });
 		FUNC.emit(session.id, 'part.created', { part: part });
+
+		// One part per file, after the text
+		for (var i = 0; i < files.length; i++) {
+			var filepart = { id: UID(), messageid: message.id, sessionid: session.id, type: 'file', data: files[i], dtcreated: NOW, seq: i + 1 };
+			await NOSQL('parts').insert(filepart).promise($);
+			FUNC.emit(session.id, 'part.created', { part: filepart });
+		}
 
 		MODS.agent.run(session, project, message);
 		$.callback({ messageid: message.id });
