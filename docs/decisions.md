@@ -34,3 +34,7 @@
 ## Ollama through its own API
 
 Ollama's OpenAI-compatible `/v1` cuts the prompt to its default context (2048 or 4096 tokens), which removed part of Totem's system prompt and tool definitions, so small models answered with plain JavaScript. Providers of kind `ollama` now use `/api/chat` with `options.num_ctx` (`contextsize()` in `modules/provider.js`: at least `ollamactx`, grown in steps of 4096 to fit the request, never above the model window or `ollamactxmax`). Local servers get `temperature` from `config`. In Total.js projects a short reminder of the conventions is appended to the request. Forge tools are reduced to a whitelist in `private/mcp.json`, and starting Forge can be allowed once for every project.
+
+## What was taken from OpenCode
+
+Plan and Build modes, formatters after edits, `/init` and the secret-file rule were taken because they help small models and cost little. The boundary of the project stays a hard deny (OpenCode lets a project allow outside paths): a path outside the root is never read. LSP diagnostics were left out on purpose: the lint and test commands of the project in `AGENTS.md` do the same job with less noise. Still open from the comparison: `/redo`, fork of a session, shell in the background, MCP prompts as commands, instruction files and URLs in the config, permissions per agent, notifications.

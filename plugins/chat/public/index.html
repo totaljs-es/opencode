@@ -16,6 +16,7 @@
 	.CLASS .waiting span:nth-child(3) { animation-delay: 0.4s; }
 	@keyframes totemwait { 0%, 80%, 100% { opacity: 0.25; transform: scale(0.8); } 40% { opacity: 1; transform: scale(1.1); } }
 	@media (prefers-reduced-motion: reduce) { .CLASS .waiting span { animation: none; opacity: 0.6; } }
+	.CLASS .mode { width: 110px; }
 	.CLASS .part { margin-bottom: 8px; }
 	.CLASS .part.live { white-space: pre-wrap; overflow-wrap: anywhere; }
 	.CLASS .part pre { background: var(--t-soft); color: inherit; border: 1px solid var(--t-border); border-radius: var(--radius, 6px); padding: 10px 12px; overflow: auto; font-size: 12px; }
@@ -234,6 +235,7 @@
 				<ui-bind path="?.current" config="template" class="inline"><script type="text/html">{{ if value }}{{ value.icon | provicon(value.provider) }}{{ fi }}</script></ui-bind>
 				<div class="model"><ui-component name="input" path="?.model" config="placeholder:@(Model);dirsource:?.models"></ui-component></div>
 				<ui-bind path="?.thinks" config="show:value" class="hidden"><ui-component name="input" path="?.reasoning" config="placeholder:@(Reasoning);dirsource:?.efforts"></ui-component></ui-bind>
+				<div class="mode"><ui-component name="input" path="?.mode" config="dirsource:?.modes;required:false"></ui-component></div>
 				<ui-component name="input" path="?.autoaccept" config="type:checkbox">@(Auto-accept edits)</ui-component>
 				<button name="send" class="tbtn tbtn-primary exec" data-exec="?/send"><i class="ti ti-send"></i>@(Send)</button>
 			</div>
@@ -304,6 +306,7 @@
 			exports.set('files', []);
 			exports.models();
 
+			exports.set('modes', [{ id: 'build', name: '@(Build)' }, { id: 'plan', name: '@(Plan)' }]);
 			exports.set('efforts', [{ id: '', name: '@(Default)' }, { id: 'none', name: '@(Off)' }, { id: 'low', name: '@(Low)' }, { id: 'medium', name: '@(Medium)' }, { id: 'high', name: '@(High)' }]);
 
 			if (!registered) {
@@ -420,6 +423,7 @@
 				if (session.model)
 					exports.set('model', session.model);
 				exports.set('autoaccept', !!session.autoaccept);
+				exports.set('mode', session.mode === 'plan' ? 'plan' : 'build');
 
 				// Commands of the project: /name inserts the command in the prompt box
 				exports.tapi('projects_commands/' + session.projectid, function(response) {
@@ -669,7 +673,7 @@
 			input.val('');
 			exports.set('text', '');
 			exports.set('attachments', []);
-			exports.tapi('sessions_prompt/' + sessionid + ' ERROR', { text: text, model: model.model, autoaccept: !!model.autoaccept, reasoning: model.reasoning || '', attachments: attachments }, NOOP);
+			exports.tapi('sessions_prompt/' + sessionid + ' ERROR', { text: text, model: model.model, autoaccept: !!model.autoaccept, mode: model.mode === 'plan' ? 'plan' : 'build', reasoning: model.reasoning || '', attachments: attachments }, NOOP);
 		};
 
 		exports.abort = function() {

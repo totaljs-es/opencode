@@ -22,11 +22,17 @@ var TOOLS = {
 
 exports.tools = TOOLS;
 
+// What the Plan mode may use: it reads and asks, it does not change anything
+var PLANTOOLS = ['read', 'glob', 'grep', 'fetch', 'todo', 'ask', 'skill', 'task'];
+exports.plantools = PLANTOOLS;
+
 // Definitions for the model: the arguments are flattened (the model sends { path }, the action receives { input: { path } })
-exports.definitions = function(names) {
+exports.definitions = function(names, mode) {
 	var output = [];
 	for (var name in TOOLS) {
 		if (names && names.indexOf(name) === -1)
+			continue;
+		if (mode === 'plan' && PLANTOOLS.indexOf(name) === -1)
 			continue;
 		var action = F.actions[TOOLS[name].action];
 		if (!action)
@@ -41,6 +47,8 @@ exports.definitions = function(names) {
 function system(run) {
 
 	var text = MAIN.base;
+	if (run.mode === 'plan')
+		text += '\n' + MAIN.plan + '\n';
 	text += '\nWorking directory: {0}\nPlatform: {1}\nDate: {2}\n'.format(run.root, Total.Os.platform(), new Date().format('yyyy-MM-dd'));
 
 	// Total.js is the default: the rules, a few examples and where to look things up
@@ -307,6 +315,7 @@ exports.run = function(session, project, message, callback) {
 		projectid: project.id,
 		root: project.path,
 		autoaccept: !!session.autoaccept,
+		mode: session.mode === 'plan' ? 'plan' : 'build',
 		aborted: false,
 		steps: 0,
 		max: session.maxsteps || CONF.maxsteps,
@@ -424,7 +433,7 @@ function request(run, finish, fail) {
 	if (meta.vision === false)
 		ai.payload.messages = withoutimages(ai.payload.messages);
 
-	ai.payload.tools = meta.tools === false ? [] : exports.definitions().concat((run.mcp && run.mcp.defs) || []);
+	ai.payload.tools = meta.tools === false ? [] : exports.definitions(null, run.mode).concat((run.mcp && run.mcp.defs) || []);
 	ai.payload.reasoning = run.reasoning;
 	run.ai = ai;
 

@@ -3,6 +3,8 @@
 exports.id = 'permissions';
 
 var READONLY = { read: 1, glob: 1, grep: 1, todo: 1, ask: 1, skill: 1, task: 1 };
+var SECRETS = /(^|\/)\.env(\.[^\/]*)?$/;
+var SECRETSOK = /\.(example|sample|template)$/;
 var READONLY_COMMANDS = /^(ls|pwd|cat|head|tail|wc|echo|git (status|diff|log|show|branch)|node --check|rg|grep|find)( |$)/;
 
 // Subject of a tool call that a rule pattern is compared with
@@ -25,6 +27,12 @@ exports.check = function(run, tool, input, callback) {
 		return;
 	}
 
+	// Plan mode only reads: nothing that changes files or runs a command, whatever the rules say
+	if (run.mode === 'plan' && (tool === 'write' || tool === 'edit' || tool === 'patch' || (tool === 'bash' && !READONLY_COMMANDS.test(text)))) {
+		callback('deny', 'This session is in Plan mode: it cannot change files or run commands. Describe the change in your plan instead.');
+		return;
+	}
+
 	// The rules of the project and the global ones (an empty project)
 	NOSQL('permissions').find().in('projectid', [run.projectid, '']).callback(function(err, rules) {
 
@@ -44,7 +52,10 @@ exports.check = function(run, tool, input, callback) {
 		}
 
 		if (!found) {
-			if (READONLY[tool] || (tool === 'bash' && READONLY_COMMANDS.test(text)))
+			// Files with secrets are read only when the user says so (examples are fine)
+			if (SECRETS.test(text) && !SECRETSOK.test(text) && (tool === 'read' || tool === 'edit' || tool === 'write'))
+				found = 'ask';
+			else if (READONLY[tool] || (tool === 'bash' && READONLY_COMMANDS.test(text)))
 				found = 'allow';
 			else if ((tool === 'write' || tool === 'edit' || tool === 'patch') && run.autoaccept)
 				found = 'allow';

@@ -89,7 +89,7 @@ NEWACTION('Sessions|messages', {
 NEWACTION('Sessions|prompt', {
 	name: 'Send a prompt to the agent',
 	params: '*id',
-	input: '*text:String, model:String, autoaccept:Boolean, reasoning:String, attachments:[Object]',
+	input: '*text:String, model:String, autoaccept:Boolean, reasoning:String, mode:String, attachments:[Object]',
 	action: async function($, model) {
 
 		var session = await NOSQL('sessions').read().where('id', $.params.id).error(404).promise($);
@@ -108,6 +108,9 @@ NEWACTION('Sessions|prompt', {
 		if ($.body && $.body.autoaccept !== undefined)
 			session.autoaccept = !!model.autoaccept;
 
+		if ($.body && $.body.mode !== undefined)
+			session.mode = model.mode === 'plan' ? 'plan' : 'build';
+
 		if ($.body && $.body.reasoning !== undefined)
 			session.reasoning = model.reasoning || '';
 
@@ -116,7 +119,7 @@ NEWACTION('Sessions|prompt', {
 			return;
 		}
 
-		await NOSQL('sessions').modify({ model: session.model, autoaccept: session.autoaccept, reasoning: session.reasoning || '' }).where('id', session.id).promise($);
+		await NOSQL('sessions').modify({ model: session.model, autoaccept: session.autoaccept, mode: session.mode || 'build', reasoning: session.reasoning || '' }).where('id', session.id).promise($);
 
 		// The files of the prompt: images and text files
 		var files = await new Promise(resolve => MODS.attachments.save(session.id, model.attachments, (err, saved) => resolve(err ? { error: err } : saved)));

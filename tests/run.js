@@ -669,7 +669,7 @@ Test.push('sub-agents and commands', async function(next) {
 	Total.Fs.mkdirSync(Total.Path.join(PROJECT, '.totem/commands'), { recursive: true });
 	Total.Fs.writeFileSync(Total.Path.join(PROJECT, '.totem/commands/review.md'), '---\ndescription: Review a file\n---\nReview $ARGUMENTS carefully.\n');
 	r = await api('projects_commands/' + projectid);
-	check('the commands and the agents of a project are listed', r.response.commands.length === 1 && r.response.commands[0].name === 'review' && r.response.commands[0].description === 'Review a file' && r.response.agents.length === 2);
+	check('the commands and the agents of a project are listed', r.response.commands.length === 2 && r.response.commands[0].name === 'init' && r.response.commands[1].name === 'review' && r.response.commands[1].description === 'Review a file' && r.response.agents.length === 2);
 
 	id = await session();
 	events.length = 0;
@@ -1484,6 +1484,69 @@ Test.push('secrets', async function(next) {
 	var r = await api('sessions_messages/' + id);
 	var part = r.response.find(m => m.role === 'assistant').parts.find(p => p.type === 'tool');
 	check('provider keys and key-like strings never reach the output', part.data.output.indexOf('secret-key') === -1 && part.data.output.indexOf('sk-abcdefghijkl') === -1 && part.data.output.indexOf('[secret]') !== -1);
+	next();
+});
+
+Test.push('Plan mode, formatter, init and secrets', async function(next) {
+
+	// Plan mode reads and answers, it does not change anything
+	var id = await session({ autoaccept: true });
+	events.length = 0;
+	requests.length = 0;
+	script = [
+		{ tools: [{ id: 'pw', name: 'write', arguments: { path: 'plan.txt', content: 'x' } }] },
+		{ content: 'The plan.' }
+	];
+	await api('sessions_prompt/' + id, { text: 'plan a change', mode: 'plan' });
+	await idle(id);
+	var names = requests[0].tools.map(t => t.function.name);
+	check('plan mode does not offer the tools that change things', names.indexOf('write') === -1 && names.indexOf('edit') === -1 && names.indexOf('patch') === -1 && names.indexOf('bash') === -1 && names.indexOf('read') !== -1);
+	check('plan mode adds its instructions', requests[0].messages[0].content.indexOf('PLAN mode') !== -1);
+	check('a write in plan mode is refused, even with auto-accept', !Total.Fs.existsSync(Total.Path.join(PROJECT, 'plan.txt')) && requests[1].messages.some(m => m.role === 'tool' && /Plan mode/.test(m.content)));
+	var r = await api('sessions_read/' + id);
+	check('the mode is kept in the session', r.response.mode === 'plan');
+
+	events.length = 0;
+	requests.length = 0;
+	script = [{ tools: [{ id: 'bw', name: 'write', arguments: { path: 'plan.txt', content: 'built' } }] }, { content: 'Built.' }];
+	await api('sessions_prompt/' + id, { text: 'now build it', mode: 'build' });
+	await idle(id);
+	check('build mode offers every tool again', requests[0].tools.some(t => t.function.name === 'write') && requests[0].messages[0].content.indexOf('PLAN mode') === -1);
+	check('build mode writes', Total.Fs.readFileSync(Total.Path.join(PROJECT, 'plan.txt'), 'utf8') === 'built');
+
+	// A formatter of the project runs after a write
+	Total.Fs.mkdirSync(Total.Path.join(PROJECT, '.totem'), { recursive: true });
+	Total.Fs.writeFileSync(Total.Path.join(PROJECT, '.totem/formatters.json'), JSON.stringify({ upper: { command: ['sh', '-c', 'tr a-z A-Z < "$0" > "$0.tmp" && mv "$0.tmp" "$0"', '$FILE'], extensions: ['.fmt'] } }));
+	events.length = 0;
+	requests.length = 0;
+	script = [{ tools: [{ id: 'fw', name: 'write', arguments: { path: 'f.fmt', content: 'abc' } }] }, { tools: [{ id: 'fn', name: 'write', arguments: { path: 'g.txt', content: 'abc' } }] }, { content: 'ok' }];
+	await api('sessions_prompt/' + id, { text: 'format' });
+	await idle(id);
+	check('the formatter changed the file', Total.Fs.readFileSync(Total.Path.join(PROJECT, 'f.fmt'), 'utf8') === 'ABC');
+	check('the model is told that the file was formatted', requests[1].messages.some(m => m.role === 'tool' && /Formatted with upper/.test(m.content)));
+	check('another extension is left alone', Total.Fs.readFileSync(Total.Path.join(PROJECT, 'g.txt'), 'utf8') === 'abc');
+
+	// /init comes with Totem
+	events.length = 0;
+	requests.length = 0;
+	script = [{ content: 'Done.' }];
+	await api('sessions_prompt/' + id, { text: '/init' });
+	await idle(id);
+	var last = requests[0].messages[requests[0].messages.length - 1].content;
+	check('/init sends the instructions to write AGENTS.md', /AGENTS\.md/.test(last) && /Study this project/.test(last));
+
+	// Files with secrets ask, their examples do not
+	Total.Fs.writeFileSync(Total.Path.join(PROJECT, '.env'), 'KEY=1\n');
+	Total.Fs.writeFileSync(Total.Path.join(PROJECT, '.env.example'), 'KEY=\n');
+	events.length = 0;
+	requests.length = 0;
+	script = [{ tools: [{ id: 'e1', name: 'read', arguments: { path: '.env.example' } }] }, { tools: [{ id: 'e2', name: 'read', arguments: { path: '.env' } }] }, { content: 'ok' }];
+	await api('sessions_prompt/' + id, { text: 'read env' });
+	var ask = await until(() => events.find(e => e.type === 'permission.ask'));
+	check('reading .env asks', !!ask && ask.data.tool === 'read' && ask.data.input.path === '.env');
+	await api('permissions_reply/' + ask.data.id, { reply: 'reject' });
+	await idle(id);
+	check('reading .env.example does not ask', events.filter(e => e.type === 'permission.ask').length === 1);
 	next();
 });
 

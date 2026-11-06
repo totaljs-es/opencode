@@ -34,3 +34,6 @@ forge                       : true
 forgepages        (Number)  : 2
 forgechars        (Number)  : 3500
 conventions                 : true
+
+// Run the formatter of the project (a local prettier, gofmt, rustfmt, ruff or .totem/formatters.json) after a file is written
+formatter                   : true

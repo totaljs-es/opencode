@@ -15,7 +15,7 @@ Routes use the `+API` style of the conventions (`$api` is `/api/`), each to an a
 | `-sessions`, `+sessions_create`, `-sessions_read/{id}`, `-sessions_remove/{id}` | `Sessions\|...` | Sessions of a project |
 | `+sessions_update/{id}` | `Sessions\|update` | Rename a session (input `name`) |
 | `-sessions_messages/{id}` | `Sessions\|messages` | Messages with parts |
-| `+sessions_prompt/{id}` | `Sessions\|prompt` | Send a prompt (`text`, and optionally `model`, `autoaccept`, `reasoning` and `attachments: [{ name, mime, data (base64) }]`); answers `{ messageid }` immediately. The body can be up to 20 MB |
+| `+sessions_prompt/{id}` | `Sessions\|prompt` | Send a prompt (`text`, and optionally `model`, `autoaccept`, `mode` (`build` or `plan`), `reasoning` and `attachments: [{ name, mime, data (base64) }]`); answers `{ messageid }` immediately. The body can be up to 20 MB |
 | `GET /attachments/{id}/` | | A file that was attached to a prompt: images with their type, text files as plain text |
 | `-sessions_abort/{id}` | `Sessions\|abort` | Stop the run |
 | `-projects_commands/{id}` | `Projects\|commands` | Commands (`.totem/commands`) and agents of a project |

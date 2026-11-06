@@ -24,6 +24,7 @@ exports.run = function(parent, name, prompt, callid, callback) {
 		projectid: parent.projectid,
 		root: parent.root,
 		autoaccept: parent.autoaccept,
+		mode: parent.mode,
 		model: parent.model,
 		aborted: false,
 		steps: 0,
@@ -79,7 +80,7 @@ exports.run = function(parent, name, prompt, callid, callback) {
 		var meta = (MAIN.modelmeta && MAIN.modelmeta[child.model]) || {};
 		var ai = AIMODEL(child.model);
 		ai.payload.messages = [{ role: 'system', content: system }].concat(child.messages);
-		ai.payload.tools = meta.tools === false ? [] : MODS.agent.definitions(def.tools);
+		ai.payload.tools = meta.tools === false ? [] : MODS.agent.definitions(def.tools, child.mode);
 		child.ai = ai;
 
 		ai.callback(function(err, output) {

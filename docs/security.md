@@ -18,7 +18,9 @@ Patterns: for `bash` the command line (`git status*`), for file tools the path r
 | write, edit, patch | ask |
 | bash | ask, except a short list of read-only commands |
 | fetch | ask |
+| `.env` and `.env.*` (read, write, edit; `.env.example`, `.sample` and `.template` are fine) | ask |
 | any path outside the project root | deny |
+| every tool that changes files or runs a command, in Plan mode | deny (code, not a prompt) |
 | MCP servers of the project, and Forge in Total.js projects | ask before each one starts (`mcp-start`: a project file can start a program; the question says where a remote one goes) |
 | MCP tools | ask before each call |
 

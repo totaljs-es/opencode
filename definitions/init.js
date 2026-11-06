@@ -12,6 +12,7 @@ ON('ready', function() {
 	}
 
 	MAIN.base = Total.Fs.readFileSync(PATH.private('prompts/base.txt'), 'utf8');
+	MAIN.plan = Total.Fs.readFileSync(PATH.private('prompts/plan.txt'), 'utf8');
 	MAIN.primer = Total.Fs.readFileSync(PATH.private('prompts/totaljs.txt'), 'utf8');
 	MAIN.templates = Total.Fs.readFileSync(PATH.private('providers.json'), 'utf8').parseJSON();
 

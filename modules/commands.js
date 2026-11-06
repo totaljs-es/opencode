@@ -7,21 +7,29 @@
 
 exports.id = 'commands';
 
-exports.list = function(root) {
+// The commands that come with Totem (private/commands) and the ones of the project; a command of the project with the same name wins
+function load(dir, found) {
 
-	var dir = Total.Path.join(root, '.totem/commands');
 	var names;
 
 	try {
 		names = Total.Fs.readdirSync(dir);
 	} catch (e) {
-		return [];
+		return;
 	}
 
-	return names.filter(file => /\.md$/.test(file)).sort().map(function(file) {
+	for (var file of names.filter(file => /\.md$/.test(file)).sort()) {
 		var parsed = MODS.instructions.frontmatter(Total.Fs.readFileSync(Total.Path.join(dir, file), 'utf8'));
-		return { name: file.replace(/\.md$/, ''), description: parsed.meta.description || '', template: parsed.body.trim() };
-	});
+		var name = file.replace(/\.md$/, '');
+		found[name] = { name: name, description: parsed.meta.description || '', template: parsed.body.trim() };
+	}
+}
+
+exports.list = function(root) {
+	var found = {};
+	load(PATH.private('commands'), found);
+	load(Total.Path.join(root, '.totem/commands'), found);
+	return Object.keys(found).sort().map(key => found[key]);
 };
 
 // "/name arguments" -> the text of the command with $ARGUMENTS replaced, or null when the text is not a command of the project

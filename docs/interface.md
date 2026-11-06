@@ -83,3 +83,15 @@ Keyboard-first (shortcuts for send, abort, switch session, accept/undo), focus m
 ## Streaming without flicker
 
 Deltas are buffered and drawn at most once per frame. Only the open part is redrawn, the open or closed state of reasoning and tool blocks is kept, and the view follows the end only while the user is at the bottom; scrolling up stops the following until the user returns.
+
+## Plan and Build
+
+The box of the prompt has a Plan / Build selector. Plan only reads: the model gets the tools that read (`read`, `glob`, `grep`, `fetch`, `todo`, `ask`, `skill`, `task`) and an instruction to answer with a plan, and the permission check refuses `write`, `edit`, `patch` and any command that is not read-only, even with auto-accept. Build is the normal mode. The mode belongs to the session and travels with each prompt (`mode`); sub-agents inherit it.
+
+## Commands that come with Totem
+
+`private/commands/*.md` are available in every project; a command of the project with the same name replaces them. `/init` studies the project and writes or updates its `AGENTS.md`.
+
+## Formatters
+
+After `write`, `edit` and `patch` Totem runs the formatter that the project already has (a local `node_modules/.bin/prettier`, `gofmt` with `go.mod`, `rustfmt` with `Cargo.toml`, `ruff` with `[tool.ruff]`) or the ones in `.totem/formatters.json`: `{ "name": { "command": ["tool", "--write", "$FILE"], "extensions": [".js"] }, "disabled": ["prettier"] }`. The model is told when the file changed. `formatter : false` in `config` turns it off.
