@@ -442,7 +442,7 @@ function request(run, finish, fail) {
 		if (run.aborted)
 			return;
 		if (e.type === 'content')
-			delta(run, 'text', e.delta);
+			content(run, e.delta, meta.reasoning === true);
 		else if (e.type === 'thinking')
 			delta(run, 'reasoning', e.delta);
 		else if (e.type === 'tool_start')
@@ -452,6 +452,7 @@ function request(run, finish, fail) {
 	ai.callback(function(err, output) {
 
 		run.ai = null;
+		endcontent(run);
 
 		if (run.aborted) {
 			closeparts(run);
@@ -525,6 +526,53 @@ function request(run, finish, fail) {
 }
 
 // Opens a part, or appends to the open part of the same type
+// Some models that think put their thoughts in the text and end them with </think> (the server does not split them, even when the thinking is
+// switched off). For those models the start of the text waits until the tag shows up: what came before it is reasoning, what follows is the answer.
+// Without the tag the text is released at the end of the answer, or when it is long enough to be an answer.
+var THINKMAX = 40000;
+
+function content(run, text, thinks) {
+
+	if (!thinks || (run.think && run.think.done)) {
+		delta(run, 'text', text);
+		return;
+	}
+
+	var state = run.think || (run.think = { buffer: '', done: false });
+	state.buffer += text;
+
+	var end = state.buffer.indexOf('</think>');
+
+	if (end !== -1) {
+		var thought = state.buffer.substring(0, end).replace(/^\s*<think>\s*/, '').trim();
+		var rest = state.buffer.substring(end + 8).replace(/^\s+/, '');
+		state.done = true;
+		state.buffer = '';
+		thought && delta(run, 'reasoning', thought);
+		closepart(run, 'reasoning');
+		rest.trim() && delta(run, 'text', rest);
+		return;
+	}
+
+	if (state.buffer.length > THINKMAX && !/^\s*<think>/.test(state.buffer))
+		release(run);
+}
+
+function release(run) {
+	if (run.think && !run.think.done) {
+		var text = run.think.buffer;
+		run.think.buffer = '';
+		run.think.done = true;
+		text && delta(run, 'text', text.replace(/^\s*<think>\s*/, ''));
+	}
+}
+
+// The answer ended (or a step did): what is still waiting is the text
+function endcontent(run) {
+	release(run);
+	run.think = null;
+}
+
 function delta(run, type, text) {
 
 	var part = run.open[type];
@@ -553,6 +601,13 @@ function addpart(run, type, data, closed) {
 function storepart(run, part) {
 	NOSQL('parts').insert(part).callback(NOOP);
 	FUNC.emit(run.sessionid, 'part.closed', { partid: part.id });
+}
+
+function closepart(run, type) {
+	if (run.open[type]) {
+		storepart(run, run.open[type]);
+		delete run.open[type];
+	}
 }
 
 function closeparts(run) {

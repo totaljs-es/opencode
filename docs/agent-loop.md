@@ -135,3 +135,7 @@ In a Total.js project Totem adds three more things, each one switched off with `
 ## MCP servers (implemented)
 
 The tools of MCP servers declared in `.totem/mcp.json` (`command` and `args` for stdio, `url` and `headers` for HTTP) join the tools of the agent as `server__tool`. A project file can start a program, so each server asks first (`mcp-start`), and each of its tools asks before it runs. The programs stop when the run ends. The sub-agents do not get MCP tools. Totem does not expose its own tools as an MCP server.
+
+## Thoughts in the text
+
+Some models that think (qwen3 on Ollama, with the thinking switched off too) write their thoughts into the text and end them with `</think>`. For a model that is known to think, the start of the text waits for that tag: what came before it becomes a reasoning part, what follows is the answer. Without the tag the text is released when the step ends (or after 40,000 characters), so a model that answers directly only shows its text at the end of the step.

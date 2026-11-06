@@ -1418,6 +1418,15 @@ Test.push('Ollama with its own API', async function(next) {
 	await idle(small);
 	check('a model with a window of 8192 gets 8192', mock.native[0].options.num_ctx === 8192);
 	check('"none" turns the thinking off for a model that thinks', mock.native[0].think === false);
+	r = await api('sessions_messages/' + small);
+	check('a model that thinks and answers at once keeps its text', r.response[r.response.length - 1].parts.some(p => p.type === 'text' && p.data.text === 'Hello from Ollama') && !r.response[r.response.length - 1].parts.some(p => p.type === 'reasoning'));
+	events.length = 0;
+	mock.native.length = 0;
+	await api('sessions_prompt/' + small, { text: 'leaky one', reasoning: 'none' });
+	await idle(small);
+	r = await api('sessions_messages/' + small);
+	parts = r.response[r.response.length - 1].parts;
+	check('thoughts that end with </think> in the text become reasoning, not text', parts.some(p => p.type === 'reasoning' && p.data.text === 'Hmm, the user wants a plan.') && parts.some(p => p.type === 'text' && p.data.text === 'The real answer') && !parts.some(p => p.type === 'text' && /think>/.test(p.data.text)));
 	events.length = 0;
 	mock.native.length = 0;
 	await api('sessions_prompt/' + small, { text: 'hi again', reasoning: 'high' });

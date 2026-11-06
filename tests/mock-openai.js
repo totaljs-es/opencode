@@ -175,6 +175,9 @@ exports.start = function(port, callback) {
 
 				if (lastmsg.role === 'tool') {
 					line({ message: { role: 'assistant', content: 'Ollama saw ' + lastmsg.tool_name + ': ' + lastmsg.content.substring(0, 30) }, done: false });
+				} else if (/leaky/.test(lastmsg.content || '')) {
+					line({ message: { role: 'assistant', content: 'Hmm, the user wants a plan. </th' }, done: false });
+					line({ message: { role: 'assistant', content: 'ink>\n\nThe real answer' }, done: false });
 				} else if (/file/.test(lastmsg.content || '')) {
 					line({ message: { role: 'assistant', content: 'Let me read it.', thinking: 'I should read the file first.' }, done: false });
 					line({ message: { role: 'assistant', content: '', tool_calls: [{ function: { name: 'read', arguments: { path: 'a.txt' } } }] }, done: false });
