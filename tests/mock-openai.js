@@ -166,6 +166,16 @@ exports.start = function(port, callback) {
 				return;
 			}
 
+			if (req.url === '/model/info') {
+				res.end(JSON.stringify({ data: [
+					{ model_name: 'gpt-a', litellm_params: { model: 'openai/gpt-4o' }, model_info: { max_input_tokens: 128000, input_cost_per_token: 0.000001, output_cost_per_token: 0.000002, supports_function_calling: true, supports_reasoning: false } },
+					{ model_name: 'gpt-a', litellm_params: { model: 'azure/gpt-4o' }, model_info: { max_input_tokens: 128000 } },
+					{ model_name: 'local-b', litellm_params: { model: 'ollama/x' }, model_info: { max_tokens: 8192, input_cost_per_token: 0, output_cost_per_token: 0, supports_function_calling: false } },
+					{ model_name: 'unknown-c', model_info: {} }
+				] }));
+				return;
+			}
+
 			if (req.url === '/v1/models') {
 				res.end(JSON.stringify({ data: [
 					{ id: 'free-model:free', name: 'Free Model', context_length: 65536, pricing: { prompt: '0', completion: '0' }, supported_parameters: ['tools', 'reasoning', 'temperature'] },

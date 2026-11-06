@@ -13,6 +13,8 @@
 	.CLASS .session:hover { background: var(--t-soft); }
 	.CLASS .session.selected { background: var(--t-soft2); font-weight: bold; }
 	.CLASS .session .running { color: #E67E22; }
+	.CLASS .session .more { opacity: 0; color: var(--t-muted); padding: 0 4px; }
+	.CLASS .session:hover .more { opacity: 1; }
 	.CLASS .session span.title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	.CLASS .foot { padding: 10px 14px; border-top: 1px solid var(--t-border); display: flex; gap: 8px; }
 	.CLASS .empty-note { padding: 20px 16px; color: var(--t-muted); text-align: center; }
@@ -47,6 +49,7 @@
 					<div class="exec session{{ if s.id === common.sessionid }} selected{{ fi }}" data-exec="?/session" data-id="{{ s.id }}" data-project="{{ m.id }}">
 						<span class="{{ if s.status === 'running' }}running{{ fi }}">{{ s.icon | provicon(s.provider) }}</span>
 						<span class="title">{{ s.name }}</span>
+						<span class="exec more" data-exec="?/sessionmenu" data-prevent="true" data-id="{{ s.id }}" data-project="{{ m.id }}" title="@(Options)"><i class="ti ti-dots"></i></span>
 					</div>
 					{{ end }}
 					{{ fi }}
@@ -104,12 +107,12 @@
 			SET('common.form', 'formproject');
 		};
 
-		// Click on a project creates a session in it
-		exports.project = function(el) {
+		// Click on a project creates a session in it; the name is optional, without one the first prompt names it
+		exports.project = function(el, name) {
 			var id = typeof(el) === 'string' ? el : ATTRD(el);
 			// The new session starts with the model that is chosen in the chat
 			var model = (PLUGINS.chat && PLUGINS.chat.model && PLUGINS.chat.model.model) || '';
-			exports.tapi('sessions_create ERROR', { projectid: id, model: model }, function(response) {
+			exports.tapi('sessions_create ERROR', { projectid: id, model: model, name: name || '' }, function(response) {
 				exports.refresh();
 				exports.session(response.id, id);
 			});
@@ -131,11 +134,14 @@
 			opt.align = 'right';
 			opt.items = [];
 			opt.items.push({ id: 'session', name: '@(New session)', icon: 'ti ti-plus' });
+			opt.items.push({ id: 'named', name: '@(New session with a name)', icon: 'ti ti-pencil-plus' });
 			opt.items.push('-');
 			opt.items.push({ id: 'remove', name: '@(Forget project)', icon: 'ti ti-trash red' });
 			opt.callback = function(item) {
 				if (item.id === 'session')
 					exports.project(id);
+				else if (item.id === 'named')
+					exports.askname('@(New session)', '', name => exports.project(id, name));
 				else if (item.id === 'remove') {
 					SETTER('approve/show', '@(Forget this project and its sessions? The files are not touched.)', ':ti ti-trash: @(Forget)', function() {
 						exports.tapi('projects_remove/' + id + ' ERROR', function() {
@@ -149,6 +155,57 @@
 					});
 				}
 			};
+			SETTER('menu/show', opt);
+		};
+
+		// A window with the name: an empty name is the default one
+		exports.askname = function(title, value, callback, summary) {
+			var opt = {};
+			opt.name = title;
+			opt.summary = summary || '@(Leave it empty for the default name: the session is named after your first prompt.)';
+			opt.value = value || '';
+			opt.newbie = true;
+			opt.callback = callback;
+			SETTER('prompt/show', opt);
+		};
+
+		// Rename and delete a session
+		exports.sessionmenu = function(el) {
+
+			var id = el.attrd('id');
+			var opt = {};
+			opt.element = el;
+			opt.align = 'right';
+			opt.items = [];
+			opt.items.push({ id: 'rename', name: '@(Rename)', icon: 'ti ti-pencil' });
+			opt.items.push('-');
+			opt.items.push({ id: 'remove', name: '@(Delete session)', icon: 'ti ti-trash red' });
+			opt.callback = function(item) {
+
+				if (item.id === 'rename') {
+
+					var current = '';
+					(exports.model.items || []).forEach(p => (p.sessions || []).forEach(s => s.id === id && (current = s.name)));
+
+					exports.askname('@(Rename session)', current, function(name) {
+						if (name && name.trim())
+							exports.tapi('sessions_update/' + id + ' ERROR', { name: name.trim() }, () => exports.refresh());
+					}, '@(Type the new name.)');
+
+				} else if (item.id === 'remove') {
+
+					SETTER('approve/show', '@(Delete this session and its messages? The files of the project are not touched.)', ':ti ti-trash: @(Delete)', function() {
+						exports.tapi('sessions_remove/' + id + ' ERROR', function() {
+							if (common.sessionid === id) {
+								SET('common.sessionid', null);
+								PLUGINS.chat && PLUGINS.chat.open(null);
+							}
+							exports.refresh();
+						});
+					});
+				}
+			};
+
 			SETTER('menu/show', opt);
 		};
 

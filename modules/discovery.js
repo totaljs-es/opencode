@@ -162,7 +162,50 @@ function gemini(provider, callback) {
 	}, { 'x-goog-api-key': provider.key || '' });
 }
 
-var KINDS = { ollama: ollama, anthropic: anthropic, gemini: gemini };
+// LiteLLM: /model/info has the context window, the support of tools and reasoning and the price of each model. When the proxy does not
+// answer it (it needs the master key, or it is an older version) the list of /models is used.
+function litellm(provider, callback) {
+
+	request('GET', root(provider.url) + '/model/info', provider.key, null, 8000, function(err, json) {
+
+		if (err || !json || !Array.isArray(json.data)) {
+			openai(provider, callback);
+			return;
+		}
+
+		var seen = {};
+		var models = [];
+
+		json.data.forEach(function(m) {
+
+			var id = m.model_name;
+
+			if (!id || seen[id])
+				return;
+
+			seen[id] = true;
+
+			var info = m.model_info || {};
+			var input = number(info.input_cost_per_token);
+			var output = number(info.output_cost_per_token);
+
+			models.push({
+				id: id,
+				name: id,
+				context: info.max_input_tokens || info.max_tokens || null,
+				tools: typeof(info.supports_function_calling) === 'boolean' ? info.supports_function_calling : null,
+				reasoning: typeof(info.supports_reasoning) === 'boolean' ? info.supports_reasoning : null,
+				free: input === null ? null : input === 0,
+				price: input === null ? null : { input: input, output: output || 0 },
+				size: null
+			});
+		});
+
+		callback(null, models);
+	});
+}
+
+var KINDS = { ollama: ollama, anthropic: anthropic, gemini: gemini, litellm: litellm };
 
 // callback(err, [{ id, name, context, tools, reasoning, free, size }]). Unknown values are null.
 exports.available = function(provider, callback) {

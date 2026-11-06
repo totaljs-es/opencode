@@ -53,6 +53,12 @@ FUNC.plain = function(text) {
 	return typeof(text) === 'string' ? text.replace(/@\(([^)]*)\)/g, '$1') : text;
 };
 
+// A title for a session from the first thing the user says: one line, no markup, short
+FUNC.title = function(text) {
+	var line = (text || '').split('\n')[0].replace(/[`*_#>\[\]]+/g, ' ').replace(/\s+/g, ' ').trim();
+	return line.length > 48 ? (line.substring(0, 47).trim() + '…') : line;
+};
+
 // Shortens a text to the maximum output of a tool and says so
 FUNC.truncate = function(text, max) {
 	max = max || CONF.maxoutput;

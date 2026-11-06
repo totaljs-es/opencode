@@ -12,9 +12,33 @@ NEWACTION('Sessions|create', {
 	input: '*projectid:String, name:String, model:String, autoaccept:Boolean, reasoning:String',
 	action: async function($, model) {
 		await NOSQL('projects').read().where('id', model.projectid).error(404).promise($);
-		var item = { id: UID(), projectid: model.projectid, name: model.name || 'New session', model: model.model || '', status: 'idle', autoaccept: !!model.autoaccept, reasoning: model.reasoning || '', maxsteps: CONF.maxsteps, dtcreated: NOW, dtupdated: NOW };
+		// A name given by the user stays; without one the session is named after its first prompt
+		var name = (model.name || '').trim().substring(0, 80);
+		var item = { id: UID(), projectid: model.projectid, name: name || 'New session', named: !!name, model: model.model || '', status: 'idle', autoaccept: !!model.autoaccept, reasoning: model.reasoning || '', maxsteps: CONF.maxsteps, dtcreated: NOW, dtupdated: NOW };
 		await NOSQL('sessions').insert(item).promise($);
 		$.callback(item);
+	}
+});
+
+NEWACTION('Sessions|update', {
+	name: 'Rename a session',
+	params: '*id',
+	input: '*name:String',
+	action: async function($, model) {
+
+		var session = await NOSQL('sessions').read().where('id', $.params.id).error(404).promise($);
+		var name = model.name.trim().substring(0, 80);
+
+		if (!name) {
+			$.invalid('@(The name is empty)');
+			return;
+		}
+
+		session.name = name;
+		session.named = true;
+		await NOSQL('sessions').modify({ name: name, named: true }).where('id', session.id).promise($);
+		FUNC.emit(session.id, 'session.updated', { session: session });
+		$.success();
 	}
 });
 
@@ -95,6 +119,19 @@ NEWACTION('Sessions|prompt', {
 
 		// A command of the project: /name arguments. The conversation shows what the user typed, the model gets the expanded text.
 		var command = MODS.commands.expand(project.path, model.text);
+		// The first prompt of a session that has no name of the user gives it one
+		if (!session.named && (!session.name || session.name === 'New session')) {
+			var first = await NOSQL('messages').find().where('sessionid', session.id).take(1).promise($);
+			if (!first.length) {
+				var title = FUNC.title(model.text);
+				if (title) {
+					session.name = title;
+					await NOSQL('sessions').modify({ name: title }).where('id', session.id).promise($);
+					FUNC.emit(session.id, 'session.updated', { session: session });
+				}
+			}
+		}
+
 		var message = { id: UID(), sessionid: session.id, role: 'user', dtcreated: FUNC.stamp() };
 		var part = { id: UID(), messageid: message.id, sessionid: session.id, type: 'text', data: { text: model.text }, dtcreated: NOW, seq: 0 };
 

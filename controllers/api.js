@@ -17,6 +17,7 @@ exports.install = function() {
 	ROUTE('+API    ?    -sessions                   --> Sessions|list');
 	ROUTE('+API    ?    +sessions_create            --> Sessions|create');
 	ROUTE('+API    ?    -sessions_read/{id}         --> Sessions|read');
+	ROUTE('+API    ?    +sessions_update/{id}       --> Sessions|update');
 	ROUTE('+API    ?    -sessions_remove/{id}       --> Sessions|remove');
 	ROUTE('+API    ?    -sessions_messages/{id}     --> Sessions|messages');
 	ROUTE('+API    ?    +sessions_prompt/{id}       --> Sessions|prompt', 1024 * 1024);

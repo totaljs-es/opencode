@@ -1015,6 +1015,75 @@ Test.push('Total.js by default, with Forge in front of the prompt', async functi
 	next();
 });
 
+Test.push('LiteLLM', async function(next) {
+
+	var r = await api('providers_templates');
+	var litellm = r.response.find(t => t.id === 'litellm');
+	check('LiteLLM is a template, local by default, with the port of the proxy', litellm && litellm.kind === 'litellm' && litellm.url === 'http://127.0.0.1:4000/v1' && litellm.local === true);
+	check('the other providers of the list are templates too', ['vllm', 'xai', 'fireworks', 'cerebras', 'huggingface', 'nvidia', 'moonshot', 'cohere'].every(id => r.response.find(t => t.id === id)));
+
+	r = await api('providers_available', { url: 'http://127.0.0.1:8111/v1', kind: 'litellm' });
+	var by = {};
+	r.response.forEach(m => by[m.id] = m);
+	check('LiteLLM lists each model once, with its context, tools, reasoning and price', r.response.length === 3 && by['gpt-a'].context === 128000 && by['gpt-a'].tools === true && by['gpt-a'].reasoning === false && by['gpt-a'].free === false && by['gpt-a'].price.input === 0.000001 && by['gpt-a'].price.output === 0.000002);
+	check('a model with no cost is free and a model with no information has nulls', by['local-b'].free === true && by['local-b'].tools === false && by['local-b'].context === 8192 && by['unknown-c'].tools === null && by['unknown-c'].context === null && by['unknown-c'].price === null);
+	next();
+});
+
+Test.push('sessions: name, rename, delete', async function(next) {
+
+	check('a title is one short line without markup', FUNC.title('  **Fix** the `login` bug\nand more') === 'Fix the login bug' && FUNC.title('x'.repeat(80)).length === 48 && FUNC.title('x'.repeat(80)).slice(-1) === '…' && FUNC.title('') === '');
+
+	// A name given at creation stays
+	var r = await api('sessions_create', { projectid: projectid, model: 'fake', name: '  My own name  ' });
+	var named = r.response;
+	check('a session can be named when it is created', named.name === 'My own name' && named.named === true);
+	events.length = 0;
+	script = [{ content: 'ok' }];
+	await api('sessions_prompt/' + named.id, { text: 'something completely different' });
+	await idle(named.id);
+	r = await api('sessions_read/' + named.id);
+	check('the first prompt does not change a name of the user', r.response.name === 'My own name');
+
+	// Without a name the first prompt gives one
+	r = await api('sessions_create', { projectid: projectid, model: 'fake' });
+	check('without a name the session has the default one', r.response.name === 'New session' && r.response.named === false);
+	var auto = r.response.id;
+	events.length = 0;
+	script = [{ content: 'ok' }, { content: 'again' }];
+	await api('sessions_prompt/' + auto, { text: 'Fix the login bug please\nthe details are below' });
+	await idle(auto);
+	r = await api('sessions_read/' + auto);
+	check('the first prompt names the session', r.response.name === 'Fix the login bug please' && events.some(e => e.type === 'session.updated' && e.data.session.name === 'Fix the login bug please'));
+	events.length = 0;
+	await api('sessions_prompt/' + auto, { text: 'a second prompt' });
+	await idle(auto);
+	r = await api('sessions_read/' + auto);
+	check('the second prompt does not rename it', r.response.name === 'Fix the login bug please');
+
+	// Rename
+	events.length = 0;
+	r = await api('sessions_update/' + auto, { name: '  Login work  ' });
+	check('a session can be renamed', r.response.success === true && events.some(e => e.type === 'session.updated' && e.data.session.name === 'Login work'));
+	r = await api('sessions_read/' + auto);
+	check('the new name is kept and counts as a name of the user', r.response.name === 'Login work' && r.response.named === true);
+	r = await api('sessions_update/' + auto, { name: '   ' });
+	check('an empty name is refused', !!(r.err && r.err.items && r.err.items[0].error));
+	r = await api('sessions_update/nope', { name: 'x' });
+	check('a session that does not exist is a 404', !!(r.err && r.err.items));
+
+	// Delete
+	r = await api('sessions_remove/' + auto);
+	check('a session can be deleted', r.response.success === true);
+	r = await api('sessions_read/' + auto);
+	check('a deleted session is gone', !!(r.err && r.err.items));
+	r = await api('sessions_messages/' + auto);
+	check('its messages are gone too', Array.isArray(r.response) && r.response.length === 0);
+	r = await api('sessions?projectid=' + projectid);
+	check('the project no longer lists it', !r.response.some(s => s.id === auto) && r.response.some(s => s.id === named.id));
+	next();
+});
+
 Test.push('command line', async function(next) {
 
 	function cli(args) {

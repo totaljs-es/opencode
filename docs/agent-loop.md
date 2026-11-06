@@ -44,6 +44,10 @@ Design points:
 
 Neither Anthropic nor Gemini has been run with a real key yet.
 
+## Providers: LiteLLM and the others
+
+LiteLLM is a provider of kind `litellm`: requests go to its OpenAI-compatible address, and the model list comes from `/model/info` (context window, tools, reasoning and price of each model, one entry per name), falling back to `/models` when the proxy does not answer it. This is exercised only against a simulator; no real LiteLLM proxy has been tried. The templates also include vLLM, xAI, Fireworks, Cerebras, Hugging Face, NVIDIA NIM, Moonshot and Cohere; their addresses answered a request without a key (401, 403 or 200), but none has been tried with a key. Perplexity is not in the list: it has no list of models. Any other OpenAI-compatible server is added with "Other".
+
 ## Vague requests
 
 The base prompt tells the agent to use the `ask` tool when it does not know what to build or what it is for, and to work without asking when the request is clear. With `qwen3:4b` the request "quiero hacer un componente jcomponent" now ends in a question with options (counter, form, list, other), and "create the file public/js/sum.js with a function sum(a, b)" goes straight to `write`. Small models may not follow it.

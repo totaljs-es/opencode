@@ -67,3 +67,11 @@ html, body { height: 100%; margin: 0; }
 .provi-groq { --i: url(/img/providers/groq.svg); }
 .provi-llamacpp { --i: url(/img/providers/llamacpp.svg); }
 .provi-together { --i: url(/img/providers/together.svg); }
+.provi-xai { --i: url(/img/providers/xai.svg); }
+.provi-fireworks { --i: url(/img/providers/fireworks.svg); }
+.provi-cerebras { --i: url(/img/providers/cerebras.svg); }
+.provi-huggingface { --i: url(/img/providers/huggingface.svg); }
+.provi-nvidia { --i: url(/img/providers/nvidia.svg); }
+.provi-moonshot { --i: url(/img/providers/moonshot.svg); }
+.provi-vllm { --i: url(/img/providers/vllm.svg); }
+.provi-cohere { --i: url(/img/providers/cohere.svg); }

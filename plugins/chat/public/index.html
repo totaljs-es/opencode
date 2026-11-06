@@ -408,6 +408,11 @@
 					}
 					break;
 
+				case 'session.updated':
+					exports.set('session', data.session);
+					PLUGINS.projects && PLUGINS.projects.refresh();
+					break;
+
 				case 'diff.updated':
 					refreshdiff();
 					break;

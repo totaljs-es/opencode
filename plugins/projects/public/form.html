@@ -18,6 +18,9 @@
 		<div class="~PATH~-picker">
 			<ui-component name="folder" path="?.path" config="browse:?/browse;root:/;up:.." style="height:318px"></ui-component>
 		</div>
+		<div class="mt10">
+			<ui-component name="input" path="?.sessionname" config="placeholder:@(Default: named after your first prompt);maxlength:80">@(Name of the first session (optional))</ui-component>
+		</div>
 		<div class="~PATH~-current">
 			<span class="gray">@(Folder:)</span>
 			<ui-bind path="?.path" config="template" class="block" style="flex:1;min-width:0"><script type="text/html"><code>{{ value | absolute }}</code></script></ui-bind>
@@ -53,6 +56,7 @@
 
 		exports.reload = function() {
 			exports.set('places', []);
+			exports.set('sessionname', '');
 			exports.tapi('folders ERROR', function(response) {
 				sep = response.sep;
 				exports.set('places', response.places);
@@ -85,7 +89,7 @@
 			exports.tapi('projects_open ERROR', { path: path }, function(response) {
 				hide();
 				PLUGINS.projects.refresh();
-				PLUGINS.projects.project(response.id);
+				PLUGINS.projects.project(response.id, exports.model.sessionname || '');
 			});
 		};
 

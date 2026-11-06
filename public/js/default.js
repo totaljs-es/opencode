@@ -94,7 +94,7 @@ ON('ready', function() {
 });
 
 // The icon of a provider (public/img/providers). A provider without one gets its initial.
-var PROVICONS = { openai: 1, anthropic: 1, gemini: 1, mistral: 1, ollama: 1, deepseek: 1, openrouter: 1, lmstudio: 1, groq: 1, llamacpp: 1, together: 1 };
+var PROVICONS = { openai: 1, anthropic: 1, gemini: 1, mistral: 1, ollama: 1, deepseek: 1, openrouter: 1, lmstudio: 1, groq: 1, llamacpp: 1, together: 1, xai: 1, fireworks: 1, cerebras: 1, huggingface: 1, nvidia: 1, moonshot: 1, vllm: 1, cohere: 1 };
 
 Thelpers.provicon = function(icon, name, large) {
 	var css = 'prov' + (large ? ' prov-large' : '');

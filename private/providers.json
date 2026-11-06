@@ -9,5 +9,14 @@
 	{"id": "groq", "name": "Groq", "kind": "openai", "url": "https://api.groq.com/openai/v1", "local": false, "keyrequired": true, "help": "A Groq API key.", "icon": "groq"},
 	{"id": "mistral", "name": "Mistral", "kind": "openai", "url": "https://api.mistral.ai/v1", "local": false, "keyrequired": true, "help": "A Mistral API key.", "icon": "mistral"},
 	{"id": "deepseek", "name": "DeepSeek", "kind": "openai", "url": "https://api.deepseek.com/v1", "local": false, "keyrequired": true, "help": "A DeepSeek API key.", "icon": "deepseek"},
-	{"id": "together", "name": "Together AI", "kind": "openai", "url": "https://api.together.xyz/v1", "local": false, "keyrequired": true, "help": "A Together API key.", "icon": "together"}
+	{"id": "together", "name": "Together AI", "kind": "openai", "url": "https://api.together.xyz/v1", "local": false, "keyrequired": true, "help": "A Together API key.", "icon": "together"},
+	{"id": "litellm", "name": "LiteLLM", "kind": "litellm", "url": "http://127.0.0.1:4000/v1", "local": true, "keyrequired": false, "help": "A LiteLLM proxy: one OpenAI-compatible address for many providers. Totem asks it for the models and, when it can, for their context window and tools. Add the master key if the proxy has one.", "icon": ""},
+	{"id": "vllm", "name": "vLLM", "kind": "openai", "url": "http://127.0.0.1:8000/v1", "local": true, "keyrequired": false, "help": "A vLLM server. Its default port is also the one of Totem: change one of them.", "icon": "vllm"},
+	{"id": "xai", "name": "xAI", "kind": "openai", "url": "https://api.x.ai/v1", "local": false, "keyrequired": true, "help": "An xAI API key.", "icon": "xai"},
+	{"id": "fireworks", "name": "Fireworks AI", "kind": "openai", "url": "https://api.fireworks.ai/inference/v1", "local": false, "keyrequired": true, "help": "A Fireworks API key.", "icon": "fireworks"},
+	{"id": "cerebras", "name": "Cerebras", "kind": "openai", "url": "https://api.cerebras.ai/v1", "local": false, "keyrequired": true, "help": "A Cerebras API key.", "icon": "cerebras"},
+	{"id": "huggingface", "name": "Hugging Face", "kind": "openai", "url": "https://router.huggingface.co/v1", "local": false, "keyrequired": true, "help": "A Hugging Face token. The router sends the request to the Inference Providers.", "icon": "huggingface"},
+	{"id": "nvidia", "name": "NVIDIA NIM", "kind": "openai", "url": "https://integrate.api.nvidia.com/v1", "local": false, "keyrequired": true, "help": "An NVIDIA API key.", "icon": "nvidia"},
+	{"id": "moonshot", "name": "Moonshot AI (Kimi)", "kind": "openai", "url": "https://api.moonshot.ai/v1", "local": false, "keyrequired": true, "help": "A Moonshot API key.", "icon": "moonshot"},
+	{"id": "cohere", "name": "Cohere", "kind": "openai", "url": "https://api.cohere.ai/compatibility/v1", "local": false, "keyrequired": true, "help": "A Cohere API key, through its OpenAI-compatible address.", "icon": "cohere"}
 ]

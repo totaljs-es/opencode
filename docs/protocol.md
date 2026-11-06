@@ -13,6 +13,7 @@ Routes use the `+API` style of the conventions (`$api` is `/api/`), each to an a
 | `-folders` | `Folders\|list` | Folders of the computer (query `path`, default the home folder; `hidden`): `{ path, sep, home, items: [{ name }], places }` |
 | `-projects_files/{id}` | `Projects\|files` | File tree (lazy, one level per call) |
 | `-sessions`, `+sessions_create`, `-sessions_read/{id}`, `-sessions_remove/{id}` | `Sessions\|...` | Sessions of a project |
+| `+sessions_update/{id}` | `Sessions\|update` | Rename a session (input `name`) |
 | `-sessions_messages/{id}` | `Sessions\|messages` | Messages with parts |
 | `+sessions_prompt/{id}` | `Sessions\|prompt` | Send a prompt; answers `{ messageid }` immediately |
 | `-sessions_abort/{id}` | `Sessions\|abort` | Stop the run |
@@ -41,6 +42,7 @@ Every event: `{ type, sessionid, ts, data }`.
 | `type` | `data` | Meaning |
 |---|---|---|
 | `session.status` | `{ status }` | `running`, `idle`, `aborted`, `error` |
+| `session.updated` | `{ session }` | The name of the session changed (the user renamed it, or the first prompt named it) |
 | `message.created` | `{ message }` | New user or assistant message |
 | `part.created` | `{ part }` | A part opened (text, reasoning, tool, knowledge) |
 | `part.delta` | `{ partid, text }` | Appended text of an open part |

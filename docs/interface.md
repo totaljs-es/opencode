@@ -25,6 +25,10 @@ Three plugins, mounted by the shell `views/index.html` with `page` components na
 
 The login page (`views/login.html`) is used only when `token` is set in `config`.
 
+## Sessions
+
+A session has a name. It can be given when the folder is opened (an optional field in the picker) or from the menu of the project (New session with a name); without one the session starts as "New session" and takes its name from the first prompt (one short line). A name written by the user is never replaced. The menu of each session (the dots that appear on hover) renames it or deletes it with its messages; the files of the project are not touched. Other clients see the change through the event `session.updated`.
+
 ## Choosing a folder
 
 The folder of a project is chosen with the component `folder` (j-Folder), which browses the computer where Totem runs through `Folders|list`: a path bar, the folders of the current one, up, and shortcuts to Home, Volumes and Root. Only the names of folders are listed. The component `filebrowser` is not used: it is the file chooser of the browser, which never gives the path of a file on the computer, and a project needs a path. The picker uses `/` as separator; drives of Windows are not listed yet.
