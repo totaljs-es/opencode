@@ -4,11 +4,166 @@
 
 <h1 align="center">Total.js Totem</h1>
 
-An AI coding environment written as a Total.js 5 application: open a project, talk to an agent that reads code, edits files and runs commands, and review what changed. You choose the model: a free cloud one, one running on your computer, or a paid one.
+<p align="center"><b>An AI coding environment written as a Total.js 5 application.</b><br>Open a project, talk to an agent that reads your code, edits files and runs commands, and review every change. You choose the model: one on your computer, a free cloud one, or a paid one.</p>
 
-> **In design.** There is no code and nothing to download yet. The plan is in [`docs/`](docs/README.md).
+<p align="center">
+  <a href="https://github.com/totaljs-es/totem/actions/workflows/test.yml"><img src="https://github.com/totaljs-es/totem/actions/workflows/test.yml/badge.svg" alt="Tests"></a>
+  <img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license">
+  <img src="https://img.shields.io/badge/node-%E2%89%A5%2022-3C873A" alt="Node.js 22 or newer">
+  <img src="https://img.shields.io/badge/Total.js-5-3F8F2A" alt="Total.js 5">
+  <img src="https://img.shields.io/badge/jComponent-20-3F8F2A" alt="jComponent 20">
+  <img src="https://img.shields.io/badge/Docker-ready-2496ED" alt="Docker ready">
+  <img src="https://img.shields.io/badge/languages-en%20%C2%B7%20es%20%C2%B7%20sk-informational" alt="Languages: English, Spanish, Slovak">
+</p>
 
-- [Vision](docs/vision.md)
-- [Architecture](docs/architecture.md)
-- [Roadmap](docs/roadmap.md)
-- [Open decisions](docs/decisions.md)
+Totem is one application with three ways to run: a command, a Docker container and (next) a native window. The server is plain Total.js: actions, a few controllers, NoSQL for its own data, and jComponent 20 for the interface. There is no build step.
+
+## What you get
+
+- **An agent with tools.** It reads, searches, edits, patches and runs commands in your project folder, and it cannot leave it (every path is resolved inside the project, symbolic links included).
+- **You stay in control.** Every file change and command asks first, unless you allow it. **Plan mode** only reads and describes; **Build mode** changes things. See the diff of each step, undo it, redo it.
+- **Any model.** Ollama, LM Studio and llama.cpp on your computer are detected for you; OpenRouter, OpenAI, Anthropic, Gemini, Groq, Mistral, DeepSeek and a dozen more (any OpenAI-compatible server) are in the list. Prompts go only to the providers you add.
+- **It knows Total.js.** In a project that depends on `total5` the agent gets the recipes of Totem, the pages of [Forge](https://forge.totaljs.es) for your request, the conventions as a skill, and a check of everything it writes: syntax, style, invented functions. Even a 1.5B model on your laptop answers with real Total.js.
+- **Work in parallel.** Sessions can run in their own **git worktree**, and **scheduled prompts** run by themselves, unattended and read-only unless you say otherwise.
+- **A terminal that stays.** An interactive shell in the project folder that survives a page reload, and background commands the agent can start and read.
+- **Open protocols.** A client of MCP servers (tools and prompts) for the agent, and Totem itself as an MCP server for other agents (off by default).
+- **Careful with your machine.** Secrets never reach the model, `.env` files ask first, a shared server needs a token, and the Docker image runs without root.
+- **Your language.** English, Spanish and Slovak, chosen in Settings.
+
+## Quick start
+
+You need [Node.js](https://nodejs.org) 22 or newer.
+
+```bash
+git clone https://github.com/totaljs-es/totem.git
+cd totem
+npm install
+node index.js 8000
+```
+
+Open <http://127.0.0.1:8000>, press **Settings**, and add a model:
+
+- **A model on your computer.** Install [Ollama](https://ollama.com), pull a model (`ollama pull qwen2.5-coder`), and press *Look for servers on this computer*.
+- **A cloud model.** Add a provider, paste the key (it is stored encrypted on your computer and never shown again) and choose the models you want.
+
+Then **Open a folder**, write what you want, and watch it work.
+
+### The command
+
+```bash
+npm link                    # once: makes the `totem` command
+totem                       # starts the server and opens the browser
+totem run "explain this project" --project ~/code/app --model ollama:qwen2.5-coder
+```
+
+| Command | What it does |
+|---|---|
+| `totem` | Starts the server on port 8000 and opens the browser |
+| `totem serve [port]` | Starts only the server |
+| `totem run "prompt" [options]` | One prompt without the interface: the answer goes to stdout, the tool calls to stderr, the exit code says if it finished |
+| `totem config` | Prints the folders that Totem uses |
+
+Options of `run`: `--project <folder>`, `--model <provider:model>`, `--url <server>`, `--token <token>`, `--auto-accept` (file edits run without asking), `--yes` (every other question is answered "allow once"). Without `--url` a temporary local server is started.
+
+### Docker
+
+```bash
+docker build -t totem .
+echo "a-long-random-token" > token.txt
+docker run --rm -p 127.0.0.1:8000:8000 \
+  -v "$PWD/token.txt:/run/secrets/totem_token:ro" \
+  -v "$PWD:/workspace/project" \
+  -v totem-data:/data totem
+```
+
+The container listens on all interfaces, so it **refuses to start without an access token**. Your projects are mounted under `/workspace`, the data is a volume, and everything runs as a user that is not root, which makes it the isolated way to try untrusted models. There is a [compose example](docs/docker-compose.yml) and the [delivery notes](docs/delivery.md).
+
+## The interface
+
+| | |
+|---|---|
+| **Projects** | Folders with their sessions. Click one to continue, `+` for a new session, the menu for a named session or one in a **git worktree**. Rename with a double click. |
+| **Chat** | Streaming answers, the thinking of the models that think, a copy button on every code box, attachments (images and text files), the `/commands` of the project and `/init` to write an `AGENTS.md`. |
+| **Changes** | The files the agent changed, unified or split diff, **Undo** and **Redo**, the git state of the folder, and for a worktree session **Merge into the project** or **Discard**. |
+| **Terminal** | The commands the agent ran, the ones in the background, and an interactive **Shell** (macOS and Linux). |
+| **Scheduled prompts** | The clock next to Settings: a prompt every N minutes or every day, in a new session, unattended. |
+| **Settings** | Theme (light, dark, auto), language, providers and models with their abilities. |
+
+## Choose the model
+
+Totem works with a 1.5B model and with the biggest ones. A few tips:
+
+- **Small models on your computer** follow instructions better with a low temperature (`temperature : 0.2` in `config`, already the default for servers on your computer) and enough context: Ollama is asked for at least 16384 tokens, and for more when the request needs it, because its own default silently cuts the instructions.
+- **A model that loops** (repeats one paragraph until the context is full) is stopped by a repeat penalty and a limit per answer (`ollamarepeat`, `ollamapredict`).
+- **Reasoning models** get a *Reasoning* control. The Anthropic and Gemini formats are written and tested against simulators, not yet with real keys: try them and tell us.
+
+## How it knows Total.js
+
+When the project depends on `total5` (or is a new folder), Totem puts three things in front of the model:
+
+1. **Recipes** ([`private/recipes/`](private/recipes)): short, exact answers for the common tasks (routes, actions, NoSQL, config, `RESTBuilder`, auth, CRON, WebSockets, views, jComponent, plugins...), chosen by the words of your request. They work offline and follow the conventions to the letter.
+2. **Forge** ([forge.totaljs.es](https://forge.totaljs.es)): the pages of the documentation that match the request, through MCP. Totem asks before it starts the connection.
+3. **A check of the code**: what the agent writes is checked against the [Total.js conventions](https://github.com/totaljs-es/conventions) (syntax, ES5, tabs, names with `|`, texts as `@(English)`, no invented functions) and the model fixes what is wrong. The code in an answer is checked too, and corrected once.
+
+To measure it with any model:
+
+```bash
+node scripts/knowledge-eval.js --model ollama:qwen2.5:1.5b --runs 3 --out result.json
+```
+
+It asks 29 questions about Total.js and jComponent in a temporary project and scores the answers: what must and must not appear, and the quality of the code. See [knowledge](docs/knowledge.md).
+
+## Configuration
+
+Settings live in the file [`config`](config) (never in environment variables). The ones you will touch:
+
+| Setting | Default | What it does |
+|---|---|---|
+| `$ip` | `127.0.0.1` | The address it listens on. Anything else needs `token` |
+| `token`, `tokenfile` | empty | The access token, or a file that has it (a Docker secret) |
+| `temperature` | `0.2` | For the models on your computer |
+| `ollamactx`, `ollamactxmax` | `16384`, `32768` | Context asked to Ollama |
+| `maxsteps`, `bashtimeout` | `50`, `120000` | Limits of the agent loop |
+| `totaljs` | `auto` | `always` or `never` to decide for every project |
+| `forge`, `recipes`, `selfcheck`, `conventions` | `true` | The parts of the Total.js knowledge |
+| `formatter`, `diagnostics` | `true` | Run the formatter and the checks that the project already has after a write |
+| `terminalshell` | empty | The shell of the Terminal (empty: your `SHELL`) |
+| `$mcp` | `false` | Totem as an MCP server for other agents |
+
+A project can add a `.totem/` folder with `formatters.json`, `diagnostics.json`, `mcp.json`, `instructions.json`, and `agents/`, `commands/` and `skills/`.
+
+## Security in a few lines
+
+- The agent acts through tools only, each checked before it runs. Plan mode refuses writes and commands in code, not in a prompt.
+- Files with secrets (`.env`) ask first; keys and the token are scrubbed from everything the model sees.
+- A server with a token compares it in constant time, uses a strict cookie, refuses requests from other origins, and sends headers against framing.
+- The shell and the commands run with your permissions: they protect against mistakes, not against a hostile model. For that, use the Docker image.
+
+The details, including the honest limits (one token, one user), are in [security](docs/security.md).
+
+## Help
+
+| Problem | What to do |
+|---|---|
+| No model to choose | Settings → add a provider, or *Look for servers on this computer* with Ollama or LM Studio running |
+| A small model seems to ignore the instructions | Check `ollamactx` in `config`: Ollama must get a real context. Totem asks for 16384 by default |
+| The container does not start | It needs a token: mount a file at `/run/secrets/totem_token` (or set `token` in `config`) |
+| "The terminal could not start" | The Shell needs Python 3 (macOS and Linux). It is in the Docker image |
+| Docker cannot see your folder (Colima, Docker Desktop) | Share the folder with the virtual machine: your home folder, not `/tmp` |
+| The agent asks to start Forge | It is the documentation connection. Allow it once for every project, or set `forge : false` |
+| A worktree could not be created | The project needs git with at least one commit |
+| Scheduled prompts do nothing | They run unattended: in Plan mode they only read, and anything that would ask is refused. Choose Build and auto-accept to let them edit |
+
+Run the tests with `npm test` (about 50 seconds, with temporary folders: it never touches your data).
+
+## Status
+
+Phases 1 to 5 of the [roadmap](docs/roadmap.md) are built: the agent and its tools, the interface, the knowledge of Total.js, the terminal, diagnostics, the Docker image, scheduled prompts, worktrees and the hardening of a shared server. Still to come: native windows with signed installers (phase 6), the published image and package, and accounts with their own projects. Nothing is published to npm or a container registry yet: you run it from the source.
+
+## Documentation
+
+[Vision](docs/vision.md) · [Architecture](docs/architecture.md) · [Agent loop](docs/agent-loop.md) · [Interface](docs/interface.md) · [Protocol](docs/protocol.md) · [Security](docs/security.md) · [Knowledge](docs/knowledge.md) · [Delivery](docs/delivery.md) · [Roadmap](docs/roadmap.md) · [Decisions](docs/decisions.md)
+
+## License
+
+[MIT](LICENSE). Made by the Spanish Total.js Platform.
