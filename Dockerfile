@@ -2,7 +2,7 @@
 #   docker run --rm -p 8000:8000 -v "$PWD/token.txt:/run/secrets/totem_token:ro" -v "$PWD:/workspace" -v totem-data:/data totem
 # The server listens on 0.0.0.0 inside the container, so an access token is mandatory: without one it refuses to start.
 
-FROM node:22-alpine@sha256:0e1754758c2df4cfa3e68d59e2e1b7374bb7fd9ea6328eaaacf15cc934af8202
+FROM node:25-alpine@sha256:bdf2cca6fe3dabd014ea60163eca3f0f7015fbd5c7ee1b0e9ccb4ced6eb02ef4
 
 # python3 is the pseudo-terminal of the interactive shell, git is the Git panel of the interface
 RUN apk add --no-cache python3 git
