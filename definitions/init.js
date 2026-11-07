@@ -26,6 +26,12 @@ ON('ready', function() {
 
 	FUNC.providers();
 	FUNC.recover();
+	NOSQL('schedules').modify({ laststatus: 'aborted' }).where('laststatus', 'running').callback(NOOP);
 
 	COMPONENTATOR('ui', 'exec,locale,page,viewbox,navlayout,form,importer,input,box,validate,loading,intranetcss,notify,message,errorhandler,empty,menu,autofill,enter,approve,shortcuts,search,searchinput,directory,icons,listing,clipboard,virtualwire,markdown,websocket,miniform,datasource,tangular-filesize,folder,prompt,filebrowser', true);
+});
+
+// Scheduled prompts: every minute Totem starts the ones that are due
+ON('service', function() {
+	MODS.schedules.tick().catch(err => console.error('Schedules:', err));
 });

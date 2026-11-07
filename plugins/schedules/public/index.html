@@ -1,0 +1,161 @@
+<ui-component name="miniform" path="common.form" config="if:~PATH~;icon:ti ti-clock;title:@(Scheduled prompts);reload:?/reload;scrollbar:1;width:680" class="hidden" plugin="~PATH~">
+	<div class="padding">
+		<div class="help mb10">@(Totem sends these prompts by itself, in a new session of the project. Nobody is there to answer: a scheduled prompt runs in Plan mode (it only reads) unless you choose Build, and anything that would ask for permission is refused.)</div>
+
+		<ui-bind path="?.rows" config="template" class="block mb10">
+			<script type="text/html">
+				{{ if !value || !value.length }}<div class="gray mb10">@(No scheduled prompts yet.)</div>{{ fi }}
+				{{ foreach s in value }}
+				<div class="mb5" style="border:1px solid var(--t-border);border-radius:var(--radius,6px);padding:8px 10px;display:flex;gap:10px;align-items:center">
+					<div style="flex:1;min-width:0">
+						<b>{{ s.name }}</b>
+						{{ if !s.enabled }} <span class="badge badge-small badge-silver">@(off)</span>{{ fi }}
+						{{ if s.running }} <span class="badge badge-small badge-orange">@(running)</span>{{ fi }}
+						<div class="fs12 hellip" style="color:var(--t-muted)">{{ s.projectname }} &middot; {{ s.when }} &middot; {{ s.modename }}</div>
+						<div class="fs12 hellip" style="color:var(--t-muted)">{{ if s.nexttext }}@(Next:) {{ s.nexttext }}{{ fi }}{{ if s.laststatus }} &middot; @(Last:) {{ s.laststatus }}{{ fi }}{{ if s.lasterror }} ({{ s.lasterror }}){{ fi }}</div>
+					</div>
+					<span class="exec" data-exec="?/run" data-id="{{ s.id }}" title="@(Run now)"><i class="ti ti-play-alt"></i></span>
+					<span class="exec" data-exec="?/toggle" data-id="{{ s.id }}" title="@(Switch on or off)"><i class="ti ti-{{ if s.enabled }}check green{{ else }}circle{{ fi }}"></i></span>
+					<span class="exec" data-exec="?/edit" data-id="{{ s.id }}" title="@(Edit)"><i class="ti ti-pencil"></i></span>
+					<span class="exec" data-exec="?/remove" data-id="{{ s.id }}" title="@(Remove)"><i class="ti ti-trash red"></i></span>
+				</div>
+				{{ end }}
+			</script>
+		</ui-bind>
+
+		<div class="caption mb10"><label><i class="ti ti-plus-circle"></i><ui-bind path="?.form.id" config="template" class="inline"><script type="text/html">{{ if value }}@(Edit the schedule){{ else }}@(New schedule){{ fi }}</script></ui-bind></label></div>
+		<div class="m">
+			<ui-component name="input" path="?.form.name" config="required:1;maxlength:60">@(Name)</ui-component>
+		</div>
+		<div class="row">
+			<div class="col-md-6 m">
+				<ui-component name="input" path="?.form.projectid" config="required:1;dirsource:?.projects;dirvalue:id;dirkey:name">@(Project)</ui-component>
+			</div>
+			<div class="col-md-6 m">
+				<ui-component name="input" path="?.form.model" config="required:1;dirsource:?.models;dirvalue:id;dirkey:name">@(Model)</ui-component>
+			</div>
+		</div>
+		<div class="m">
+			<ui-component name="input" path="?.form.text" config="required:1;type:multiline;height:90;placeholder:@(What Totem should do each time)">@(Prompt)</ui-component>
+		</div>
+		<div class="row">
+			<div class="col-md-4 m">
+				<ui-component name="input" path="?.form.kind" config="required:1;dirsource:?.kinds;dirvalue:id;dirkey:name">@(Runs)</ui-component>
+			</div>
+			<div class="col-md-4 m">
+				<ui-bind path="?.form.kind" config="show:value === 'interval'" class="block hidden"><ui-component name="input" path="?.form.interval" config="type:number;increment:1;min:5">@(Every, minutes)</ui-component></ui-bind>
+				<ui-bind path="?.form.kind" config="show:value === 'daily'" class="block hidden"><ui-component name="input" path="?.form.time" config="placeholder:07:30;maxlength:5">@(At, HH:MM of this computer)</ui-component></ui-bind>
+			</div>
+			<div class="col-md-4 m">
+				<ui-component name="input" path="?.form.mode" config="required:1;dirsource:?.modes;dirvalue:id;dirkey:name">@(Mode)</ui-component>
+			</div>
+		</div>
+		<ui-bind path="?.form.mode" config="show:value === 'build'" class="block hidden mb10">
+			<ui-component name="input" path="?.form.autoaccept" config="type:checkbox">@(Auto-accept edits)</ui-component>
+		</ui-bind>
+		<div class="mb10" style="display:flex;gap:8px">
+			<button class="tbtn tbtn-primary exec" data-exec="?/save"><i class="ti ti-check"></i>@(Save)</button>
+			<button class="tbtn exec" data-exec="?/blank">@(Clear the form)</button>
+		</div>
+	</div>
+	<nav>
+		<button name="cancel">@(Close)</button>
+	</nav>
+</ui-component>
+
+<script>
+
+	PLUGIN(function(exports) {
+
+		var projects = [];
+
+		function blank() {
+			var first = (exports.model.models || [])[0];
+			return { id: '', name: '', projectid: (projects[0] || {}).id || '', model: first ? first.id : '', text: '', kind: 'interval', interval: 60, time: '07:30', mode: 'plan', autoaccept: false };
+		}
+
+		exports.reload = function() {
+			exports.set('kinds', [{ id: 'interval', name: '@(Every N minutes)' }, { id: 'daily', name: '@(Every day)' }]);
+			exports.set('modes', [{ id: 'plan', name: '@(Plan, only reads)' }, { id: 'build', name: '@(Build)' }]);
+			exports.tapi('projects', function(response) {
+				projects = response;
+				exports.set('projects', response.map(p => ({ id: p.id, name: p.name })));
+				exports.tapi('providers_catalog', function(catalog) {
+					exports.set('models', catalog.map(m => ({ id: m.id, name: m.id })));
+					exports.refresh();
+					exports.set('form @reset', blank());
+				});
+			});
+		};
+
+		function when(s) {
+			return s.kind === 'daily' ? ('@(every day at) ' + s.time) : ('@(every) ' + s.interval + ' @(minutes)');
+		}
+
+		exports.refresh = function() {
+			exports.tapi('schedules', function(items) {
+				var names = {};
+				projects.forEach(p => names[p.id] = p.name);
+				exports.set('items', items);
+				exports.set('rows', items.map(function(s) {
+					var row = Object.assign({}, s);
+					row.projectname = names[s.projectid] || '?';
+					row.when = when(s);
+					row.modename = s.mode === 'build' ? '@(Build)' : '@(Plan)';
+					row.nexttext = s.next ? new Date(s.next).toLocaleString() : '';
+					return row;
+				}));
+			});
+		};
+
+		function find(id) {
+			return (exports.model.items || []).findItem('id', id);
+		}
+
+		exports.blank = function() {
+			exports.set('form @reset', blank());
+		};
+
+		exports.edit = function(el) {
+			var item = find(ATTRD(el));
+			item && exports.set('form @reset', { id: item.id, name: item.name, projectid: item.projectid, model: item.model, text: item.text, kind: item.kind, interval: item.interval || 60, time: item.time || '07:30', mode: item.mode, autoaccept: !!item.autoaccept });
+		};
+
+		exports.save = function() {
+			var form = exports.model.form;
+			var data = { id: form.id || undefined, projectid: form.projectid, name: form.name, text: form.text, model: form.model, kind: form.kind, interval: +form.interval || 0, time: form.time, mode: form.mode, autoaccept: !!form.autoaccept };
+			var item = form.id && find(form.id);
+			if (item)
+				data.enabled = item.enabled;
+			exports.tapi('schedules_save ERROR', data, function() {
+				SETTER('notify/success', '@(Saved)');
+				exports.set('form @reset', blank());
+				exports.refresh();
+			});
+		};
+
+		exports.toggle = function(el) {
+			var item = find(ATTRD(el));
+			if (!item)
+				return;
+			exports.tapi('schedules_save ERROR', { id: item.id, projectid: item.projectid, name: item.name, text: item.text, model: item.model, kind: item.kind, interval: item.interval, time: item.time, mode: item.mode, autoaccept: item.autoaccept, enabled: !item.enabled }, exports.refresh);
+		};
+
+		exports.run = function(el) {
+			exports.tapi('schedules_run/' + ATTRD(el) + ' ERROR', function() {
+				SETTER('notify/success', '@(Started in a new session)');
+				PLUGINS.projects && PLUGINS.projects.refresh();
+				exports.refresh();
+			});
+		};
+
+		exports.remove = function(el) {
+			var id = ATTRD(el);
+			SETTER('approve/show', '@(Remove this schedule?)', ':ti ti-trash: @(Remove)', function() {
+				exports.tapi('schedules_remove/' + id + ' ERROR', exports.refresh);
+			});
+		};
+
+	});
+
+</script>

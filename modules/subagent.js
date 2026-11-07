@@ -33,6 +33,7 @@ exports.run = function(parent, name, prompt, callid, callback) {
 		projectid: parent.projectid,
 		root: parent.root,
 		autoaccept: parent.autoaccept,
+		unattended: parent.unattended,
 		mode: parent.mode,
 		rules: rules(def),
 		model: parent.model,
@@ -149,7 +150,7 @@ exports.run = function(parent, name, prompt, callid, callback) {
 						return;
 					}
 
-					var user = { id: 'agent', sa: true, root: child.root, sessionid: child.sessionid, projectid: child.projectid, messageid: parent.message.id, callid: tool.id };
+					var user = { id: 'agent', sa: true, unattended: child.unattended, root: child.root, sessionid: child.sessionid, projectid: child.projectid, messageid: parent.message.id, callid: tool.id };
 
 					ACTION(meta.action, tool.arguments || {}).user(user).callback(function(err, response) {
 						if (child.aborted)

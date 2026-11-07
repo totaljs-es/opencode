@@ -41,6 +41,12 @@ exports.install = function() {
 	ROUTE('+API    ?    +questions_reply/{id}       --> Questions|reply');
 	ROUTE('+API    ?    -permissions_remove/{id}    --> Permissions|remove');
 
+	// Scheduled prompts
+	ROUTE('+API    ?    -schedules                  --> Schedules|list');
+	ROUTE('+API    ?    +schedules_save             --> Schedules|save');
+	ROUTE('+API    ?    -schedules_remove/{id}      --> Schedules|remove');
+	ROUTE('+API    ?    +schedules_run/{id}         --> Schedules|run');
+
 	// Providers
 	ROUTE('+API    ?    -providers                  --> Providers|list');
 	ROUTE('+API    ?    +providers_save             --> Providers|save');

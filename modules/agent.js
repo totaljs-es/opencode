@@ -316,6 +316,7 @@ exports.run = function(session, project, message, callback) {
 		projectid: project.id,
 		root: project.path,
 		autoaccept: !!session.autoaccept,
+		unattended: !!session.unattended,
 		mode: session.mode === 'plan' ? 'plan' : 'build',
 		aborted: false,
 		steps: 0,
@@ -725,7 +726,7 @@ function runtools(run, tools, callback) {
 			part.data.status = 'running';
 			FUNC.emit(run.sessionid, 'part.updated', { part: part });
 
-			var user = { id: 'agent', sa: true, root: run.root, sessionid: run.sessionid, projectid: run.projectid, messageid: run.message.id, callid: tool.id };
+			var user = { id: 'agent', sa: true, unattended: run.unattended, root: run.root, sessionid: run.sessionid, projectid: run.projectid, messageid: run.message.id, callid: tool.id };
 
 			ACTION(meta.action, part.data.input).user(user).callback(function(err, response) {
 				if (run.aborted)

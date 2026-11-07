@@ -77,6 +77,12 @@ exports.check = function(run, tool, input, callback) {
 			return;
 		}
 
+		// A scheduled run has nobody to ask: what needs an answer is refused
+		if (run.unattended) {
+			callback('deny', 'This run is unattended (a scheduled prompt): nobody can approve this action. Do not try again; say in your answer what you wanted to do.');
+			return;
+		}
+
 		// Ask the user and wait for Permissions|reply
 		var id = UID();
 		var event = { type: 'permission.ask', data: { id: id, tool: tool, input: input, patterns: [text] } };

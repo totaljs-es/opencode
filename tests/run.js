@@ -2003,6 +2003,116 @@ Test.push('listening beyond this computer needs a token', function(next) {
 	next();
 });
 
+Test.push('scheduled prompts', async function(next) {
+
+	// When a schedule is due
+	var now = new Date(2026, 10, 7, 12, 0, 0);
+	var minutes = n => new Date(now.getTime() - n * 60000).toISOString();
+	var item = { enabled: true, kind: 'interval', interval: 30, dtcreated: minutes(100) };
+	check('an interval schedule that never ran is due after its interval', MODS.schedules.due(item, now));
+	item.dtlast = minutes(10);
+	check('it is not due before the interval passes', !MODS.schedules.due(item, now));
+	item.dtlast = minutes(31);
+	check('it is due after it', MODS.schedules.due(item, now));
+	check('a disabled schedule is never due', !MODS.schedules.due(Object.assign({}, item, { enabled: false }), now));
+	check('the interval has a floor of 5 minutes', !MODS.schedules.due({ enabled: true, kind: 'interval', interval: 1, dtlast: minutes(3), dtcreated: minutes(9) }, now) && MODS.schedules.due({ enabled: true, kind: 'interval', interval: 1, dtlast: minutes(6), dtcreated: minutes(9) }, now));
+	var daily = { enabled: true, kind: 'daily', time: '07:30', dtcreated: minutes(60 * 30), dtlast: minutes(60 * 30) };
+	check('a daily schedule is due after its time', MODS.schedules.due(daily, now));
+	daily.dtlast = new Date(2026, 10, 7, 7, 31).toISOString();
+	check('and not again the same day', !MODS.schedules.due(daily, now));
+	daily.time = '18:00';
+	check('a time later today has not come yet', !MODS.schedules.due(Object.assign({}, daily, { dtlast: new Date(2026, 10, 6, 18, 1).toISOString() }), now));
+	check('the next run of a daily schedule is a future time', MODS.schedules.next(daily, now).getTime() > now.getTime());
+
+	// Saving
+	var base = { projectid: projectid, name: 'Morning review', text: 'Review the project and list what is wrong.', model: 'fake', kind: 'interval', interval: 60 };
+	var r = await api('schedules_save', Object.assign({}, base, { interval: 2 }));
+	check('an interval under 5 minutes is refused', !!r.err);
+	r = await api('schedules_save', Object.assign({}, base, { kind: 'daily', time: '25:99' }));
+	check('a wrong time is refused', !!r.err);
+	r = await api('schedules_save', Object.assign({}, base, { model: 'nothing:here' }));
+	check('an unknown model is refused', !!r.err);
+	r = await api('schedules_save', base);
+	var schedule = r.response;
+	check('a schedule is saved enabled, in plan mode, with its next run', schedule && schedule.id && schedule.enabled === true && schedule.mode === 'plan' && !!schedule.next);
+	r = await api('schedules_save', Object.assign({}, base, { id: schedule.id, name: 'Renamed', interval: 90, enabled: false }));
+	check('a schedule can be changed and switched off', r.response.name === 'Renamed' && r.response.interval === 90 && r.response.enabled === false && r.response.next === null);
+	r = await api('schedules?projectid=' + projectid);
+	r = await api('schedules', {});
+	check('the schedules are listed', r.response.some(x => x.id === schedule.id));
+
+	// Running one: a new unattended session in Plan mode that cannot change anything
+	events.length = 0;
+	requests.length = 0;
+	script = [
+		{ tools: [{ id: 'sw', name: 'write', arguments: { path: 'sched-plan.txt', content: 'x' } }] },
+		{ content: 'Report.' }
+	];
+	r = await api('schedules_run/' + schedule.id);
+	var sid = r.response.sessionid;
+	check('running a schedule creates a session', !!sid);
+	await idle(sid);
+	var created = await NOSQL('sessions').read().where('id', sid).promise();
+	check('the session is unattended, in plan mode, named after the schedule and linked to it', created.unattended === true && created.mode === 'plan' && /^Renamed - /.test(created.name) && created.scheduleid === schedule.id);
+	check('the prompt of the schedule was sent', requests[0].messages.some(m => m.role === 'user' && /Review the project/.test(m.content)));
+	check('plan mode refused the write', !Total.Fs.existsSync(Total.Path.join(PROJECT, 'sched-plan.txt')));
+	await until(() => MAIN.scheduled[schedule.id] === undefined);
+	var after = await NOSQL('schedules').read().where('id', schedule.id).promise();
+	check('the schedule keeps how the last run ended', after.laststatus === 'done' && after.lastsession === sid && !!after.dtlast);
+
+	// Build mode: nobody can approve, so only what is allowed already runs
+	events.length = 0;
+	requests.length = 0;
+	script = [
+		{ tools: [{ id: 'b1', name: 'write', arguments: { path: 'sched-build.txt', content: 'x' } }] },
+		{ tools: [{ id: 'b2', name: 'ask', arguments: { question: 'Which one?' } }] },
+		{ content: 'Done.' }
+	];
+	r = await api('schedules_save', Object.assign({}, base, { id: schedule.id, mode: 'build', autoaccept: false, enabled: true }));
+	r = await api('schedules_run/' + schedule.id);
+	await idle(r.response.sessionid);
+	check('in build mode without auto-accept the edit is refused, not asked', !Total.Fs.existsSync(Total.Path.join(PROJECT, 'sched-build.txt')) && requests[1].messages.some(m => m.role === 'tool' && /unattended/.test(m.content)));
+	check('no question waits for a person', !events.some(e => e.type === 'permission.ask' || e.type === 'question.ask'));
+	check('the question of the model is answered with nobody-is-here', requests[2].messages.some(m => m.role === 'tool' && /Nobody is here/.test(m.content)));
+
+	await until(() => MAIN.scheduled[schedule.id] === undefined);
+	events.length = 0;
+	script = [{ tools: [{ id: 'b3', name: 'write', arguments: { path: 'sched-build.txt', content: 'built' } }] }, { content: 'Done.' }];
+	r = await api('schedules_save', Object.assign({}, base, { id: schedule.id, mode: 'build', autoaccept: true, enabled: true }));
+	r = await api('schedules_run/' + schedule.id);
+	await idle(r.response.sessionid);
+	check('with auto-accept the edit runs', Total.Fs.existsSync(Total.Path.join(PROJECT, 'sched-build.txt')));
+
+	// Never two runs of the same schedule at the same time
+	MAIN.scheduled[schedule.id] = true;
+	r = await api('schedules_run/' + schedule.id);
+	check('a schedule that is running does not start again', !!r.err);
+	delete MAIN.scheduled[schedule.id];
+
+	// The tick starts what is due and only once
+	events.length = 0;
+	script = [{ content: 'Tick.' }];
+	await NOSQL('schedules').modify({ kind: 'interval', interval: 10, mode: 'plan', autoaccept: false, dtlast: new Date(Date.now() - 3600000).toISOString() }).where('id', schedule.id).promise();
+	var before = (await NOSQL('sessions').find().where('scheduleid', schedule.id).promise()).length;
+	await MODS.schedules.tick(new Date());
+	await until(() => MAIN.scheduled[schedule.id] === undefined);
+	var count = (await NOSQL('sessions').find().where('scheduleid', schedule.id).promise()).length;
+	check('the tick starts a due schedule', count === before + 1);
+	await MODS.schedules.tick(new Date());
+	check('and not again right away', (await NOSQL('sessions').find().where('scheduleid', schedule.id).promise()).length === count);
+
+	// A schedule of a project that is gone says so
+	await NOSQL('schedules').modify({ model: 'nothing:here' }).where('id', schedule.id).promise();
+	r = await api('schedules_run/' + schedule.id);
+	check('a model that is not available is reported', !!r.err);
+	after = await NOSQL('schedules').read().where('id', schedule.id).promise();
+	check('and stays in the schedule', after.laststatus === 'error' && /model/.test(after.lasterror));
+
+	r = await api('schedules_remove/' + schedule.id);
+	check('a schedule can be removed', r.response.success === true);
+	next();
+});
+
 Test.push('languages', async function(next) {
 
 	var Http = require('http');

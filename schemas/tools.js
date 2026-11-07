@@ -375,6 +375,12 @@ NEWACTION('Tools|ask', {
 	input: '*question:String // The question, options:[String] // Suggested answers',
 	action: function($, model) {
 
+		// A scheduled run has nobody to answer
+		if ($.user.unattended) {
+			$.callback('(Nobody is here to answer: this is a scheduled run. Decide with what you know, or stop and say what is missing.)');
+			return;
+		}
+
 		var id = UID();
 		var sessionid = $.user.sessionid;
 

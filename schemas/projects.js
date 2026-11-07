@@ -47,6 +47,7 @@ NEWACTION('Projects|remove', {
 	params: '*id',
 	action: async function($) {
 		var id = $.params.id;
+		await MODS.schedules.clear(id);
 		var sessions = await NOSQL('sessions').find().where('projectid', id).promise($);
 		var ids = sessions.map(s => s.id);
 
