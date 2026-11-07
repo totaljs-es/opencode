@@ -110,3 +110,16 @@ FUNC.scrub = function(text) {
 	// Common key formats
 	return text.replace(/\b(sk-[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9]{30,}|AKIA[0-9A-Z]{16})\b/g, '[secret]');
 };
+
+// A server that listens on more than this computer must have an access token: returns the reason when it must not start
+FUNC.listencheck = function(ip, token) {
+	var local = !ip || ip === 'localhost' || ip === '::1' || /^127\./.test(ip);
+	return local || token ? '' : 'The server listens on {0} and has no access token. Set `token` in the config (or listen on 127.0.0.1 with `$ip`).'.format(ip);
+};
+
+// The access token from a file (a Docker secret) when the config has none
+FUNC.readtoken = function() {
+	if (!CONF.token && CONF.tokenfile && Total.Fs.existsSync(CONF.tokenfile))
+		CONF.token = Total.Fs.readFileSync(CONF.tokenfile, 'utf8').trim();
+	return CONF.token;
+};

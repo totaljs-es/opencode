@@ -1,0 +1,11 @@
+version: 2
+updates:
+  # The base image of the Dockerfile is pinned by digest: this opens a pull request with the new digest when Node.js publishes a release
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

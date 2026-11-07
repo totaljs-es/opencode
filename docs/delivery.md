@@ -22,13 +22,21 @@ Today the data folder is `databases/` inside the application folder (`totem conf
 
 ## Docker
 
-The image is the application and nothing else:
+The image is the application and nothing else (`Dockerfile`, `.dockerignore`):
 
-- Base: the maintained Node.js LTS on Alpine, pinned and updated with the security releases.
-- Projects are bind-mounted (`/workspace`), data is a volume (`/data`), config is a mounted file.
-- Runs as a non-root user. The server listens on `0.0.0.0` inside the container, so an access token is mandatory and the container refuses to start without one.
+- Base: the maintained Node.js LTS on Alpine, pinned by digest (Dependabot opens a pull request with the new digest when Node.js publishes a release), plus `python3` for the interactive shell and `git` for the Git panel.
+- Projects are bind-mounted (`/workspace`), data is a volume (`/data`, linked to `databases/`), the access token is a Docker secret (`/run/secrets/totem_token`, read when `token` in the config is empty).
+- Runs as the non-root user `node`, in release mode (`--release`: without the watcher). The `config` of the image is the one of the application with `$ip : 0.0.0.0` and `tokenfile` set at build time. The server refuses to start (exit code 1) when it listens beyond this computer without an access token: that rule is in the application, so it also holds outside Docker.
 - Because commands run inside the container, this is also the isolated mode recommended for untrusted models ([security](security.md)).
-- Published image, tags per version and for `latest`; a `compose` example in `docs/` for the common case.
+- `docs/docker-compose.yml` is the example for the common case. The registry and the tags per version belong to the release workflow (not built yet).
+
+```bash
+docker build -t totem .
+echo "a-long-random-token" > token.txt
+docker run --rm -p 127.0.0.1:8000:8000 -v "$PWD/token.txt:/run/secrets/totem_token:ro" -v "$PWD:/workspace/project" -v totem-data:/data totem
+```
+
+`node scripts/docker-smoke.js [image] [folder]` is the smoke test: no token means no start; with a token it serves, refuses a request without it, opens the mounted project, lists its files and runs a command in the shell as a user that is not root. CI runs it (`.github/workflows/test.yml`) next to the unit tests. On Colima and Docker Desktop the folder for the temporary files must be shared with the virtual machine (the home folder, not `/tmp`).
 
 ## Native windows
 

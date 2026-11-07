@@ -48,7 +48,9 @@ Done: diagnostics from the checks of the project (not language servers, see deci
 
 ## Phase 5: shipping on servers
 
-Docker image, scheduled prompts, worktrees for parallel sessions, multi-user hardening. **Done when** the image runs from `docker run` with a token, with a mounted project, and the smoke test passes in CI.
+Docker image, scheduled prompts, worktrees for parallel sessions, multi-user hardening.
+
+Done: the Docker image with a token as a Docker secret, a mounted project and the smoke test (`scripts/docker-smoke.js`, in CI with the unit tests); the server refuses to listen beyond this computer without a token; `--release` really runs without the watcher now. Pending: scheduled prompts, worktrees, multi-user hardening, publishing the image. **Done when** the image runs from `docker run` with a token, with a mounted project, and the smoke test passes in CI.
 
 ## Phase 6: native windows
 

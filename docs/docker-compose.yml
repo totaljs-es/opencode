@@ -1,0 +1,26 @@
+# Totem in a container. The projects are bind-mounted under /workspace, the data is a volume, the access token is a Docker secret.
+#
+#   echo "a-long-random-token" > token.txt
+#   docker compose -f docs/docker-compose.yml up -d
+#
+# Then open http://localhost:8000 and open a folder under /workspace. Without a token the container refuses to start.
+# Add the providers (keys, Ollama on the host as http://host.docker.internal:11434) in Settings: they are kept in the data volume.
+
+services:
+  totem:
+    build: ..
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - totem-data:/data
+      - ../:/workspace/totem
+    secrets:
+      - totem_token
+    restart: unless-stopped
+
+secrets:
+  totem_token:
+    file: ../token.txt
+
+volumes:
+  totem-data:

@@ -1,6 +1,9 @@
 name                        : Total.js Totem
 version                     : 0.0.1
 $api                        : /api/
+
+// The address the server listens on. Only this computer by default; anything else (0.0.0.0 in the Docker image) needs `token`, and the server refuses to start without one
+$ip                         : 127.0.0.1
 $tmsmaxsize                 : 0
 
 // Totem as an MCP server (POST /$mcp/): other agents can list projects and sessions and send prompts. Off by default. With a token it asks for
@@ -12,6 +15,9 @@ secret                      :
 
 // When set, every request must send it (header x-token or the cookie created by /auth/)
 token                       :
+
+// A file with the access token (a Docker secret), read when `token` is empty
+tokenfile                   :
 
 // Temperature for the models that run on this computer (a low one keeps a small model to the instructions). Remote providers use their own.
 temperature       (Number)  : 0.2

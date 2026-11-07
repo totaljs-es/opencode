@@ -1,5 +1,13 @@
 ON('ready', function() {
 
+	FUNC.readtoken();
+	var reason = FUNC.listencheck(CONF.$ip, CONF.token);
+
+	if (reason) {
+		console.error('Total.js Totem: ' + reason);
+		process.exit(1);
+	}
+
 	// A secret for the keys of the providers, created once and saved with the data
 	if (!CONF.secret) {
 		var file = PATH.databases('secret.txt');

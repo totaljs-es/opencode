@@ -1988,6 +1988,21 @@ Test.push('interactive terminal', async function(next) {
 	next();
 });
 
+Test.push('listening beyond this computer needs a token', function(next) {
+	check('127.0.0.1 and localhost start without a token', !FUNC.listencheck('127.0.0.1', '') && !FUNC.listencheck('localhost', '') && !FUNC.listencheck('::1', '') && !FUNC.listencheck('', ''));
+	check('0.0.0.0 without a token is refused', /no access token/.test(FUNC.listencheck('0.0.0.0', '')));
+	check('another address without a token is refused', /no access token/.test(FUNC.listencheck('192.168.1.5', '')));
+	check('0.0.0.0 with a token starts', FUNC.listencheck('0.0.0.0', 'abc') === '');
+
+	var tokenfile = Total.Path.join(TMP, 'token.txt');
+	Total.Fs.writeFileSync(tokenfile, 'from-a-file\n');
+	CONF.tokenfile = tokenfile;
+	check('the token can come from a file', FUNC.readtoken() === 'from-a-file');
+	CONF.token = '';
+	CONF.tokenfile = '';
+	next();
+});
+
 Test.push('languages', async function(next) {
 
 	var Http = require('http');
