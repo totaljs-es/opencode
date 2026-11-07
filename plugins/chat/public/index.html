@@ -157,7 +157,10 @@
 							</div>
 							{{ fi }}
 							{{ if p.type === 'knowledge' }}
-							<div class="note"><i class="ti ti-book"></i> @(Pages of Forge used:) {{ p.data.pages | forgepages }}</div>
+							<div class="note"><i class="ti ti-book"></i> @(Knowledge used:) {{ p.data.pages | forgepages }}</div>
+							{{ fi }}
+							{{ if p.type === 'selfcheck' }}
+							<div class="note"><i class="ti ti-check-circle"></i> @(Totem checked the code of the answer and asked for a correction:) {{ p.data.rules.join(', ') }}</div>
 							{{ fi }}
 							{{ if p.type === 'compaction' }}
 							<div class="note"><i class="ti ti-compress"></i> @(Earlier turns were summarized to keep the conversation short.)</div>

@@ -244,6 +244,13 @@ exports.ollama = function(ai, callback) {
 	if (CONF.temperature != null && CONF.temperature !== '')
 		options.temperature = CONF.temperature;
 
+	// A small model can fall into a loop and repeat one paragraph until the context is full: a penalty for repeating, and a limit for one answer
+	if (CONF.ollamarepeat)
+		options.repeat_penalty = CONF.ollamarepeat;
+
+	if (CONF.ollamapredict)
+		options.num_predict = CONF.ollamapredict;
+
 	var body = { model: config.model, messages: exports.toollama(ai.payload.messages), stream: true, options: options };
 
 	if (tools)

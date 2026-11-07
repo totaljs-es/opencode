@@ -105,6 +105,7 @@ T1q6r7qk : El archivo es demasiado grande:
 T1qftkmv : Se muestran los primeros 100.
 T1qokrk4 : Apariencia
 T1qw7jns : Actualizar proveedor
+T1r0wli7 : Totem comprobó el código de la respuesta y pidió una corrección:
 T1r1ntsb : Otro, compatible con OpenAI
 T1r87y6a : Los turnos anteriores se resumieron para mantener la conversación corta.
 T1r8zt37 : Abrir una carpeta
@@ -200,6 +201,7 @@ Tosmo8z : Ajustes
 Tp6sjhp : El intervalo es de al menos {0} minutos
 Tpnaojj : en marcha
 Tqtg2co : Bifurcar desde aquí
+Trfcwd7 : Conocimiento usado:
 Tsioqms : El proyecto tiene cambios sin commitear: haz commit o stash primero
 Tsmkvh9 : este ordenador
 Tsnldwr : ¿Borrar esta sesión y sus mensajes? Los archivos del proyecto no se tocan.

@@ -967,7 +967,7 @@ Test.push('Total.js by default, with Forge in front of the prompt', async functi
 	await idle(id);
 	clearInterval(rejecter);
 	var system = requests[0].messages[0].content;
-	check('a new folder gets the Total.js primer with the jComponent warning', system.indexOf('not Java Swing') !== -1 && system.indexOf('NEWACTION(\'Tickets|list\'') !== -1 && system.indexOf("COMPONENT('counter'") !== -1);
+	check('a new folder gets the Total.js primer with the jComponent warning', system.indexOf('not Java Swing') !== -1 && system.indexOf('NEWACTION(\'Tickets|list\'') !== -1 && system.indexOf('never needs a user interface') !== -1);
 
 	events.length = 0;
 	requests.length = 0;
@@ -1000,7 +1000,7 @@ Test.push('Total.js by default, with Forge in front of the prompt', async functi
 
 	var r = await api('sessions_messages/' + id);
 	var knowledge = r.response.find(m => m.role === 'assistant').parts.find(p => p.type === 'knowledge');
-	check('the conversation shows the pages that were used', knowledge && knowledge.data.pages.length === 2 && knowledge.data.pages[0].url.indexOf('https://forge.totaljs.es') === 0);
+	check('the conversation shows what was used: the recipe of Totem and the two pages', knowledge && knowledge.data.pages.length === 3 && knowledge.data.pages[0].url === '' && /jComponent 20 component/.test(knowledge.data.pages[0].title) && knowledge.data.pages[1].url.indexOf('https://forge.totaljs.es') === 0);
 
 	// A greeting is not worth a search
 	events.length = 0;
@@ -1310,7 +1310,7 @@ Test.push('small models: temperature, reminder, and Forge for every project', as
 	await idle(tid);
 	clearInterval(rejecter);
 	var last = requests[0].messages[requests[0].messages.length - 1];
-	check('the prompt of a Total.js project ends with the reminder', last.role === 'user' && last.content.indexOf('a form with jcomponent') === 0 && /Total\.js 5 and jComponent 20.*not React/s.test(last.content));
+	check('the prompt of a Total.js project ends with the reminder', last.role === 'user' && last.content.indexOf('a form with jcomponent') === 0 && /Total\.js 5 and jComponent 20.*not Java, not React/s.test(last.content) && /TABS/.test(last.content));
 	var stored = (await api('sessions_messages/' + tid)).response.find(m => m.role === 'user').parts[0].data;
 	check('the reminder is not stored: the user sees only what they wrote', stored.text === 'a form with jcomponent' && JSON.stringify(stored).indexOf('Not plain JavaScript') === -1);
 
@@ -1321,6 +1321,92 @@ Test.push('small models: temperature, reminder, and Forge for every project', as
 	await api('sessions_prompt/' + plain, { text: 'a form with jcomponent' });
 	await idle(plain);
 	check('a plain Node.js project has no reminder', requests[0].messages[requests[0].messages.length - 1].content === 'a form with jcomponent');
+
+	// A question about the server does not mention the interface
+	events.length = 0;
+	requests.length = 0;
+	script = [{ content: 'ok' }];
+	rejecter = setInterval(() => events.filter(e => e.type === 'permission.ask').forEach(e => api('permissions_reply/' + e.data.id, { reply: 'reject' })), 30);
+	await api('sessions_prompt/' + tid, { text: 'show me a route that answers GET /hello' });
+	await idle(tid);
+	clearInterval(rejecter);
+	last = requests[0].messages[requests[0].messages.length - 1];
+	check('a question about a route gets the reminder of the style and no word of jComponent', /TABS/.test(last.content) && /ES5/.test(last.content) && !/jComponent/.test(last.content) && /use tools only to read or change files/.test(last.content));
+
+	// A model that says nothing (the server swallowed a broken tool call) gets the same request without tools, once
+	events.length = 0;
+	requests.length = 0;
+	script = [{ content: '' }, { content: 'The answer.' }];
+	rejecter = setInterval(() => events.filter(e => e.type === 'permission.ask').forEach(e => api('permissions_reply/' + e.data.id, { reply: 'reject' })), 30);
+	await api('sessions_prompt/' + tid, { text: 'how do I write a route' });
+	await idle(tid);
+	clearInterval(rejecter);
+	check('an empty answer is asked again without tools', requests.length === 2 && requests[0].tools && requests[0].tools.length > 0 && (!requests[1].tools || requests[1].tools.length === 0));
+	check('the empty answer is not kept in the conversation', !requests[1].messages.some(m => m.role === 'assistant' && !m.content && !m.tool_calls));
+	r = await api('sessions_messages/' + tid);
+	check('and the person sees the answer', r.response.filter(m => m.role === 'assistant').pop().parts.some(p => p.type === 'text' && p.data.text === 'The answer.'));
+
+	// The next request has its tools again
+	events.length = 0;
+	requests.length = 0;
+	script = [{ content: 'Second.' }];
+	rejecter = setInterval(() => events.filter(e => e.type === 'permission.ask').forEach(e => api('permissions_reply/' + e.data.id, { reply: 'reject' })), 30);
+	await api('sessions_prompt/' + tid, { text: 'and another route' });
+	await idle(tid);
+	clearInterval(rejecter);
+	check('the next prompt has its tools again', requests[0].tools && requests[0].tools.length > 0);
+
+	// The code of an answer is checked and the model corrects it once
+	function bad(code) {
+		return 'Here it is:\n\n```js\n' + code + '\n```';
+	}
+
+	var spaces = bad("exports.install = function() {\n    ROUTE('GET /hello', function($) {\n        $.plain('Hello');\n    });\n};");
+	var tabs = bad("exports.install = function() {\n\tROUTE('GET /hello', function($) {\n\t\t$.plain('Hello');\n\t});\n};");
+
+	async function ask(text, answers) {
+		events.length = 0;
+		requests.length = 0;
+		script = answers.map(content => ({ content: content }));
+		var rejecter = setInterval(() => events.filter(e => e.type === 'permission.ask').forEach(e => api('permissions_reply/' + e.data.id, { reply: 'reject' })), 30);
+		await api('sessions_prompt/' + tid, { text: text });
+		await idle(tid);
+		clearInterval(rejecter);
+	}
+
+	await ask('show me a route that answers GET /hello', [spaces, tabs]);
+	check('code with spaces is sent back to the model once, with what is wrong', requests.length === 2 && /spaces-indent/.test(requests[1].messages[requests[1].messages.length - 1].content) && /TABS/.test(requests[1].messages[requests[1].messages.length - 1].content));
+	r = await api('sessions_messages/' + tid);
+	var parts = r.response.filter(m => m.role === 'assistant').pop().parts;
+	check('the conversation says that the code was checked, and has the corrected answer', parts.some(p => p.type === 'selfcheck' && p.data.rules.indexOf('spaces-indent') !== -1) && parts.filter(p => p.type === 'text').pop().data.text.indexOf('\t$.plain') !== -1);
+
+	await ask('show me a route that answers GET /hello', [spaces, spaces, 'never']);
+	check('it asks only once: a second answer with the same problem is accepted', requests.length === 2);
+
+	await ask('show me a route that answers GET /hello', [tabs]);
+	check('clean code is not asked again', requests.length === 1);
+
+	await ask('show me a route that answers GET /hello', [bad("exports.install = function() {\n\tNEWUSER('x');\n\tSEND_ALL('y');\n};"), tabs]);
+	check('an invented function is reported, with its name', requests.length === 2 && /NEWUSER\(\) does not exist/.test(requests[1].messages[requests[1].messages.length - 1].content) && /SEND_ALL\(\) does not exist/.test(requests[1].messages[requests[1].messages.length - 1].content));
+
+	await ask('show me a route that answers GET /hello', [bad("var a = (;"), tabs]);
+	check('a syntax error is reported', requests.length === 2 && /syntax/.test(requests[1].messages[requests[1].messages.length - 1].content));
+
+	await ask('show me a route that answers GET /hello', [bad("var items = [];\nITEMS.push(1);\nvar x = UID();\nvar y = NOW;"), tabs]);
+	check('the globals of Total.js are not reported', requests.length === 1 || !/UID\(\) does not exist/.test(requests[1].messages[requests[1].messages.length - 1].content));
+
+	CONF.selfcheck = false;
+	await ask('show me a route that answers GET /hello', [spaces]);
+	CONF.selfcheck = true;
+	check('selfcheck false turns it off', requests.length === 1);
+
+	events.length = 0;
+	requests.length = 0;
+	script = [{ content: spaces }];
+	var plainid = (await api('sessions_create', { projectid: projectid, model: 'fake' })).response.id;
+	await api('sessions_prompt/' + plainid, { text: 'show me a route that answers GET /hello' });
+	await idle(plainid);
+	check('a project that is not Total.js is left alone', requests.length === 1);
 
 	// Always allow Forge once, for every project
 	var a = Total.Path.join(TMP, 'forge-a');
@@ -1386,7 +1472,7 @@ Test.push('Ollama with its own API', async function(next) {
 	await api('sessions_prompt/' + id, { text: 'hello' });
 	await idle(id);
 	var sent = mock.native[0];
-	check('Ollama gets /api/chat with a real context and the temperature of the config', mock.native.length === 1 && mock.requests.length === 0 && sent.stream === true && sent.options.num_ctx >= 16384 && sent.options.temperature === 0.2 && sent.messages[0].role === 'system' && sent.tools.length === 13);
+	check('Ollama gets /api/chat with a real context and the temperature of the config', mock.native.length === 1 && mock.requests.length === 0 && sent.stream === true && sent.options.num_ctx >= 16384 && sent.options.temperature === 0.2 && sent.options.repeat_penalty === 1.1 && sent.options.num_predict === 8192 && sent.messages[0].role === 'system' && sent.tools.length === 13);
 	var r = await api('sessions_messages/' + id);
 	var parts = r.response.find(m => m.role === 'assistant').parts;
 	check('the answer and the usage of the request are kept', parts.find(p => p.type === 'text').data.text === 'Hello from Ollama' && parts.find(p => p.type === 'step').data.tokens.input === 42 && parts.find(p => p.type === 'step').data.tokens.output === 7);
@@ -2205,6 +2291,30 @@ Test.push('a shared server: token, cookie, origins and headers', async function(
 	var program = await open({});
 	check('a WebSocket from a program stays open', program.closed === false && program.opened === true);
 	program.ws && program.ws.close();
+	next();
+});
+
+Test.push('recipes of Totem', function(next) {
+
+	var ids = text => MODS.knowledge.recipes(text).map(r => r.id);
+
+	check('a route question gets the recipe of routes', ids('How do I define a route in Total.js 5 that answers GET /hello with the text Hello?').indexOf('route') === 0);
+	check('a NoSQL question gets the recipe of NoSQL', ids('Insert a record in NoSQL and read it back with Total.js 5.')[0] === 'nosql');
+	check('a WebSocket question gets the recipe of WebSockets', ids('Create a WebSocket route in Total.js 5 that sends every message to all clients.').indexOf('websocket') !== -1);
+	check('a question about settings gets the recipe of the config', ids('Where does a Total.js 5 application keep its settings and how do I read one?')[0] === 'config');
+	check('a question about schedules gets the recipe of CRON', ids('Run a function every day at midnight in Total.js 5.')[0] === 'cron');
+	check('a question about outgoing requests gets RESTBuilder', ids('Make an outgoing HTTP GET request that returns JSON in Total.js 5.')[0] === 'restbuilder');
+	check('a question in Spanish finds the recipe too', ids('como creo una ruta que devuelva json en total.js').indexOf('route') !== -1);
+	check('a plugin question gets the recipe of plugins and a route question does not', ids('Write a plugin html file with a button that calls the server').indexOf('plugin') !== -1 && ids('Show me a controller with two routes').indexOf('plugin') === -1 && ids('Show me a controller with two routes').indexOf('component') === -1);
+	check('a greeting and a word of the topic alone get nothing', ids('hello how are you').length === 0 && ids('please write the text').length === 0);
+	check('a question about ids and dates gets UID and NOW, one about modules gets MODS', ids('How do I create an id and a creation date for a new record in Total.js 5?')[0] === 'uid-now' && ids('Show how to call a function of one of my modules from a Total.js 5 action.').indexOf('mods') !== -1);
+	check('the pages of Forge are written with the pipe of the conventions', MODS.knowledge.conventions("NEWACTION('Products/query', {\n}); ROUTE('+API ? -products --> Products/query'); NEWACTION('Reports/Categories/list', {}); var url = 'a/b';") === "NEWACTION('Products|query', {\n}); ROUTE('+API ? -products --> Products|query'); NEWACTION('Reports|Categories|list', {}); var url = 'a/b';");
+	check('at most two recipes by default and the best first', ids('route action nosql config cron websocket auth').length === 2 && MODS.knowledge.recipes('route action nosql', 1).length === 1);
+	check('every recipe has a title, keywords and a body with code', MODS.knowledge.recipes('route routes ruta controller action newaction nosql config cron websocket auth view plugin jcomponent restbuilder translate es5 func mods callback fs uid', 99).length === 18 && MODS.knowledge.recipes('nosql', 1)[0].body.indexOf('```js') !== -1);
+
+	var all = MODS.knowledge.recipes('route routes ruta controller action newaction nosql config cron websocket auth view plugin jcomponent restbuilder translate es5 func mods callback fs uid', 99);
+	var codes = all.map(r => (r.body.match(/```js\n[\s\S]*?```/g) || []).map(b => b.replace(/```js\n|```/g, ''))).reduce((list, items) => list.concat(items), []);
+	check('the code of the recipes follows the conventions it teaches: tabs, no let or const, no arrow functions', codes.length > 10 && codes.every(code => !/^ {2,}\S/m.test(code) && !/^\s*(let|const)\s/m.test(code) && !/=>/.test(code) && !/`/.test(code)));
 	next();
 });
 

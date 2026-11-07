@@ -27,10 +27,10 @@ Thelpers.tokens = function(items) {
 	return total ? (total.format(0) + ' tokens' + (cost ? (' · $' + (cost < 0.01 ? cost.toFixed(4) : cost.toFixed(2))) : '')) : '';
 };
 
-// The pages of Forge that were used for a prompt, as links
+// The knowledge that was used for a prompt: the pages of Forge as links, the recipes of Totem as text
 Thelpers.forgepages = function(pages) {
 	return (pages || []).map(function(p) {
-		return '<a href="' + Thelpers.encode(p.url || '#') + '" target="_blank" rel="noopener">' + Thelpers.encode(p.title) + '</a>';
+		return p.url ? ('<a href="' + Thelpers.encode(p.url) + '" target="_blank" rel="noopener">' + Thelpers.encode(p.title) + '</a>') : ('<span>' + Thelpers.encode(p.title) + '</span>');
 	}).join(' · ');
 };
 

@@ -105,6 +105,7 @@ T1q6r7qk : Súbor je príliš veľký:
 T1qftkmv : Zobrazuje sa prvých 100.
 T1qokrk4 : Vzhľad
 T1qw7jns : Aktualizovať poskytovateľa
+T1r0wli7 : Totem skontroloval kód odpovede a požiadal o opravu:
 T1r1ntsb : Iný, kompatibilný s OpenAI
 T1r87y6a : Predchádzajúce kolá boli zhrnuté, aby bola konverzácia krátka.
 T1r8zt37 : Otvoriť priečinok
@@ -200,6 +201,7 @@ Tosmo8z : Nastavenia
 Tp6sjhp : Interval je aspoň {0} minút
 Tpnaojj : beží
 Tqtg2co : Rozvetviť odtiaľto
+Trfcwd7 : Použité znalosti:
 Tsioqms : Projekt má necommitnuté zmeny: najprv ich commitni alebo daj do stash
 Tsmkvh9 : tento počítač
 Tsnldwr : Odstrániť túto reláciu a jej správy? Súbory projektu sa nezmenia.

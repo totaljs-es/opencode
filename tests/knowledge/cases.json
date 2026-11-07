@@ -1,0 +1,434 @@
+[
+	{
+		"id": "route-plain",
+		"topic": "routes",
+		"prompt": "How do I define a route in Total.js 5 that answers GET /hello with the text Hello?",
+		"must": [
+			"ROUTE\\(\\s*['\"]GET /hello",
+			"exports\\.install",
+			"\\$\\.(plain|text)\\("
+		],
+		"mustnot": [
+			"express",
+			"app\\.get\\(",
+			"res\\.send"
+		],
+		"mustnotcode": [
+			"[jJ][cC]omponent",
+			"COMPONENT\\(",
+			"<ui-component"
+		],
+		"code": "js"
+	},
+	{
+		"id": "route-api",
+		"topic": "routes",
+		"prompt": "Create an API route and its action that lists tickets in Total.js 5.",
+		"must": [
+			"NEWACTION\\(\\s*'[A-Za-z]+\\|[a-z]+'",
+			"ROUTE\\(\\s*'\\+API \\?[^']*-->\\s*[A-Za-z]+\\|[a-z]+",
+			"\\$\\.callback\\("
+		],
+		"mustnot": [
+			"express",
+			"app\\.get\\("
+		],
+		"mustnotcode": [
+			"[jJ][cC]omponent",
+			"COMPONENT\\(",
+			"<ui-component",
+			"=>"
+		],
+		"code": "js"
+	},
+	{
+		"id": "route-explain",
+		"topic": "routes",
+		"prompt": "Explain how ROUTE() works in Total.js 5, with a short example.",
+		"must": [
+			"ROUTE\\("
+		],
+		"mustnot": [
+			"express"
+		],
+		"mustnotcode": [
+			"[jJ][cC]omponent",
+			"COMPONENT\\(",
+			"<ui-component"
+		]
+	},
+	{
+		"id": "action-input",
+		"topic": "actions",
+		"prompt": "Write a Total.js 5 action that creates a user with a required name and an optional email.",
+		"must": [
+			"NEWACTION\\(",
+			"input\\s*:\\s*'[^']*\\*name",
+			"\\$\\.(success|callback)\\("
+		],
+		"mustnot": [
+			"req\\.body",
+			"express",
+			"mongoose"
+		],
+		"mustnotcode": [
+			"[jJ][cC]omponent",
+			"COMPONENT\\("
+		],
+		"code": "js"
+	},
+	{
+		"id": "action-pipe",
+		"topic": "actions",
+		"prompt": "What separator do action names use in Total.js 5, and what is an example name?",
+		"must": [
+			"\\|",
+			"pipe|vertical bar"
+		],
+		"mustnotcode": [
+			"NEWACTION\\(\\s*'[A-Za-z]+/[a-z]+'"
+		]
+	},
+	{
+		"id": "action-answer",
+		"topic": "actions",
+		"prompt": "In a Total.js 5 action, how do I answer with data, with just success, and with a 404 error?",
+		"must": [
+			"\\$\\.callback\\(",
+			"\\$\\.success\\(",
+			"\\$\\.invalid\\("
+		],
+		"mustnot": [
+			"res\\.json",
+			"res\\.status"
+		]
+	},
+	{
+		"id": "nosql",
+		"topic": "storage",
+		"prompt": "Insert a record in NoSQL and read it back with Total.js 5.",
+		"must": [
+			"NOSQL\\(",
+			"\\.insert\\(",
+			"\\.(promise|callback)\\("
+		],
+		"mustnot": [
+			"mongoose",
+			"mongodb",
+			"sequelize",
+			"sqlite"
+		],
+		"mustnotcode": [
+			"require\\("
+		],
+		"code": "js"
+	},
+	{
+		"id": "uid-now",
+		"topic": "storage",
+		"prompt": "How do I create an id and a creation date for a new record in Total.js 5?",
+		"must": [
+			"UID\\(\\)",
+			"NOW"
+		],
+		"mustnot": [
+			"uuid",
+			"nanoid"
+		]
+	},
+	{
+		"id": "es5-style",
+		"topic": "style",
+		"prompt": "Write a function in the style of Total.js 5 code that sums the numbers of an array.",
+		"must": [
+			"\\bvar\\b",
+			"\\bfunction\\b"
+		],
+		"mustnotcode": [
+			"=>",
+			"\\bconst\\b",
+			"\\blet\\b",
+			"\\.reduce\\(",
+			"`"
+		],
+		"code": "js"
+	},
+	{
+		"id": "no-node-require",
+		"topic": "style",
+		"prompt": "Show the code of a function of a Total.js 5 module that reads a text file.",
+		"must": [
+			"Total\\.Fs"
+		],
+		"mustnotcode": [
+			"require\\(\\s*['\"](node:)?fs"
+		],
+		"code": "js"
+	},
+	{
+		"id": "restbuilder",
+		"topic": "http",
+		"prompt": "Make an outgoing HTTP GET request that returns JSON in Total.js 5.",
+		"must": [
+			"RESTBuilder"
+		],
+		"mustnot": [
+			"axios",
+			"node-fetch",
+			"superagent"
+		],
+		"mustnotcode": [
+			"require\\(",
+			"[jJ][cC]omponent"
+		],
+		"code": "js"
+	},
+	{
+		"id": "config",
+		"topic": "config",
+		"prompt": "Where does a Total.js 5 application keep its settings and how do I read one in code?",
+		"must": [
+			"config",
+			"CONF\\."
+		],
+		"mustnot": [
+			"dotenv"
+		],
+		"mustnotcode": [
+			"process\\.env"
+		]
+	},
+	{
+		"id": "localization",
+		"topic": "style",
+		"prompt": "How do I mark a text for translation in Total.js 5?",
+		"must": [
+			"@\\("
+		]
+	},
+	{
+		"id": "func-main",
+		"topic": "structure",
+		"prompt": "Where do shared helper functions and shared state go in a Total.js 5 application?",
+		"must": [
+			"FUNC",
+			"MAIN"
+		]
+	},
+	{
+		"id": "mods",
+		"topic": "structure",
+		"prompt": "Show how to call a function of one of my modules from a Total.js 5 action.",
+		"must": [
+			"MODS"
+		],
+		"mustnotcode": [
+			"require\\("
+		]
+	},
+	{
+		"id": "websocket",
+		"topic": "routes",
+		"prompt": "Create a WebSocket route in Total.js 5 that sends every message it receives to all clients.",
+		"must": [
+			"ROUTE\\(\\s*'(\\+)?SOCKET"
+		],
+		"mustnot": [
+			"socket\\.io",
+			"require\\(\\s*['\"]ws"
+		],
+		"mustnotcode": [
+			"[jJ][cC]omponent",
+			"COMPONENT\\("
+		],
+		"code": "js"
+	},
+	{
+		"id": "structure",
+		"topic": "structure",
+		"prompt": "What folders and files does a new Total.js 5 project have?",
+		"must": [
+			"controllers",
+			"schemas",
+			"definitions",
+			"config",
+			"index\\.js"
+		],
+		"mustnot": [
+			"express"
+		]
+	},
+	{
+		"id": "index-js",
+		"topic": "structure",
+		"prompt": "Show the index.js of a Total.js 5 application.",
+		"must": [
+			"require\\('total5'\\)",
+			"F\\.run\\("
+		],
+		"mustnot": [
+			"express",
+			"\\.listen\\("
+		],
+		"code": "js"
+	},
+	{
+		"id": "auth",
+		"topic": "auth",
+		"prompt": "How do I make sure that only signed in users can call my routes in Total.js 5?",
+		"must": [
+			"AUTH\\(",
+			"\\$\\.success\\("
+		],
+		"mustnot": [
+			"passport",
+			"jsonwebtoken",
+			"express-session"
+		],
+		"code": "js"
+	},
+	{
+		"id": "cron",
+		"topic": "jobs",
+		"prompt": "Run a function every day at midnight in Total.js 5.",
+		"must": [
+			"CRON\\("
+		],
+		"mustnot": [
+			"node-cron",
+			"setInterval"
+		],
+		"code": "js"
+	},
+	{
+		"id": "view",
+		"topic": "views",
+		"prompt": "Render a view with data from a route in Total.js 5.",
+		"must": [
+			"\\$\\.view\\("
+		],
+		"mustnot": [
+			"res\\.render",
+			"ejs",
+			"pug"
+		],
+		"code": "js"
+	},
+	{
+		"id": "component",
+		"topic": "jcomponent",
+		"prompt": "Write a jComponent 20 component that shows a counter with a button that adds one.",
+		"must": [
+			"COMPONENT\\(",
+			"self\\.make",
+			"self\\.(setter|set)\\("
+		],
+		"mustnot": [
+			"React",
+			"useState",
+			"Vue"
+		],
+		"code": "js"
+	},
+	{
+		"id": "plugin",
+		"topic": "jcomponent",
+		"prompt": "Write a Totem or Total.js 5 plugin html file with a button that loads items from the server and shows them.",
+		"must": [
+			"<ui-plugin",
+			"PLUGIN\\(function\\(exports\\)",
+			"tapi",
+			"exec"
+		],
+		"mustnot": [
+			"React",
+			"jQuery\\.ajax",
+			"axios"
+		],
+		"code": "html"
+	},
+	{
+		"id": "cdn",
+		"topic": "jcomponent",
+		"prompt": "How do I load jComponent 20 in a page?",
+		"must": [
+			"cdn\\.componentator\\.com",
+			"spa\\.min@20"
+		],
+		"mustnot": [
+			"npm install"
+		],
+		"code": "html"
+	},
+	{
+		"id": "ui-tag",
+		"topic": "jcomponent",
+		"prompt": "How do I use a jComponent component in HTML and bind it to a value?",
+		"must": [
+			"<ui-component[^>]*name=",
+			"path="
+		],
+		"code": "html"
+	},
+	{
+		"id": "what-is-jcomponent",
+		"topic": "jcomponent",
+		"prompt": "What is jComponent?",
+		"must": [
+			"Total\\.js"
+		],
+		"mustnot": [
+			"Swing",
+			"javax",
+			"Java library",
+			"React"
+		]
+	},
+	{
+		"id": "no-ui-in-backend",
+		"topic": "focus",
+		"prompt": "Show me a Total.js 5 controller with two routes: one for GET /status that returns JSON and one for POST /ping that returns ok.",
+		"must": [
+			"exports\\.install",
+			"ROUTE\\("
+		],
+		"mustnot": [
+			"express"
+		],
+		"mustnotcode": [
+			"[jJ][cC]omponent",
+			"COMPONENT\\(",
+			"<ui-component",
+			"<script"
+		],
+		"code": "js"
+	},
+	{
+		"id": "not-total4",
+		"topic": "focus",
+		"prompt": "Create a controller in Total.js with a route for GET /users.",
+		"must": [
+			"ROUTE\\("
+		],
+		"mustnot": [
+			"\\bF\\.route\\(",
+			"framework\\.route",
+			"exports\\.install = function\\(\\) \\{\\s*F\\.route"
+		],
+		"mustnotcode": [
+			"\\$\\.callback\\(\\)\\s*;?\\s*//\\s*total4"
+		],
+		"code": "js"
+	},
+	{
+		"id": "dont-invent",
+		"topic": "focus",
+		"prompt": "Is there a function sendEverything() in Total.js 5 that sends all the data of a database to the client?",
+		"must": [
+			"\\b([Nn]one|[Nn]o|not|cannot|can't|isn't|doesn't|does not)\\b"
+		],
+		"mustnotcode": [
+			"sendEverything\\("
+		]
+	}
+]

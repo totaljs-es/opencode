@@ -113,7 +113,17 @@ function textof(content) {
 	return content.map(part => part.type === 'text' ? part.text : '[image]').join('\n');
 }
 
-var REMINDER = '\n\n(Write it with Total.js 5 and jComponent 20, and follow the pages of Forge above when there are any. Not plain JavaScript, not Java, not React or another framework.)';
+// The last message of the user in a Total.js project ends with a reminder: a small model follows the end of the conversation better than the
+// beginning. It is about the style and about not inventing; the user interface is only mentioned when the request is about one (a reminder
+// that always says "jComponent" makes a model put jComponent in a route).
+var REMINDER = '\n\n(Total.js 5, in its style: indent with TABS, ES5 (var and function, no =>, const, let or template literals), texts for people marked for translation as the recipes show, Total.Fs and not require(\'fs\'). Follow the recipes and the pages above; when they do not have what you need, say so instead of inventing a function. Answer with the code in plain text: use tools only to read or change files of the project.)';
+var REMINDERUI = '\n\n(Total.js 5 and jComponent 20, the interface library of Total.js: not Java, not React or another framework. Style: indent with TABS, ES5 (var and function, no =>, const, let or template literals), texts for people marked for translation as the recipes show. Follow the recipes and the pages above; when they do not have what you need, say so instead of inventing a function. Answer with the code in plain text: use tools only to read or change files of the project.)';
+var UIWORDS = /jcomponent|ui-component|ui-plugin|\bcomponent|\bplugin\b|\bform\b|\bbutton|\bscreen|\bpage\b|\bhtml\b|\btable\b|\binterface|\bfrontend|\bpantalla|formulario|bot[oó]n|componente|interfaz|tangular|\bui\b/i;
+
+function reminderof(content) {
+	var text = Array.isArray(content) ? content.filter(part => part.type === 'text').map(part => part.text).join(' ') : (content || '');
+	return UIWORDS.test(text) ? REMINDERUI : REMINDER;
+}
 
 // The last message, when it is the one of the user, ends with the reminder
 function withreminder(messages) {
@@ -124,11 +134,12 @@ function withreminder(messages) {
 		return messages;
 
 	var copy = messages.slice();
+	var reminder = reminderof(last.content);
 
 	if (Array.isArray(last.content))
-		copy[copy.length - 1] = Object.assign({}, last, { content: last.content.map((part, index) => index === 0 && part.type === 'text' ? Object.assign({}, part, { text: part.text + REMINDER }) : part) });
+		copy[copy.length - 1] = Object.assign({}, last, { content: last.content.map((part, index) => index === 0 && part.type === 'text' ? Object.assign({}, part, { text: part.text + reminder }) : part) });
 	else
-		copy[copy.length - 1] = Object.assign({}, last, { content: (last.content || '') + REMINDER });
+		copy[copy.length - 1] = Object.assign({}, last, { content: (last.content || '') + reminder });
 
 	return copy;
 }
@@ -435,7 +446,7 @@ function request(run, finish, fail) {
 	if (meta.vision === false)
 		ai.payload.messages = withoutimages(ai.payload.messages);
 
-	ai.payload.tools = meta.tools === false ? [] : exports.definitions(null, run.mode).concat((run.mcp && run.mcp.defs) || []);
+	ai.payload.tools = (meta.tools === false || run.notools) ? [] : exports.definitions(null, run.mode).concat((run.mcp && run.mcp.defs) || []);
 	ai.payload.reasoning = run.reasoning;
 	run.ai = ai;
 
@@ -517,9 +528,31 @@ function request(run, finish, fail) {
 			if (stored && t.thoughtSignature)
 				stored.data.thoughtSignature = t.thoughtSignature;
 		});
+		// A small model that tries a tool call with a broken JSON makes the server swallow its text: nothing comes back at all. The same request
+		// without tools gets the answer that it was going to give.
+		if (!tools.length && !(output.content || '').trim() && !(output.thinking || '').trim() && !run.emptyretry) {
+			run.emptyretry = true;
+			run.notools = true;
+			step(run, finish, fail);
+			return;
+		}
+
+		run.notools = false;
 		run.messages.push(msg);
 
 		if (!tools.length) {
+
+			// The code of the answer is checked like the files that the tools write; the model corrects it once
+			var problems = (CONF.selfcheck !== false && !run.selfchecked && MODS.instructions.istotaljs(run.root)) ? MODS.conventions.answer(output.content || '') : [];
+
+			if (problems.length) {
+				run.selfchecked = true;
+				addpart(run, 'selfcheck', { problems: problems.length, rules: problems.map(p => p.rule).filter((value, index, list) => list.indexOf(value) === index) }, true);
+				run.messages.push({ role: 'user', content: MODS.conventions.complaint(problems) });
+				step(run, finish, fail);
+				return;
+			}
+
 			finish('idle');
 			return;
 		}

@@ -27,6 +27,11 @@ temperature       (Number)  : 0.2
 ollamactx         (Number)  : 16384
 ollamactxmax      (Number)  : 32768
 
+// A small model can fall into a loop and repeat a paragraph until the context is full. Ollama is asked to penalize repeating (1 is off) and to stop one
+// answer after this many tokens (0 is no limit).
+ollamarepeat      (Number)  : 1.1
+ollamapredict     (Number)  : 8192
+
 // Agent limits
 maxsteps          (Number)  : 50
 bashtimeout       (Number)  : 120000
@@ -41,6 +46,12 @@ totaljs                     : auto
 // The knowledge that Totem brings to Total.js 5 projects: the documentation of Forge (asks before it starts) and the check of the conventions
 forge                       : true
 // How many pages of Forge are read for a prompt, and how many characters of each
+// The recipes of Totem (private/recipes) that go in front of the model for a request about Total.js 5: how many at most, and false to turn them off
+recipes                     : true
+
+// The code in the answer of the model is checked against the conventions (syntax, style, invented functions) and the model corrects it once. false turns it off.
+selfcheck                   : true
+reciperesults     (Number)  : 2
 forgepages        (Number)  : 2
 forgechars        (Number)  : 3500
 conventions                 : true
