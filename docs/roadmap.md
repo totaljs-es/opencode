@@ -42,7 +42,9 @@ Done: provider templates, detection of Ollama, llama.cpp and LM Studio on this c
 
 ## Phase 4: depth
 
-Interactive terminal (PTY), language server diagnostics. **Done when** the agent reads diagnostics after an edit and the terminal survives a reload.
+Interactive terminal (PTY), diagnostics after an edit. **Done when** the agent reads diagnostics after an edit and the terminal survives a reload.
+
+Done: diagnostics from the checks of the project (not language servers, see decisions), and the interactive shell in the Terminal panel (pseudo-terminal from the Python standard library, survives a reload, plain text output). Pending: a terminal emulator for full-screen programs, Windows (phase 6), the same terminal as an independent tab without a session.
 
 ## Phase 5: shipping on servers
 

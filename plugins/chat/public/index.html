@@ -28,6 +28,11 @@
 	.CLASS .termcmd b { font-family: monospace; word-break: break-all; }
 	.CLASS .termout { background: #1B1D1B; color: #D8DAD8; border-radius: var(--radius, 6px); padding: 8px 10px; margin: 4px 0 0; max-height: 320px; overflow: auto; white-space: pre-wrap; word-break: break-all; font-size: 12px; }
 	.CLASS .termbox:has(.termjob) .termnote { display: none; }
+	.CLASS .shellbox { margin-bottom: 16px; }
+	.CLASS .shellbox .shellout { min-height: 120px; max-height: 360px; font-family: monospace; }
+	.CLASS .shellbox .shellrow { display: flex; gap: 6px; margin-top: 6px; align-items: center; }
+	.CLASS .shellbox .shellinput { flex: 1; min-width: 0; height: 30px; padding: 0 10px; border: 1px solid var(--t-border); border-radius: var(--radius, 6px); background: var(--t-card); color: inherit; font-family: monospace; font-size: 12px; }
+	.CLASS .shellbox .shellrow .tbtn { flex: 0 0 auto; }
 	.CLASS .part { margin-bottom: 8px; }
 	.CLASS .part.live { white-space: pre-wrap; overflow-wrap: anywhere; }
 	.CLASS .part pre { background: var(--t-soft); color: inherit; border: 1px solid var(--t-border); border-radius: var(--radius, 6px); padding: 10px 12px; overflow: auto; font-size: 12px; }
@@ -262,6 +267,16 @@
 	</div>
 
 	<ui-bind path="?.showterm" config="show:value" class="hidden side termbox">
+		<div class="shellbox">
+			<div class="termhead">@(Shell)</div>
+			<pre class="termout shellout"></pre>
+			<div class="shellrow">
+				<input type="text" class="shellinput" placeholder="@(Type a command and press Enter)" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="@(Type a command and press Enter)" />
+				<button class="tbtn exec shellopen" data-exec="?/shellopen">@(Open shell)</button>
+				<button class="tbtn exec shellkeys hidden" data-exec="?/shellkey" data-key="ctrlc" title="@(Interrupt the command, Ctrl+C)">@(Interrupt)</button>
+				<button class="tbtn exec shellkeys hidden" data-exec="?/shellclose">@(Close)</button>
+			</div>
+		</div>
 		<ui-bind path="?.jobs" config="template" class="block">
 			<script type="text/html">
 				{{ if value && value.length }}<div class="termhead">@(Running in the background)</div>{{ fi }}
@@ -495,6 +510,7 @@
 			});
 
 			refreshdiff();
+			exports.model.showterm && shellattach(false);
 
 			exports.tapi('sessions_messages/' + id + ' ERROR', function(items) {
 				for (var m of items) {
@@ -709,6 +725,17 @@
 					exports.set('asks', (exports.model.asks || []).filter(function(a) { return a.id !== data.id; }));
 					break;
 
+				case 'terminal.output':
+					shellraw += data.text;
+					if (shellraw.length > 100000)
+						shellraw = shellraw.substring(shellraw.length - 100000);
+					shellrender();
+					break;
+
+				case 'terminal.exit':
+					shellstate(false);
+					break;
+
 				case 'error':
 					SETTER('notify/warning', data.message);
 					break;
@@ -863,7 +890,107 @@
 			exports.set('showterm', show);
 			show && exports.set('showdiff', false);
 			refreshjobs();
+			show && shellattach(false);
 		};
+
+		// The interactive shell: a terminal of the user in the project folder. It lives on the server, so a reload opens it again with its output.
+		var shellraw = '';
+		var shellon = false;
+
+		function shellplain(raw) {
+			var text = raw.replace(/\x1b\][^\x07\x1b]*(\x07|\x1b\\)/g, '').replace(/\x1b\[[0-9;?]*[ -\/]*[@-~]/g, '').replace(/\x1b[()][0-9A-Za-z]/g, '').replace(/\x1b[=>78]/g, '').replace(/\r\n/g, '\n');
+			var out = [];
+			text.split('\n').forEach(function(line) {
+				var segments = line.split('\r');
+				var current = '';
+				segments.forEach(function(segment) {
+					current = segment.length >= current.length ? segment : (segment + current.substring(segment.length));
+				});
+				while (/[^\x08]\x08/.test(current))
+					current = current.replace(/[^\x08]\x08/, '');
+				out.push(current.replace(/\x08/g, ''));
+			});
+			return out.join('\n');
+		}
+
+		function shellrender() {
+			var el = $('.CLASS .shellout');
+			if (!el.length)
+				return;
+			el.text(shellplain(shellraw));
+			el[0].scrollTop = el[0].scrollHeight;
+		}
+
+		function shellstate(on) {
+			shellon = on;
+			$('.CLASS .shellopen').toggleClass('hidden', on);
+			$('.CLASS .shellkeys').toggleClass('hidden', !on);
+		}
+
+		function shellsize() {
+			var el = $('.CLASS .shellout');
+			var width = el.length ? el[0].clientWidth : 0;
+			return { columns: Math.max(40, Math.floor((width || 340) / 7.3)), rows: 24 };
+		}
+
+		function shellsend(text) {
+			if (!shellon || !sessionid)
+				return;
+			exports.tapi('sessions_terminalinput/' + sessionid, { data: btoa(unescape(encodeURIComponent(text))) });
+		}
+
+		// Reattaches to the shell of the session when it exists (after a reload or when another session is opened)
+		function shellattach(start) {
+			shellraw = '';
+			shellrender();
+			shellstate(false);
+			if (!sessionid)
+				return;
+			var size = shellsize();
+			exports.tapi('sessions_terminal/' + sessionid, { start: !!start, columns: size.columns, rows: size.rows }, function(response) {
+				shellraw = response.output || '';
+				shellstate(response.status === 'running');
+				shellrender();
+			});
+		}
+
+		exports.shellopen = function() {
+			shellattach(true);
+			setTimeout(function() {
+				$('.CLASS .shellinput').focus();
+			}, 100);
+		};
+
+		exports.shellclose = function() {
+			exports.tapi('sessions_terminalstop/' + sessionid, function() {
+				shellstate(false);
+			});
+		};
+
+		exports.shellkey = function(el) {
+			$(el).attr('data-key') === 'ctrlc' && shellsend('\x03');
+		};
+
+		$(document).on('keydown', '.CLASS .shellinput', function(e) {
+			var input = e.target;
+			if (e.key === 'Enter') {
+				shellsend(input.value + '\n');
+				input.value = '';
+			}
+			else if (e.key === 'Tab') {
+				shellsend(input.value + '\t');
+				input.value = '';
+			}
+			else if (e.key === 'ArrowUp' && !input.value)
+				shellsend('\x1b[A');
+			else if (e.key === 'ArrowDown' && !input.value)
+				shellsend('\x1b[B');
+			else if (e.key === 'c' && e.ctrlKey && !input.value)
+				shellsend('\x03');
+			else
+				return;
+			e.preventDefault();
+		});
 
 		exports.stopjob = function(el) {
 			exports.tapi('sessions_jobstop/' + sessionid + ' ERROR', { job: ATTRD(el) }, refreshjobs);

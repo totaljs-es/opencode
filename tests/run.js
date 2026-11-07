@@ -1548,6 +1548,27 @@ Test.push('Plan mode, formatter, init and secrets', async function(next) {
 	check('the model is told that the file was formatted', requests[1].messages.some(m => m.role === 'tool' && /Formatted with upper/.test(m.content)));
 	check('another extension is left alone', Total.Fs.readFileSync(Total.Path.join(PROJECT, 'g.txt'), 'utf8') === 'abc');
 
+	// Diagnostics: the model hears about a broken file in the same step
+	events.length = 0;
+	requests.length = 0;
+	script = [
+		{ tools: [{ id: 'dw1', name: 'write', arguments: { path: 'bad.js', content: 'function (' } }] },
+		{ tools: [{ id: 'dw2', name: 'write', arguments: { path: 'good.js', content: 'var a = 1;\n' } }] },
+		{ tools: [{ id: 'dw3', name: 'write', arguments: { path: 'bad.json', content: '{ "a": ' } }] },
+		{ content: 'ok' }
+	];
+	await api('sessions_prompt/' + id, { text: 'diagnostics' });
+	await idle(id);
+	var tools = r => requests[r].messages.filter(m => m.role === 'tool').map(m => m.content).pop() || '';
+	check('a broken script is reported to the model', /Problems found by node in bad\.js/.test(tools(1)) && /SyntaxError/.test(tools(1)));
+	check('a valid script says nothing', !/Problems found/.test(tools(2)));
+	check('a broken json file is reported', /Problems found by json in bad\.json/.test(tools(3)));
+	Total.Fs.writeFileSync(Total.Path.join(PROJECT, '.totem/diagnostics.json'), JSON.stringify({ node: { command: ['sh', '-c', 'echo custom failure >&2; exit 3'], extensions: ['.js'] } }));
+	check('a project check runs from .totem/diagnostics.json', /custom failure/.test(MODS.diagnostics.run(PROJECT, Total.Path.join(PROJECT, 'good.js'))));
+	Total.Fs.writeFileSync(Total.Path.join(PROJECT, '.totem/diagnostics.json'), JSON.stringify({ disabled: ['node', 'json'] }));
+	check('a disabled check does not run', MODS.diagnostics.run(PROJECT, Total.Path.join(PROJECT, 'bad.js')) === '' && MODS.diagnostics.run(PROJECT, Total.Path.join(PROJECT, 'bad.json')) === '');
+	Total.Fs.unlinkSync(Total.Path.join(PROJECT, '.totem/diagnostics.json'));
+
 	// /init comes with Totem
 	events.length = 0;
 	requests.length = 0;
@@ -1900,6 +1921,70 @@ Test.push('git state of a project', async function(next) {
 	state.files.forEach(f => by[f.path] = f);
 	check('the branch and the files are listed', state.repository === true && state.branch === 'trunk' && state.files.length === 4);
 	check('each file has its state', by['kept.txt'].status === 'modified' && by['gone.txt'].status === 'deleted' && by['new file.txt'].status === 'untracked' && by['staged.txt'].status === 'added' && by['staged.txt'].staged === true && by['kept.txt'].staged === false);
+	next();
+});
+
+function keys(text) {
+	return Buffer.from(text, 'utf8').toString('base64');
+}
+
+Test.push('interactive terminal', async function(next) {
+
+	CONF.terminalshell = '/bin/sh';
+	var id = await session();
+	events.length = 0;
+	var r = await api('sessions_terminal/' + id, {});
+	check('without start nothing is opened', r.response.status === 'none' && !MAIN.terminals[id]);
+	r = await api('sessions_terminal/' + id, { start: true, columns: 90, rows: 20 });
+	check('the terminal opens in a pseudo-terminal', r.response && r.response.status === 'running');
+
+	await api('sessions_terminalinput/' + id, { data: keys('echo total-$((20+22)); pwd\n') });
+	await until(() => events.some(e => e.sessionid === id && e.type === 'terminal.output' && /total-42/.test(e.data.text)));
+		check('what the user types runs and the output is sent as events', events.some(e => e.type === 'terminal.output' && /total-42/.test(e.data.text)));
+
+	// It is a real terminal: the shell sees a tty and the size that the client sent
+	await api('sessions_terminalresize/' + id, { columns: 77, rows: 31 });
+	await api('sessions_terminalinput/' + id, { data: keys('test -t 0 && echo tty-yes; stty size\n') });
+	await until(() => (MAIN.terminals[id] || {}).output.indexOf('31 77') !== -1);
+	check('the shell has a tty', /tty-yes/.test(MAIN.terminals[id].output));
+	check('the terminal can be resized', /31 77/.test(MAIN.terminals[id].output));
+
+	// A reload opens it again and gets what it printed
+	r = await api('sessions_terminal/' + id, { columns: 77, rows: 31 });
+	check('after a reload the same terminal answers with its output', r.response.status === 'running' && /total-42/.test(r.response.output));
+	check('the shell runs in the folder of the project', r.response.output.indexOf(PROJECT) !== -1 || r.response.output.indexOf(Total.Fs.realpathSync(PROJECT)) !== -1);
+
+	// The shell does not receive the keys of the providers or the token
+	process.env.TOTEM_SECRET_TEST = 'leak';
+	await api('sessions_terminalinput/' + id, { data: keys('env | grep -c TOTEM_SECRET; echo done-env\n') });
+	await until(() => /done-env/.test(MAIN.terminals[id].output.split('echo done-env').pop()));
+	check('the shell does not inherit the environment of the server', /\n0\r?\n/.test(MAIN.terminals[id].output.split('echo done-env').pop()));
+	delete process.env.TOTEM_SECRET_TEST;
+
+	// Closing it
+	await api('sessions_terminalinput/' + id, { data: keys('exit\n') });
+	await until(() => MAIN.terminals[id].status !== 'running');
+	check('exit ends the terminal and says so', MAIN.terminals[id].status === 'exited' && events.some(e => e.type === 'terminal.exit'));
+	r = await api('sessions_terminalinput/' + id, { data: keys('x') });
+	check('typing into a closed terminal is refused', !!r.err);
+
+	// A new one can be opened and Stop ends it
+	r = await api('sessions_terminal/' + id, { start: true });
+	check('a closed terminal opens again', r.response.status === 'running' && r.response.output === '');
+	await api('sessions_terminalstop/' + id);
+	check('Stop ends it', MAIN.terminals[id].status === 'stopped');
+
+	// A project whose folder is gone says so instead of a confusing spawn error
+	var gone = MODS.terminal.open({ sessionid: 'gone', root: Total.Path.join(TMP, 'no-such-folder') });
+	check('a missing project folder is reported', gone.status === 'exited' && /does not exist/.test(gone.output));
+	MODS.terminal.clear('gone');
+
+	// Removing the session ends its terminal
+	await api('sessions_terminal/' + id, { start: true });
+	check('another terminal is running', MODS.terminal.running(id));
+	await api('sessions_remove/' + id);
+	check('removing the session ends the terminal', !MAIN.terminals[id]);
+	CONF.terminalshell = '';
 	next();
 });
 

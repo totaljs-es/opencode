@@ -150,7 +150,7 @@ NEWACTION('Tools|write', {
 		MODS.snapshots.before($.user, model.path, path);
 		Total.Fs.mkdirSync(Total.Path.dirname(path), { recursive: true });
 		Total.Fs.writeFileSync(path, model.content, 'utf8');
-		var note = MODS.formatter.run($.user.root, path);
+		var note = MODS.formatter.run($.user.root, path) + MODS.diagnostics.run($.user.root, path);
 		$.callback('Written {0} ({1} lines)'.format(model.path, model.content.split('\n').length) + note + MODS.conventions.review(path, model.content));
 	}
 });
@@ -190,7 +190,7 @@ NEWACTION('Tools|edit', {
 		text = text.split(model.oldstring).join(model.newstring);
 		MODS.snapshots.before($.user, model.path, path);
 		Total.Fs.writeFileSync(path, text, 'utf8');
-		var note = MODS.formatter.run($.user.root, path);
+		var note = MODS.formatter.run($.user.root, path) + MODS.diagnostics.run($.user.root, path);
 		$.callback('Edited {0} ({1} replacement{2})'.format(model.path, count, count > 1 ? 's' : '') + note + MODS.conventions.review(path, text));
 	}
 });
@@ -312,7 +312,7 @@ NEWACTION('Tools|patch', {
 			}
 			summary.push('{0} {1}'.format(change.kind, change.path));
 			if (change.kind !== 'delete') {
-				review += MODS.formatter.run($.user.root, change.full);
+				review += MODS.formatter.run($.user.root, change.full) + MODS.diagnostics.run($.user.root, change.full);
 				review += MODS.conventions.review(change.full, change.content);
 			}
 		}

@@ -81,6 +81,7 @@ NEWACTION('Sessions|remove', {
 		var id = $.params.id;
 		MODS.agent.abort(id);
 		MODS.jobs.clear(id);
+		MODS.terminal.clear(id);
 		await new Promise(resolve => MODS.snapshots.clear(id, resolve));
 		await new Promise(resolve => MODS.attachments.clear(id, resolve));
 		await NOSQL('todos').remove().where('sessionid', id).promise($);
@@ -347,6 +348,64 @@ NEWACTION('Sessions|jobstop', {
 		}
 
 		MODS.jobs.stop(job);
+		$.success();
+	}
+});
+
+// The interactive terminal: a shell of the user in the project folder. The model has no tool for it.
+NEWACTION('Sessions|terminal', {
+	name: 'Open the terminal of a session',
+	summary: 'Reattaches to the interactive terminal of the session and returns what it printed so far. With start it opens one when none is running.',
+	params: '*id',
+	input: 'start:Boolean, columns:Number, rows:Number',
+	action: async function($, model) {
+
+		var item = MODS.terminal.get($.params.id);
+
+		// Without start it only reattaches to a terminal that exists (the page was reloaded)
+		if (!model.start && !item) {
+			$.callback({ status: 'none', output: '' });
+			return;
+		}
+
+		var session = await NOSQL('sessions').read().where('id', $.params.id).error(404).promise($);
+		var project = await NOSQL('projects').read().where('id', session.projectid).error(404).promise($);
+		item = (model.start || (item && item.status === 'running')) ? MODS.terminal.open({ sessionid: session.id, root: project.path }, model.columns, model.rows) : item;
+		$.callback({ status: item.status, output: item.output });
+	}
+});
+
+NEWACTION('Sessions|terminalinput', {
+	name: 'Type into the terminal',
+	summary: 'The keys are sent as base64 because a schema trims text, and a terminal needs its Enter, Tab and control keys untouched.',
+	params: '*id',
+	input: '*data:String',
+	action: function($, model) {
+
+		if (!MODS.terminal.write($.params.id, Buffer.from(model.data, 'base64').toString('utf8'))) {
+			$.invalid('@(The terminal is not running)');
+			return;
+		}
+
+		$.success();
+	}
+});
+
+NEWACTION('Sessions|terminalresize', {
+	name: 'Resize the terminal',
+	params: '*id',
+	input: '*columns:Number, *rows:Number',
+	action: function($, model) {
+		MODS.terminal.resize($.params.id, model.columns, model.rows);
+		$.success();
+	}
+});
+
+NEWACTION('Sessions|terminalstop', {
+	name: 'Close the terminal',
+	params: '*id',
+	action: function($) {
+		MODS.terminal.stop($.params.id);
 		$.success();
 	}
 });

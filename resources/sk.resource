@@ -18,6 +18,7 @@ T14kix3e : Vrátiť tieto zmeny
 T14lakc0 : Neplatný token
 T14mox7c : ODOSLAŤ
 T14w27d4 : Hľadať
+T15gl1dv : Prerušiť
 T15x5xhn : Napíš odpoveď
 T16ml8g2 : Povolené sú iba URL s http a https
 T16mta1k : Vždy povoliť
@@ -34,6 +35,7 @@ T19ewry0 : Jazyk
 T19hue : Tmavý
 T1b276 : Rozvetviť
 T1b43w : Zadarmo
+T1bjhg0 : Shell
 T1blijdw : Hľadať servery v tomto počítači
 T1bnptdu : Príliš veľa presmerovaní
 T1boqgq : Rozdelené
@@ -89,6 +91,7 @@ T1ttdcr : nástroje
 T1txzylf : Priečinok sa nenašiel
 T1u2k085 : Nechaj prázdne, ak chceš ponechať uložený kľúč
 T1vfvtzd : Totem potrebuje tvoju odpoveď
+T1vid7g8 : Napíš príkaz a stlač Enter
 T1vjos : zadarmo
 T1wcdox2 : Poskytovateľ je každý server s API kompatibilným s OpenAI: OpenRouter, OpenAI, Ollama, LM Studio... Tvoje správy idú iba k poskytovateľom, ktorých tu pridáš.
 T1xnp73t : API kľúč
@@ -105,6 +108,7 @@ T4v2l4h : Súbor sa nenašiel
 T5dynrq : Odstrániť tento projekt a jeho relácie? Súbory sa nezmenia.
 T5jsqzg : Vypnuté
 T5l0ts9 : Vyber priečinok projektu. Totem pracuje iba v ňom.
+T6dzw7l : Terminál nebeží
 T6pomva : Ukladá sa zašifrovaný v tomto počítači a už sa nezobrazí.
 T6v6poe : Možnosti
 T7h6hj1 : Názov je prázdny
@@ -123,6 +127,7 @@ Tbz4kjj : Tento model nevie používať nástroje: bude iba konverzovať.
 Tc4z8n9 : Neplatný regulárny výraz
 Tclyls1 : Dostupné modely
 Td7kjxa : Najprv vyber model. Pridaj poskytovateľa v Nastaveniach.
+Tekde62 : Otvoriť shell
 Tfcovm0 : Najprv vyber priečinok.
 Tg8aw6k : Priečinok:
 Tgatva8 : Modely, ktoré môžeš používať
@@ -132,6 +137,7 @@ Tiqcmye : Adresa, ktorá končí pred /chat/completions.
 Tissvdb : Automaticky prijímať zmeny
 Tjycrp3 : Použité stránky Forge:
 Tkiadb0 : Tento model nevie čítať obrázky: dostane iba poznámku.
+Tko7bau : Prerušiť príkaz, Ctrl+C
 Tksyqfu : Nová relácia s názvom
 Tky7i1g : Opýtaj sa Totemu...
 Tl2okoy : Relácia beží

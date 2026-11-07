@@ -18,6 +18,7 @@ T14kix3e : Deshacer estos cambios
 T14lakc0 : Token no válido
 T14mox7c : ENVIAR
 T14w27d4 : Buscar
+T15gl1dv : Interrumpir
 T15x5xhn : Escribe una respuesta
 T16ml8g2 : Solo se permiten URLs http y https
 T16mta1k : Permitir siempre
@@ -34,6 +35,7 @@ T19ewry0 : Idioma
 T19hue : Oscuro
 T1b276 : Bifurcar
 T1b43w : Gratis
+T1bjhg0 : Shell
 T1blijdw : Buscar servidores en este ordenador
 T1bnptdu : Demasiadas redirecciones
 T1boqgq : Dividido
@@ -89,6 +91,7 @@ T1ttdcr : herramientas
 T1txzylf : Carpeta no encontrada
 T1u2k085 : Déjalo vacío para conservar la clave guardada
 T1vfvtzd : Totem necesita tu respuesta
+T1vid7g8 : Escribe un comando y pulsa Enter
 T1vjos : gratis
 T1wcdox2 : Un proveedor es cualquier servidor con una API compatible con OpenAI: OpenRouter, OpenAI, Ollama, LM Studio... Tus mensajes solo van a los proveedores que añadas aquí.
 T1xnp73t : Clave de API
@@ -105,6 +108,7 @@ T4v2l4h : Archivo no encontrado
 T5dynrq : ¿Quitar este proyecto y sus sesiones? Los archivos no se tocan.
 T5jsqzg : Desactivado
 T5l0ts9 : Elige la carpeta del proyecto. Totem solo trabaja dentro de ella.
+T6dzw7l : La terminal no está en marcha
 T6pomva : Se guarda cifrada en este ordenador y no se vuelve a mostrar.
 T6v6poe : Opciones
 T7h6hj1 : El nombre está vacío
@@ -123,6 +127,7 @@ Tbz4kjj : Este modelo no puede usar herramientas: solo conversará.
 Tc4z8n9 : Expresión regular no válida
 Tclyls1 : Modelos disponibles
 Td7kjxa : Elige primero un modelo. Añade un proveedor en Ajustes.
+Tekde62 : Abrir shell
 Tfcovm0 : Elige primero una carpeta.
 Tg8aw6k : Carpeta:
 Tgatva8 : Modelos que puedes usar
@@ -132,6 +137,7 @@ Tiqcmye : La dirección que termina antes de /chat/completions.
 Tissvdb : Aceptar cambios automáticamente
 Tjycrp3 : Páginas de Forge usadas:
 Tkiadb0 : Este modelo no puede leer imágenes: solo recibirá una nota.
+Tko7bau : Interrumpir el comando, Ctrl+C
 Tksyqfu : Nueva sesión con nombre
 Tky7i1g : Pregunta a Totem...
 Tl2okoy : La sesión se está ejecutando

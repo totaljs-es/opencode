@@ -27,6 +27,10 @@ exports.install = function() {
 	ROUTE('+API    ?    +sessions_undo/{id}         --> Sessions|undo');
 	ROUTE('+API    ?    -sessions_jobs/{id}         --> Sessions|jobs');
 	ROUTE('+API    ?    +sessions_jobstop/{id}      --> Sessions|jobstop');
+	ROUTE('+API    ?    +sessions_terminal/{id}     --> Sessions|terminal');
+	ROUTE('+API    ?    +sessions_terminalinput/{id} --> Sessions|terminalinput');
+	ROUTE('+API    ?    +sessions_terminalresize/{id} --> Sessions|terminalresize');
+	ROUTE('+API    ?    +sessions_terminalstop/{id} --> Sessions|terminalstop');
 	ROUTE('+API    ?    +sessions_redo/{id}         --> Sessions|redo');
 	ROUTE('+API    ?    +sessions_fork/{id}         --> Sessions|fork');
 	ROUTE('+API    ?    -sessions_todos/{id}        --> Sessions|todos');

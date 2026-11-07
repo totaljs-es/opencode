@@ -96,6 +96,14 @@ The box of the prompt has a Plan / Build selector. Plan only reads: the model ge
 
 After `write`, `edit` and `patch` Totem runs the formatter that the project already has (a local `node_modules/.bin/prettier`, `gofmt` with `go.mod`, `rustfmt` with `Cargo.toml`, `ruff` with `[tool.ruff]`) or the ones in `.totem/formatters.json`: `{ "name": { "command": ["tool", "--write", "$FILE"], "extensions": [".js"] }, "disabled": ["prettier"] }`. The model is told when the file changed. `formatter : false` in `config` turns it off.
 
+## Diagnostics
+
+After `write`, `edit` and `patch` Totem runs the checks that the project already has and adds what they report to the result of the tool, so the model fixes a broken file in the same step: `node --check` for JavaScript, a parse for `.json`, a local `node_modules/.bin/tsc` with `tsconfig.json`, `go vet` with `go.mod`, `cargo check` with `Cargo.toml`, `ruff check` with `[tool.ruff]` and `python3 -m py_compile` for the rest of Python. `.totem/diagnostics.json` replaces or adds checks: `{ "name": { "command": ["tool", "$FILE"], "extensions": [".js"] }, "disabled": ["node"] }`. A check that exits with 0 says nothing, a tool that is not installed is skipped, and the report is capped at 3000 characters. `diagnostics : false` in `config` turns it off.
+
+## Interactive terminal
+
+The **Terminal** panel has a **Shell**: the shell of the user (`terminalshell` in `config`, else `SHELL`, else `/bin/sh`) in the project folder, inside a pseudo-terminal. The user opens it with **Open shell**, types in the line below the output (Enter, Tab for completion, the arrow keys for history, Ctrl+C or **Interrupt**) and closes it with **Close**. The model has no tool for it. The shell stays alive on the server: after a reload the panel reattaches to it and shows what it printed (the last 100000 characters). The output arrives as `terminal.output` and `terminal.exit` events of the session; removing the session or the project ends its shell. The pseudo-terminal comes from the Python standard library (`private/terminal.py`, `CONF.$python`), so there is no native module; it works on macOS and Linux. The panel shows plain text: it strips the control sequences and starts the shell with `TERM=dumb`, so full-screen programs (vim, htop) are not supported yet.
+
 ## Redo, fork and background commands
 
 After an undo the bar shows Redo, which puts the changes back (the snapshots and the files of the undo are kept until the next prompt). Every answer has "Fork from here" and the menu of a session has Fork: the new session copies the conversation and its attachments, not the file changes. The `bash` tool takes `background: true` for a development server or a watcher: it returns at once with a job id and the first output, Stop does not end it, and the `job` tool lists the jobs of the session, reads their output and ends them (`stop`). Jobs end when the session is removed or the server stops.

@@ -41,3 +41,9 @@ conventions                 : true
 
 // Run the formatter of the project (a local prettier, gofmt, rustfmt, ruff or .totem/formatters.json) after a file is written
 formatter                   : true
+
+// Run the checks of the project (node --check, a local tsc, go vet, cargo check, ruff or .totem/diagnostics.json) after a file is written and tell the model what is wrong
+diagnostics                 : true
+
+// The shell of the interactive terminal (empty: the SHELL of the user, or /bin/sh)
+terminalshell               : 
