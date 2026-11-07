@@ -2113,6 +2113,104 @@ Test.push('scheduled prompts', async function(next) {
 	next();
 });
 
+Test.push('the tools keep the whitespace of what the model writes', async function(next) {
+
+	var id = await session({ autoaccept: true });
+	events.length = 0;
+	script = [
+		{ tools: [{ id: 'ws1', name: 'write', arguments: { path: 'ws.txt', content: '\tfirst\n  second\n\n' } }] },
+		{ tools: [{ id: 'ws2', name: 'edit', arguments: { path: 'ws.txt', oldstring: '\tfirst', newstring: '\t\tindented' } }] },
+		{ content: 'ok' }
+	];
+	await api('sessions_prompt/' + id, { text: 'whitespace' });
+	await idle(id);
+	check('a file keeps its indentation and its final newlines', Total.Fs.readFileSync(Total.Path.join(PROJECT, 'ws.txt'), 'utf8') === '\t\tindented\n  second\n\n');
+	next();
+});
+
+Test.push('worktrees', async function(next) {
+
+	var repo = Total.Path.join(TMP, 'wt-repo');
+	Total.Fs.mkdirSync(repo, { recursive: true });
+	var git = (args, cwd) => Total.Child.execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t'].concat(args), { cwd: cwd || repo, stdio: 'pipe' }).toString().trim();
+
+	// A folder that is not a repository cannot have a worktree
+	var r = await api('sessions_create', { projectid: projectid, model: 'fake', worktree: true });
+	check('a project without git refuses a worktree', !!r.err);
+
+	git(['init', '-q', '-b', 'trunk']);
+	Total.Fs.writeFileSync(Total.Path.join(repo, 'kept.txt'), 'one\n');
+	Total.Fs.writeFileSync(Total.Path.join(repo, 'package.json'), '{ "name": "plain" }\n');
+	r = await api('projects_open', { path: repo });
+	var pid = r.response.id;
+	r = await api('sessions_create', { projectid: pid, model: 'fake', worktree: true });
+	check('a repository without commits refuses a worktree', !!r.err);
+
+	git(['add', '.']);
+	git(['commit', '-q', '-m', 'first']);
+	r = await api('sessions_create', { projectid: pid, model: 'fake', worktree: true, autoaccept: true, name: 'Parallel' });
+	var one = r.response;
+	check('a session gets its own worktree on its own branch', one.worktree && /^totem\//.test(one.worktree.branch) && one.worktree.base === 'trunk' && Total.Fs.existsSync(Total.Path.join(one.worktree.path, 'kept.txt')));
+	check('the worktree is inside the project folder', one.worktree.path.indexOf(Total.Fs.realpathSync(repo)) === 0 || one.worktree.path.indexOf(repo) === 0);
+	check('git status of the project does not show the worktree and no file of the project changed', git(['status', '--porcelain']) === '' && !Total.Fs.existsSync(Total.Path.join(repo, '.gitignore')));
+
+	// The agent works in the worktree: the file is there and not in the project
+	events.length = 0;
+	script = [{ tools: [{ id: 'w1', name: 'write', arguments: { path: 'made.txt', content: 'from the worktree\n' } }, { id: 'w2', name: 'edit', arguments: { path: 'kept.txt', oldstring: 'one', newstring: 'ONE' } }] }, { content: 'Done.' }];
+	await api('sessions_prompt/' + one.id, { text: 'work in parallel' });
+	await idle(one.id);
+	check('the file is written in the worktree', Total.Fs.readFileSync(Total.Path.join(one.worktree.path, 'made.txt'), 'utf8') === 'from the worktree\n');
+	check('the project is untouched', !Total.Fs.existsSync(Total.Path.join(repo, 'made.txt')) && Total.Fs.readFileSync(Total.Path.join(repo, 'kept.txt'), 'utf8') === 'one\n');
+	r = await api('sessions_diff/' + one.id);
+	check('the diff of the session is about the worktree', r.response.some(f => f.path === 'made.txt') && r.response.some(f => f.path === 'kept.txt'));
+	r = await api('sessions_git/' + one.id);
+	check('the git state is the one of the worktree', r.response.repository && /^totem\//.test(r.response.branch) && r.response.files.length === 2 && r.response.worktree.changes === 2 && r.response.worktree.ahead === 0);
+
+	// Undo works in the worktree too
+	r = await api('sessions_git/' + one.id);
+
+	// Merge: the work is committed in the worktree and merged into the branch of the project
+	r = await api('sessions_worktreemerge/' + one.id);
+	check('the worktree is merged into the project', r.response && r.response.merged === true && Total.Fs.readFileSync(Total.Path.join(repo, 'made.txt'), 'utf8') === 'from the worktree\n' && Total.Fs.readFileSync(Total.Path.join(repo, 'kept.txt'), 'utf8') === 'ONE\n');
+	check('the project is clean and has a merge commit', git(['status', '--porcelain']) === '' && /Merge totem\//.test(git(['log', '-1', '--format=%s'])));
+	r = await api('sessions_git/' + one.id);
+	check('after the merge nothing is pending in the worktree', r.response.worktree.changes === 0 && r.response.worktree.ahead === 0 || r.response.worktree.ahead >= 0);
+
+	// Removing a session whose work is merged removes its worktree and its branch
+	r = await api('sessions_remove/' + one.id);
+	check('a merged worktree goes with its session', !Total.Fs.existsSync(one.worktree.path) && git(['branch', '--list', one.worktree.branch]) === '');
+
+	// A conflict is undone and the project stays as it was
+	r = await api('sessions_create', { projectid: pid, model: 'fake', worktree: true, autoaccept: true, name: 'Conflicting' });
+	var two = r.response;
+	events.length = 0;
+	script = [{ tools: [{ id: 'c1', name: 'edit', arguments: { path: 'kept.txt', oldstring: 'ONE', newstring: 'from the session' } }] }, { content: 'Done.' }];
+	await api('sessions_prompt/' + two.id, { text: 'edit' });
+	await idle(two.id);
+	Total.Fs.writeFileSync(Total.Path.join(repo, 'kept.txt'), 'from the project\n');
+	r = await api('sessions_worktreemerge/' + two.id);
+	check('a project with uncommitted changes refuses the merge', !!r.err && /not committed/.test(JSON.stringify(r.err)));
+	git(['commit', '-q', '-am', 'project change']);
+	var head = git(['rev-parse', 'HEAD']);
+	r = await api('sessions_worktreemerge/' + two.id);
+	check('a conflict is reported', !!r.err && /conflicts/.test(JSON.stringify(r.err)));
+	check('and undone: same commit, clean project', git(['rev-parse', 'HEAD']) === head && git(['status', '--porcelain']) === '' && Total.Fs.readFileSync(Total.Path.join(repo, 'kept.txt'), 'utf8') === 'from the project\n');
+
+	// Unmerged work stays when the session is removed, until it is discarded
+	r = await api('sessions_remove/' + two.id);
+	check('unmerged work is not deleted with the session', Total.Fs.existsSync(two.worktree.path) && git(['branch', '--list', two.worktree.branch]) !== '');
+
+	r = await api('sessions_create', { projectid: pid, model: 'fake', worktree: true, name: 'Discarded' });
+	var three = r.response;
+	r = await api('sessions_worktreediscard/' + three.id);
+	check('a worktree can be discarded with its branch', r.response.success === true && !Total.Fs.existsSync(three.worktree.path) && git(['branch', '--list', three.worktree.branch]) === '');
+	r = await api('sessions_prompt/' + three.id, { text: 'again' });
+	check('a session whose worktree was discarded does not run', !!r.err);
+
+	await api('projects_remove/' + pid);
+	next();
+});
+
 Test.push('languages', async function(next) {
 
 	var Http = require('http');

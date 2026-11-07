@@ -1,3 +1,4 @@
+T10e87d3 : Worktree de esta sesión. Rama base:
 T11pd1u9 : Totem no ha cambiado ningún archivo en esta sesión.
 T121u7px : Medio
 T123z7m7 : Totem no ha ejecutado ningún comando en esta sesión.
@@ -30,9 +31,12 @@ T17hh5mh : Se alcanzó el límite de pasos
 T17kqx0 : Última:
 T17lq8ps : URL base
 T17plo6 : Claro
+T17vd619 : Nueva sesión en un worktree de git
 T17zrj : Automático
 T1862u0i : Tokens usados en esta sesión
+T1872fs : Fusionar
 T18d5vt : Modelo
+T18gj57w : Worktree descartado
 T18mw37y : El archivo está vacío:
 T18qzrb : Próxima:
 T18znc : Chat
@@ -44,6 +48,7 @@ T1b276 : Bifurcar
 T1b43w : Gratis
 T1bfcyv : Guardado
 T1bjhg0 : Shell
+T1bkuj5y : archivos sin commitear
 T1blijdw : Buscar servidores en este ordenador
 T1bnptdu : Demasiadas redirecciones
 T1boqgq : Dividido
@@ -62,6 +67,7 @@ T1firn : Modo
 T1fvl7 : Nombre
 T1ghzmz : Esto no es un archivo de texto:
 T1gkbc7w : Terminal
+T1gw6v7z : Un worktree necesita un repositorio git con al menos un commit
 T1h1paqu : Limpiar el formulario
 T1h2tt0h : Por defecto
 T1h50a01 : Ejecutar ahora
@@ -73,6 +79,7 @@ T1iry2b6 : Tarea no encontrada
 T1iueg : Se ejecuta
 T1j2ql : Guardar
 T1j5ig : Enviar
+T1j66hku : Descartar
 T1jf2x2t : La sesión no se está ejecutando
 T1jgo2 : Parar
 T1jl02ai : Proyectos
@@ -82,6 +89,7 @@ T1k9qsrq : en staging
 T1kej7ed : Abre una carpeta para empezar. Totem trabaja dentro de la carpeta de un proyecto.
 T1kkc5a9 : piensa
 T1klxg : Deshacer
+T1kx8mlc : Descartar el worktree
 T1l3laja : No hay nada que rehacer
 T1li67wl : La ruta está fuera del proyecto
 T1lnf930 : sin herramientas
@@ -109,6 +117,7 @@ T1ttdcr : herramientas
 T1txzylf : Carpeta no encontrada
 T1u2k085 : Déjalo vacío para conservar la clave guardada
 T1udd2pz : Totem envía estos prompts por sí mismo, en una sesión nueva del proyecto. No hay nadie para responder: un prompt programado se ejecuta en modo Plan (solo lee) salvo que elijas Build, y todo lo que pediría permiso se rechaza.
+T1uj2coi : Fusionar en el proyecto
 T1vfvtzd : Totem necesita tu respuesta
 T1vid7g8 : Escribe un comando y pulsa Enter
 T1vjos : gratis
@@ -140,6 +149,7 @@ T80yody : Nueva sesión
 T8ct47m : Comandos:
 T8t8ext : A las, HH:MM de este ordenador
 T905yvo : Renombrar sesión
+T9jn8zg : Esta sesión no tiene worktree
 T9lvtgh : Puede pensar antes de responder
 T9tb4m0 : Permitir una vez
 Tajdv69 : Totem ha terminado
@@ -149,19 +159,24 @@ Tbupqhp : Token de acceso
 Tbz4kjj : Este modelo no puede usar herramientas: solo conversará.
 Tc4z8n9 : Expresión regular no válida
 Tcgo5yg : Cada N minutos
+Tcixuke : Fusionado en el proyecto
 Tclyls1 : Modelos disponibles
 Td7kjxa : Elige primero un modelo. Añade un proveedor en Ajustes.
 Tekde62 : Abrir shell
 Tfcovm0 : Elige primero una carpeta.
+Tfpufbw : commits
 Tg8aw6k : Carpeta:
 Tgatva8 : Modelos que puedes usar
 Tgqxhtt : Aún no hay proyectos. Abre una carpeta para empezar.
 Th3pgr4 : El modelo de esta programación no está disponible
 Thm0jj3 : minutos
+Thwdl0y : El worktree de esta sesión se descartó: empieza una sesión nueva
 Ti90lzh : Archivos restaurados:
+Ti9njf0 : ¿Descartar el worktree y su rama? Lo que no se fusionó se pierde.
 Tiqcmye : La dirección que termina antes de /chat/completions.
 Tissvdb : Aceptar cambios automáticamente
 Tjycrp3 : Páginas de Forge usadas:
+Tk7dq51 : ¿Hacer commit de lo que esta sesión dejó en su worktree y fusionar la rama en el proyecto?
 Tkiadb0 : Este modelo no puede leer imágenes: solo recibirá una nota.
 Tko7bau : Interrumpir el comando, Ctrl+C
 Tksyqfu : Nueva sesión con nombre
@@ -184,10 +199,12 @@ Tosmo8z : Ajustes
 Tp6sjhp : El intervalo es de al menos {0} minutos
 Tpnaojj : en marcha
 Tqtg2co : Bifurcar desde aquí
+Tsioqms : El proyecto tiene cambios sin commitear: haz commit o stash primero
 Tsmkvh9 : este ordenador
 Tsnldwr : ¿Borrar esta sesión y sus mensajes? Los archivos del proyecto no se tocan.
 Tt398xu : ¿Quitar esta programación?
 Tty16h2 : Demasiados archivos: el límite es
+Tujymnx : La fusión tiene conflictos y se deshizo. Fusiona la rama tú mismo:
 Tuvdde1 : Puede usar herramientas
 Tv3r6gd : Quitar la carpeta de la lista
 Tw01jbu : Totem está trabajando

@@ -138,7 +138,7 @@ NEWACTION('Tools|grep', {
 NEWACTION('Tools|write', {
 	name: 'Write a file',
 	summary: 'Creates a file or replaces it with the given content. Creates missing folders.',
-	input: '*path:String // Path relative to the project root, *content:String // Full content of the file',
+	input: '*path:String // Path relative to the project root, *content:Text // Full content of the file',
 	action: function($, model) {
 
 		var path = FUNC.resolve($.user.root, model.path);
@@ -158,7 +158,7 @@ NEWACTION('Tools|write', {
 NEWACTION('Tools|edit', {
 	name: 'Edit a file',
 	summary: 'Replaces an exact piece of text in a file. The text must appear once unless all is true.',
-	input: '*path:String // Path relative to the project root, *oldstring:String // Exact text to replace, *newstring:String // Replacement text, all:Boolean // Replace every occurrence',
+	input: '*path:String // Path relative to the project root, *oldstring:Text // Exact text to replace, *newstring:Text // Replacement text, all:Boolean // Replace every occurrence',
 	action: function($, model) {
 
 		var path = FUNC.resolve($.user.root, model.path);
@@ -284,7 +284,7 @@ NEWACTION('Tools|job', {
 NEWACTION('Tools|patch', {
 	name: 'Apply a patch',
 	summary: 'Applies a multi-file patch. Format: "*** Begin Patch", then for each file "*** Add File: path" (lines start with +), "*** Delete File: path" or "*** Update File: path" with hunks that start with @@ and have lines that begin with a space (context), - (remove) or + (add), and finally "*** End Patch". Nothing is written when any hunk does not match.',
-	input: '*patch:String // The text of the patch',
+	input: '*patch:Text // The text of the patch',
 	action: function($, model) {
 
 		var parsed = MODS.patch.parse(model.patch);

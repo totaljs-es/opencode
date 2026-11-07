@@ -29,12 +29,23 @@ NEWACTION('Sessions|create', {
 	name: 'Create a session',
 	summary: 'Creates a session in a project. The model is one of the models that Totem lists (provider:model).',
 	mcp: true,
-	input: '*projectid:String, name:String, model:String, autoaccept:Boolean, reasoning:String',
+	input: '*projectid:String, name:String, model:String, autoaccept:Boolean, reasoning:String, worktree:Boolean',
 	action: async function($, model) {
-		await NOSQL('projects').read().where('id', model.projectid).error(404).promise($);
+		var project = await NOSQL('projects').read().where('id', model.projectid).error(404).promise($);
 		// A name given by the user stays; without one the session is named after its first prompt
 		var name = (typeof(($.body || model).name) === 'string' ? model.name : '').trim().substring(0, 80);
 		var item = { id: UID(), projectid: model.projectid, name: name || 'New session', named: !!name, model: model.model || '', status: 'idle', autoaccept: !!model.autoaccept, reasoning: model.reasoning || '', maxsteps: CONF.maxsteps, dtcreated: NOW, dtupdated: NOW };
+
+		// A session in its own git worktree: a second checkout on its own branch
+		if (model.worktree) {
+			var made = await new Promise(resolve => MODS.worktrees.create(project.path, item.id, (err, worktree) => resolve({ err: err, worktree: worktree })));
+			if (made.err) {
+				$.invalid(made.err);
+				return;
+			}
+			item.worktree = made.worktree;
+		}
+
 		await NOSQL('sessions').insert(item).promise($);
 		$.callback(item);
 	}
@@ -79,9 +90,24 @@ NEWACTION('Sessions|remove', {
 	params: '*id',
 	action: async function($) {
 		var id = $.params.id;
+		var session = await NOSQL('sessions').read().where('id', id).promise($);
 		MODS.agent.abort(id);
 		MODS.jobs.clear(id);
 		MODS.terminal.clear(id);
+
+		// The worktree goes with the session only when nothing would be lost: no uncommitted files, no commits that were not merged and no other
+		// session working in it. Otherwise it stays, with its branch, until the user discards it.
+		if (session && session.worktree && Total.Fs.existsSync(session.worktree.path)) {
+			var project = await NOSQL('projects').read().where('id', session.projectid).promise($);
+			var others = await NOSQL('sessions').find().where('projectid', session.projectid).promise($);
+			var shared = others.some(other => other.id !== id && other.worktree && other.worktree.path === session.worktree.path);
+			if (project && !shared) {
+				var state = await new Promise(resolve => MODS.worktrees.state(project.path, session.worktree, resolve));
+				if (!state.changes && !state.ahead)
+					await new Promise(resolve => MODS.worktrees.remove(project.path, session.worktree, resolve));
+			}
+		}
+
 		await new Promise(resolve => MODS.snapshots.clear(id, resolve));
 		await new Promise(resolve => MODS.attachments.clear(id, resolve));
 		await NOSQL('todos').remove().where('sessionid', id).promise($);
@@ -129,6 +155,12 @@ NEWACTION('Sessions|prompt', {
 		}
 
 		var project = await NOSQL('projects').read().where('id', session.projectid).error(404).promise($);
+		project = FUNC.sessionproject(session, project);
+
+		if (session.worktree && !Total.Fs.existsSync(session.worktree.path)) {
+			$.invalid('@(The worktree of this session was discarded: start a new session)');
+			return;
+		}
 
 		if (model.model)
 			session.model = model.model;
@@ -218,6 +250,7 @@ NEWACTION('Sessions|diff', {
 	action: async function($) {
 		var session = await NOSQL('sessions').read().where('id', $.params.id).error(404).promise($);
 		var project = await NOSQL('projects').read().where('id', session.projectid).error(404).promise($);
+		project = FUNC.sessionproject(session, project);
 		MODS.snapshots.files(session, project, (err, files) => $.callback(files));
 	}
 });
@@ -235,6 +268,7 @@ NEWACTION('Sessions|undo', {
 
 		var session = await NOSQL('sessions').read().where('id', $.params.id).error(404).promise($);
 		var project = await NOSQL('projects').read().where('id', session.projectid).error(404).promise($);
+		project = FUNC.sessionproject(session, project);
 
 		MODS.snapshots.undo(session, project, model.messageid, function(err, restored) {
 			if (err)
@@ -257,6 +291,7 @@ NEWACTION('Sessions|redo', {
 
 		var session = await NOSQL('sessions').read().where('id', $.params.id).error(404).promise($);
 		var project = await NOSQL('projects').read().where('id', session.projectid).error(404).promise($);
+		project = FUNC.sessionproject(session, project);
 
 		MODS.snapshots.redo(session, project, function(err, restored) {
 			if (err)
@@ -370,6 +405,7 @@ NEWACTION('Sessions|terminal', {
 
 		var session = await NOSQL('sessions').read().where('id', $.params.id).error(404).promise($);
 		var project = await NOSQL('projects').read().where('id', session.projectid).error(404).promise($);
+		project = FUNC.sessionproject(session, project);
 		item = (model.start || (item && item.status === 'running')) ? MODS.terminal.open({ sessionid: session.id, root: project.path }, model.columns, model.rows) : item;
 		$.callback({ status: item.status, output: item.output });
 	}
@@ -406,6 +442,80 @@ NEWACTION('Sessions|terminalstop', {
 	params: '*id',
 	action: function($) {
 		MODS.terminal.stop($.params.id);
+		$.success();
+	}
+});
+
+// The git state of what the session works on: its worktree when it has one, the project otherwise
+NEWACTION('Sessions|git', {
+	name: 'Git state of a session',
+	summary: 'The branch and the changed files of the folder where the session works, and the state of its worktree when it has one.',
+	params: '*id',
+	action: async function($) {
+		var session = await NOSQL('sessions').read().where('id', $.params.id).error(404).promise($);
+		var project = await NOSQL('projects').read().where('id', session.projectid).error(404).promise($);
+		var state = await new Promise(resolve => MODS.git.status(FUNC.sessionproject(session, project).path, resolve));
+		if (session.worktree)
+			state.worktree = await new Promise(resolve => MODS.worktrees.state(project.path, session.worktree, resolve));
+		$.callback(state);
+	}
+});
+
+NEWACTION('Sessions|worktreemerge', {
+	name: 'Merge the worktree of a session into the project',
+	summary: 'Commits what the session left in its worktree and merges its branch into the branch that is checked out in the project. A conflict is undone.',
+	params: '*id',
+	action: async function($) {
+
+		var session = await NOSQL('sessions').read().where('id', $.params.id).error(404).promise($);
+		var project = await NOSQL('projects').read().where('id', session.projectid).error(404).promise($);
+
+		if (!session.worktree || !Total.Fs.existsSync(session.worktree.path)) {
+			$.invalid('@(This session has no worktree)');
+			return;
+		}
+
+		if (MAIN.running[session.id]) {
+			$.invalid('@(The session is running)');
+			return;
+		}
+
+		var result = await new Promise(resolve => MODS.worktrees.merge(project.path, session.worktree, session.name || 'session', (err, output) => resolve({ err: err, output: output })));
+
+		if (result.err) {
+			$.invalid(result.err);
+			return;
+		}
+
+		$.callback({ merged: true, output: result.output });
+	}
+});
+
+NEWACTION('Sessions|worktreediscard', {
+	name: 'Discard the worktree of a session',
+	summary: 'Removes the worktree and its branch. What the session did there and did not merge is lost.',
+	params: '*id',
+	action: async function($) {
+
+		var session = await NOSQL('sessions').read().where('id', $.params.id).error(404).promise($);
+		var project = await NOSQL('projects').read().where('id', session.projectid).error(404).promise($);
+
+		if (!session.worktree) {
+			$.invalid('@(This session has no worktree)');
+			return;
+		}
+
+		MODS.agent.abort(session.id);
+		MODS.terminal.clear(session.id);
+		MODS.jobs.clear(session.id);
+
+		var err = await new Promise(resolve => MODS.worktrees.remove(project.path, session.worktree, resolve));
+
+		if (err) {
+			$.invalid(err);
+			return;
+		}
+
 		$.success();
 	}
 });

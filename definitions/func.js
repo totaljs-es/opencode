@@ -123,3 +123,8 @@ FUNC.readtoken = function() {
 		CONF.token = Total.Fs.readFileSync(CONF.tokenfile, 'utf8').trim();
 	return CONF.token;
 };
+
+// The project as a session sees it: the folder of its worktree when it has one, so that every tool, snapshot and shell works there
+FUNC.sessionproject = function(session, project) {
+	return session && session.worktree && session.worktree.path ? Object.assign({}, project, { path: session.worktree.path }) : project;
+};

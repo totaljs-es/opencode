@@ -31,6 +31,9 @@ exports.install = function() {
 	ROUTE('+API    ?    +sessions_terminalinput/{id} --> Sessions|terminalinput');
 	ROUTE('+API    ?    +sessions_terminalresize/{id} --> Sessions|terminalresize');
 	ROUTE('+API    ?    +sessions_terminalstop/{id} --> Sessions|terminalstop');
+	ROUTE('+API    ?    -sessions_git/{id}          --> Sessions|git');
+	ROUTE('+API    ?    +sessions_worktreemerge/{id} --> Sessions|worktreemerge');
+	ROUTE('+API    ?    +sessions_worktreediscard/{id} --> Sessions|worktreediscard');
 	ROUTE('+API    ?    +sessions_redo/{id}         --> Sessions|redo');
 	ROUTE('+API    ?    +sessions_fork/{id}         --> Sessions|fork');
 	ROUTE('+API    ?    -sessions_todos/{id}        --> Sessions|todos');

@@ -21,6 +21,7 @@
 	.CLASS .mode { width: 110px; }
 	.CLASS .gitbox { border: 1px solid var(--t-border); border-radius: var(--radius, 6px); padding: 8px 10px; margin-bottom: 12px; font-size: 12px; background: var(--t-soft); }
 	.CLASS .gittop { margin-bottom: 6px; }
+	.CLASS .gitwt { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--t-border); }
 	.CLASS .gitfile { padding: 1px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	.CLASS .termhead { font-weight: bold; font-size: 12px; margin-bottom: 6px; color: var(--t-muted); }
 	.CLASS .termjob { margin-bottom: 12px; font-size: 12px; }
@@ -309,6 +310,15 @@
 					<div class="gittop"><i class="ti ti-code-branch"></i> <b>{{ value.branch }}</b> <span class="gray">{{ value.files.length }} @(changed in git)</span></div>
 					{{ foreach f in value.files }}<div class="gitfile"><span class="badge badge-small">{{ f.status }}</span> {{ f.path }}{{ if f.staged }} <span class="gray">@(staged)</span>{{ fi }}</div>{{ end }}
 					{{ if value.more }}<div class="gray">+{{ value.more }}</div>{{ fi }}
+					{{ if value.worktree }}
+					<div class="gitwt">
+						<div class="mb5">@(Worktree of this session. Base branch:) <b>{{ value.worktree.base }}</b> &middot; {{ value.worktree.ahead }} @(commits) &middot; {{ value.worktree.changes }} @(files not committed)</div>
+						<div style="display:flex;gap:6px;flex-wrap:wrap">
+							<button class="tbtn tbtn-small tbtn-primary exec" data-exec="?/wtmerge"><i class="ti ti-code-branch"></i>@(Merge into the project)</button>
+							<button class="tbtn tbtn-small exec" data-exec="?/wtdiscard"><i class="ti ti-trash red"></i>@(Discard the worktree)</button>
+						</div>
+					</div>
+					{{ fi }}
 				</div>
 				{{ fi }}
 			</script>
@@ -439,8 +449,7 @@
 					rawfiles = files;
 					showfiles();
 				});
-				var projectid = exports.model.session && exports.model.session.projectid;
-				projectid && exports.tapi('projects_git/' + projectid, git => exports.set('git', git));
+				sessionid && exports.tapi('sessions_git/' + sessionid, git => exports.set('git', git));
 			}, 300);
 		}
 
@@ -994,6 +1003,25 @@
 
 		exports.stopjob = function(el) {
 			exports.tapi('sessions_jobstop/' + sessionid + ' ERROR', { job: ATTRD(el) }, refreshjobs);
+		};
+
+		// The worktree of the session: merge its branch into the project, or throw it away
+		exports.wtmerge = function() {
+			SETTER('approve/show', '@(Commit what this session left in its worktree and merge the branch into the project?)', ':ti ti-code-branch: @(Merge)', function() {
+				exports.tapi('sessions_worktreemerge/' + sessionid + ' ERROR', function() {
+					SETTER('notify/success', '@(Merged into the project)');
+					refreshdiff();
+				});
+			});
+		};
+
+		exports.wtdiscard = function() {
+			SETTER('approve/show', '@(Discard the worktree and its branch? What was not merged is lost.)', ':ti ti-trash: @(Discard)', function() {
+				exports.tapi('sessions_worktreediscard/' + sessionid + ' ERROR', function() {
+					SETTER('notify/success', '@(Worktree discarded)');
+					refreshdiff();
+				});
+			});
 		};
 
 		exports.changes = function() {

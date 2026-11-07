@@ -157,10 +157,10 @@
 		};
 
 		// Creates a session in a project; the name is optional, without one the first prompt names it
-		exports.create = function(id, name) {
+		exports.create = function(id, name, worktree) {
 			// The new session starts with the model that is chosen in the chat
 			var model = (PLUGINS.chat && PLUGINS.chat.model && PLUGINS.chat.model.model) || '';
-			exports.tapi('sessions_create ERROR', { projectid: id, model: model, name: typeof(name) === 'string' ? name : '' }, function(response) {
+			exports.tapi('sessions_create ERROR', { projectid: id, model: model, name: typeof(name) === 'string' ? name : '', worktree: !!worktree }, function(response) {
 				exports.refresh();
 				exports.session(response.id, id);
 			});
@@ -183,11 +183,14 @@
 			opt.items = [];
 			opt.items.push({ id: 'session', name: '@(New session)', icon: 'ti ti-plus' });
 			opt.items.push({ id: 'named', name: '@(New session with a name)', icon: 'ti ti-pencil-alt' });
+			opt.items.push({ id: 'worktree', name: '@(New session in a git worktree)', icon: 'ti ti-code-branch' });
 			opt.items.push('-');
 			opt.items.push({ id: 'remove', name: '@(Remove folder from the list)', icon: 'ti ti-trash red' });
 			opt.callback = function(item) {
 				if (item.id === 'session')
 					exports.create(id);
+				else if (item.id === 'worktree')
+					exports.create(id, '', true);
 				else if (item.id === 'named')
 					exports.askname('@(New session)', '', name => exports.create(id, name));
 				else if (item.id === 'remove') {

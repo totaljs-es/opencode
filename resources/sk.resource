@@ -1,3 +1,4 @@
+T10e87d3 : Worktree tejto relácie. Základná vetva:
 T11pd1u9 : Totem v tejto relácii nezmenil žiadny súbor.
 T121u7px : Stredná
 T123z7m7 : Totem v tejto relácii nespustil žiadny príkaz.
@@ -30,9 +31,12 @@ T17hh5mh : Dosiahol sa limit krokov
 T17kqx0 : Posledné:
 T17lq8ps : Základná URL
 T17plo6 : Svetlý
+T17vd619 : Nová relácia v git worktree
 T17zrj : Automaticky
 T1862u0i : Tokeny použité v tejto relácii
+T1872fs : Zlúčiť
 T18d5vt : Model
+T18gj57w : Worktree zahodený
 T18mw37y : Súbor je prázdny:
 T18qzrb : Ďalšie:
 T18znc : Chat
@@ -44,6 +48,7 @@ T1b276 : Rozvetviť
 T1b43w : Zadarmo
 T1bfcyv : Uložené
 T1bjhg0 : Shell
+T1bkuj5y : necommitnutých súborov
 T1blijdw : Hľadať servery v tomto počítači
 T1bnptdu : Príliš veľa presmerovaní
 T1boqgq : Rozdelené
@@ -62,6 +67,7 @@ T1firn : Režim
 T1fvl7 : Názov
 T1ghzmz : Toto nie je textový súbor:
 T1gkbc7w : Terminál
+T1gw6v7z : Worktree potrebuje git repozitár s aspoň jedným commitom
 T1h1paqu : Vyčistiť formulár
 T1h2tt0h : Predvolené
 T1h50a01 : Spustiť teraz
@@ -73,6 +79,7 @@ T1iry2b6 : Úloha sa nenašla
 T1iueg : Spúšťa sa
 T1j2ql : Uložiť
 T1j5ig : Odoslať
+T1j66hku : Zahodiť
 T1jf2x2t : Relácia nebeží
 T1jgo2 : Zastaviť
 T1jl02ai : Projekty
@@ -82,6 +89,7 @@ T1k9qsrq : v staging
 T1kej7ed : Otvor priečinok a začni. Totem pracuje v priečinku projektu.
 T1kkc5a9 : premýšľa
 T1klxg : Vrátiť späť
+T1kx8mlc : Zahodiť worktree
 T1l3laja : Nie je čo opakovať
 T1li67wl : Cesta je mimo projektu
 T1lnf930 : bez nástrojov
@@ -109,6 +117,7 @@ T1ttdcr : nástroje
 T1txzylf : Priečinok sa nenašiel
 T1u2k085 : Nechaj prázdne, ak chceš ponechať uložený kľúč
 T1udd2pz : Totem posiela tieto prompty sám, v novej relácii projektu. Nikto tam nie je, aby odpovedal: plánovaný prompt beží v režime Plan (len číta), pokiaľ nezvolíš Build, a všetko, čo by žiadalo povolenie, sa odmietne.
+T1uj2coi : Zlúčiť do projektu
 T1vfvtzd : Totem potrebuje tvoju odpoveď
 T1vid7g8 : Napíš príkaz a stlač Enter
 T1vjos : zadarmo
@@ -140,6 +149,7 @@ T80yody : Nová relácia
 T8ct47m : Príkazy:
 T8t8ext : O, HH:MM tohto počítača
 T905yvo : Premenovať reláciu
+T9jn8zg : Táto relácia nemá worktree
 T9lvtgh : Vie premýšľať pred odpoveďou
 T9tb4m0 : Povoliť raz
 Tajdv69 : Totem skončil
@@ -149,19 +159,24 @@ Tbupqhp : Prístupový token
 Tbz4kjj : Tento model nevie používať nástroje: bude iba konverzovať.
 Tc4z8n9 : Neplatný regulárny výraz
 Tcgo5yg : Každých N minút
+Tcixuke : Zlúčené do projektu
 Tclyls1 : Dostupné modely
 Td7kjxa : Najprv vyber model. Pridaj poskytovateľa v Nastaveniach.
 Tekde62 : Otvoriť shell
 Tfcovm0 : Najprv vyber priečinok.
+Tfpufbw : commitov
 Tg8aw6k : Priečinok:
 Tgatva8 : Modely, ktoré môžeš používať
 Tgqxhtt : Zatiaľ žiadne projekty. Otvor priečinok a začni.
 Th3pgr4 : Model tohto plánu nie je dostupný
 Thm0jj3 : minút
+Thwdl0y : Worktree tejto relácie bol zahodený: začni novú reláciu
 Ti90lzh : Obnovené súbory:
+Ti9njf0 : Zahodiť worktree a jeho vetvu? To, čo nebolo zlúčené, sa stratí.
 Tiqcmye : Adresa, ktorá končí pred /chat/completions.
 Tissvdb : Automaticky prijímať zmeny
 Tjycrp3 : Použité stránky Forge:
+Tk7dq51 : Commitnúť, čo táto relácia nechala vo svojom worktree, a zlúčiť vetvu do projektu?
 Tkiadb0 : Tento model nevie čítať obrázky: dostane iba poznámku.
 Tko7bau : Prerušiť príkaz, Ctrl+C
 Tksyqfu : Nová relácia s názvom
@@ -184,10 +199,12 @@ Tosmo8z : Nastavenia
 Tp6sjhp : Interval je aspoň {0} minút
 Tpnaojj : beží
 Tqtg2co : Rozvetviť odtiaľto
+Tsioqms : Projekt má necommitnuté zmeny: najprv ich commitni alebo daj do stash
 Tsmkvh9 : tento počítač
 Tsnldwr : Odstrániť túto reláciu a jej správy? Súbory projektu sa nezmenia.
 Tt398xu : Odstrániť tento plán?
 Tty16h2 : Príliš veľa súborov: limit je
+Tujymnx : Zlúčenie má konflikty a bolo vrátené. Zlúč vetvu sám:
 Tuvdde1 : Vie používať nástroje
 Tv3r6gd : Odstrániť priečinok zo zoznamu
 Tw01jbu : Totem pracuje

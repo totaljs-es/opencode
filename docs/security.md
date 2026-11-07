@@ -40,6 +40,10 @@ Every file path is resolved with `Total.Path`, normalized, and rejected unless i
 
 A scheduled run has no person to approve anything: a permission question is refused at once (in code, in the same place as Plan mode, also for sub-agents), a question of the model is answered with "nobody is here", and the default mode is Plan. Only the rules of the project, the global rules and auto-accept for file edits decide what runs. A schedule belongs to a project and is removed with it.
 
+## Worktrees
+
+A session in a worktree has the folder of the worktree as its project root, so the boundary of the project (every path is resolved inside it, symbolic links included) applies to the worktree and not to the project. The merge and the discard are actions of the user and never of the model, git runs with a timeout and a minimal environment, and Totem deletes a worktree or a branch only when the user discards it or when a removed session leaves nothing to lose.
+
 ## Interactive terminal
 
 The shell of the Terminal panel is the user's own: it runs with the permissions of the user, in the project folder, without the permission questions of the agent, and the model has no tool to type into it. It receives the same minimal environment as the commands of the agent (no keys, no token) and its output goes through the same scrubbing. It needs the same authentication as every other action, so on a server it must not be reachable without the access token: whoever can open the page can run commands as the user. For isolation, run Totem in the Docker image ([delivery](delivery.md)).
