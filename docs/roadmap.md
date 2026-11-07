@@ -50,7 +50,7 @@ Done: diagnostics from the checks of the project (not language servers, see deci
 
 Docker image, scheduled prompts, worktrees for parallel sessions, multi-user hardening.
 
-Done: the Docker image with a token as a Docker secret, a mounted project and the smoke test (`scripts/docker-smoke.js`, in CI with the unit tests); the server refuses to listen beyond this computer without a token; `--release` really runs without the watcher now. Also done: scheduled prompts (unattended runs, Plan mode by default, a dialog in the interface). Also done: worktrees for parallel sessions (create, merge, discard). Pending: multi-user hardening, publishing the image. **Done when** the image runs from `docker run` with a token, with a mounted project, and the smoke test passes in CI.
+Done: the Docker image with a token as a Docker secret, a mounted project and the smoke test (`scripts/docker-smoke.js`, in CI with the unit tests); the server refuses to listen beyond this computer without a token; `--release` really runs without the watcher now. Also done: scheduled prompts (unattended runs, Plan mode by default, a dialog in the interface). Also done: worktrees for parallel sessions (create, merge, discard). Also done: hardening of a shared server (same-origin checks for requests and the WebSocket, strict cookie, constant-time token, security headers) and two bugs of the login page that kept a token-protected server from letting anyone in. Pending: accounts with their own projects (a decision, see security), publishing the image. **Done when** the image runs from `docker run` with a token, with a mounted project, and the smoke test passes in CI.
 
 ## Phase 6: native windows
 

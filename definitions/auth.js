@@ -15,7 +15,7 @@ AUTH(function($) {
 
 	var token = $.headers['x-token'] || $.cookie('totem');
 
-	if (token && token === CONF.token) {
+	if (FUNC.sametoken(token, CONF.token)) {
 		BLOCKED($, -1);
 		$.success(USER);
 	} else
@@ -43,7 +43,7 @@ Total.mcp.auth = function($) {
 			return;
 		}
 
-		if ($.token && $.token === CONF.token) {
+		if (FUNC.sametoken($.token, CONF.token)) {
 			BLOCKED($, -1);
 			$.success(USER);
 		} else
@@ -59,3 +59,17 @@ Total.mcp.auth = function($) {
 	else
 		$.invalid();
 };
+
+// Every response: nothing sniffs types, nothing frames the page (a framed Totem would be a terminal to click blindly), no referrer leaves.
+// A request that changes something and comes from a page of another origin is refused, whatever the cookie says.
+ON('request', function(ctrl) {
+
+	var headers = ctrl.response.headers;
+	headers['x-content-type-options'] = 'nosniff';
+	headers['x-frame-options'] = 'DENY';
+	headers['referrer-policy'] = 'no-referrer';
+	headers['content-security-policy'] = "frame-ancestors 'none'";
+
+	if (ctrl.method !== 'GET' && ctrl.method !== 'HEAD' && ctrl.method !== 'OPTIONS' && !FUNC.sameorigin(ctrl.headers))
+		ctrl.fallback(403);
+});

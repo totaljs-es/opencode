@@ -52,8 +52,11 @@ The shell of the Terminal panel is the user's own: it runs with the permissions 
 
 - Listens on `127.0.0.1` by default. Listening on other interfaces requires a configured access token.
 - One `AUTH()` accepts the session cookie or an `Authorization` token. All routes are `+` (authenticated) except the login page and static files.
-- The WebSocket checks the same authentication, plus the `Origin` header.
-- CSRF protection follows the framework defaults for cookie sessions.
+- The WebSocket checks the same authentication, plus the `Origin` header: a connection from a page of another origin is closed at once (`FUNC.sameorigin`: the host of `Origin` must be the host that was asked, or the one that a reverse proxy forwards in `x-forwarded-host`; a program that sends no `Origin` is fine).
+- A request that changes something (anything but GET, HEAD and OPTIONS) with an `Origin` of another host is refused with 403 before any route runs, whatever the cookie says. The cookie of the login is `HttpOnly` and `SameSite=Strict`; put `$cookiesecure : true` in the config when Totem is served over HTTPS.
+- The access token is compared in constant time (`FUNC.sametoken`) at the login, in `AUTH` and in the MCP route; repeated failures are blocked (`BLOCKED`).
+- Every response carries `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer` and `Content-Security-Policy: frame-ancestors 'none'`: a framed Totem would be a terminal to click blindly. A full CSP for scripts is not possible yet because the plugins use inline scripts.
+- Honest limit: there is one token and one user (`local`). Several people on one server share every project and every session, and the shell of the Terminal panel runs as the user of the server. Accounts with their own projects are not built; for several people, run one container each.
 - No request is made to any third party except the provider the user configured and the URLs the user allowed to `fetch` or an MCP server.
 
 ## Secrets

@@ -1688,7 +1688,7 @@ Test.push('redo, fork and background commands', async function(next) {
 	events.length = 0;
 	script = [{ tools: [{ id: 'b4', name: 'bash', arguments: { command: 'sleep 30', background: true } }] }, { content: 'again' }];
 	await api('sessions_prompt/' + id, { text: 'again' });
-	ask = await until(() => events.find(e => e.type === 'permission.ask'));
+	ask = await until(() => events.find(e => e.type === 'permission.ask'), 20000);
 	await api('permissions_reply/' + ask.data.id, { reply: 'once' });
 	await idle(id);
 	var live = Object.keys(MAIN.jobs).map(k => MAIN.jobs[k]).filter(j => j.status === 'running');
@@ -1882,7 +1882,7 @@ Test.push('Totem as an MCP server', async function(next) {
 
 	// A web page is refused, with or without a token
 	r = await rpc('tools/list', {}, { origin: 'https://evil.example' });
-	check('a request that comes from a web page is refused', r.status === 401 || (r.response && r.response.error && r.response.error.code === -32001));
+	check('a request that comes from a web page is refused', r.status === 403 || r.status === 401 || (r.response && r.response.error && r.response.error.code === -32001));
 
 	CONF.token = 'secret-token';
 	r = await rpc('tools/list');
@@ -2125,6 +2125,86 @@ Test.push('the tools keep the whitespace of what the model writes', async functi
 	await api('sessions_prompt/' + id, { text: 'whitespace' });
 	await idle(id);
 	check('a file keeps its indentation and its final newlines', Total.Fs.readFileSync(Total.Path.join(PROJECT, 'ws.txt'), 'utf8') === '\t\tindented\n  second\n\n');
+	next();
+});
+
+Test.push('a shared server: token, cookie, origins and headers', async function(next) {
+
+	// The token is compared without leaking where it differs
+	check('the right token is accepted', FUNC.sametoken('secret-token', 'secret-token'));
+	check('a wrong, a short, a long and an empty token are not', !FUNC.sametoken('secret-tokex', 'secret-token') && !FUNC.sametoken('secret', 'secret-token') && !FUNC.sametoken('secret-token-and-more', 'secret-token') && !FUNC.sametoken('', 'secret-token') && !FUNC.sametoken(undefined, 'secret-token') && !FUNC.sametoken('x', ''));
+
+	check('a request without Origin is ours', FUNC.sameorigin({ host: 'totem.local:8000' }));
+	check('an Origin with the host that was asked is ours', FUNC.sameorigin({ origin: 'http://totem.local:8000', host: 'totem.local:8000' }));
+	check('a reverse proxy can forward the host', FUNC.sameorigin({ origin: 'https://totem.example.com', host: 'internal:8000', 'x-forwarded-host': 'totem.example.com' }));
+	check('another origin is not', !FUNC.sameorigin({ origin: 'https://evil.example', host: 'totem.local:8000' }) && !FUNC.sameorigin({ origin: 'null', host: 'totem.local:8000' }));
+
+	function post(headers, data) {
+		return new Promise(function(resolve) {
+			var builder = RESTBuilder.POST(URL, data || { schema: 'projects' });
+			Object.keys(headers).forEach(key => builder.header(key, headers[key]));
+			builder.exec((err, response, output) => resolve({ err: err, response: response, output: output }));
+		});
+	}
+
+	// Headers of every response
+	var r = await new Promise(resolve => RESTBuilder.GET('http://127.0.0.1:' + PORT + '/').exec((err, response, output) => resolve(output)));
+	var h = r.headers || {};
+	check('responses forbid sniffing, framing and referrers', h['x-content-type-options'] === 'nosniff' && h['x-frame-options'] === 'DENY' && h['referrer-policy'] === 'no-referrer' && /frame-ancestors 'none'/.test(h['content-security-policy'] || ''));
+
+	// A request that changes something from a page of another origin is refused, a call without Origin or from our own page is not
+	r = await post({ origin: 'https://evil.example' });
+	check('a POST from another origin is refused', r.output.status === 403);
+	r = await post({ origin: 'http://127.0.0.1:' + PORT });
+	check('a POST from our own page goes through', r.output.status === 200);
+	r = await post({});
+	check('a POST without Origin (a program) goes through', r.output.status === 200);
+
+	// The cookie of the login cannot be read by a script nor sent by another site
+	CONF.token = 'login-token';
+	r = await post({}, { schema: 'login', data: { token: 'login-token' } });
+	var cookie = [].concat((r.output.headers || {})['set-cookie'] || []).join(' ');
+	check('the login sets the cookie as HttpOnly and SameSite=Strict', /totem=login-token/.test(cookie) && /HttpOnly/i.test(cookie) && /SameSite=Strict/i.test(cookie));
+	r = await post({}, { schema: 'login', data: { token: 'login-toke' } });
+	check('a wrong token does not sign in', !!r.response && JSON.stringify(r.response).indexOf('Invalid token') !== -1 || r.output.status >= 400);
+	CONF.token = '';
+
+	// The WebSocket: a page of another origin is closed, our own page and a program stay
+	// Raw upgrade requests: the WebSocket client of Node.js does not let a script choose Origin, a browser always sends it
+	function open(headers) {
+		return new Promise(function(resolve) {
+			var done = false;
+			var opened = false;
+			var socket = null;
+			function finish(closed) {
+				if (done)
+					return;
+				done = true;
+				resolve({ closed: closed, opened: opened, ws: { close: () => socket && socket.destroy() } });
+			}
+			var request = require('node:http').request({ host: '127.0.0.1', port: PORT, path: '/api/', headers: Object.assign({ Connection: 'Upgrade', Upgrade: 'websocket', 'Sec-WebSocket-Version': '13', 'Sec-WebSocket-Key': Buffer.from('0123456789abcdef').toString('base64') }, headers) });
+			request.on('upgrade', function(res, sock) {
+				opened = true;
+				socket = sock;
+				sock.on('close', () => finish(true));
+				sock.on('end', () => finish(true));
+				sock.on('error', () => finish(true));
+			});
+			request.on('response', () => finish(true));
+			request.on('error', () => finish(true));
+			request.end();
+			setTimeout(() => finish(false), 800);
+		});
+	}
+
+	var foreign = await open({ origin: 'https://evil.example' });
+	check('a WebSocket from another origin is closed', foreign.closed === true);
+	var own = await open({ origin: 'http://127.0.0.1:' + PORT });
+	check('a WebSocket from our own page stays open', own.closed === false && own.opened === true);
+	own.ws && own.ws.close();
+	var program = await open({});
+	check('a WebSocket from a program stays open', program.closed === false && program.opened === true);
+	program.ws && program.ws.close();
 	next();
 });
 

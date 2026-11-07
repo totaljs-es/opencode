@@ -17,13 +17,13 @@ NEWACTION('Account|login', {
 			return;
 		}
 
-		if (!CONF.token || model.token !== CONF.token) {
+		if (!FUNC.sametoken(model.token, CONF.token)) {
 			$.invalid('@(Invalid token)');
 			return;
 		}
 
 		BLOCKED($, -1);
-		$.cookie('totem', model.token, '1 month');
+		$.cookie('totem', model.token, '1 month', { httponly: true, samesite: 2 });
 		$.success();
 	}
 });
@@ -31,7 +31,7 @@ NEWACTION('Account|login', {
 NEWACTION('Account|logout', {
 	name: 'Sign out',
 	action: function($) {
-		$.cookie('totem', '', '-1 day');
+		$.cookie('totem', '', '-1 day', { httponly: true, samesite: 2 });
 		$.success();
 	}
 });

@@ -70,6 +70,13 @@ function socket($) {
 	$.autodestroy(() => MAIN.ws = null);
 
 	$.on('open', function(client) {
+
+		// A page of another origin cannot listen to the events of the sessions
+		if (!FUNC.sameorigin(client.headers)) {
+			client.destroy();
+			return;
+		}
+
 		client.sessions = {};
 	});
 

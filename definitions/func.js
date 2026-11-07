@@ -128,3 +128,31 @@ FUNC.readtoken = function() {
 FUNC.sessionproject = function(session, project) {
 	return session && session.worktree && session.worktree.path ? Object.assign({}, project, { path: session.worktree.path }) : project;
 };
+
+// The access token is compared in constant time (a digest of each side, so that the length does not leak either)
+FUNC.sametoken = function(given, expected) {
+
+	if (!given || !expected || typeof(given) !== 'string')
+		return false;
+
+	var a = Total.Crypto.createHash('sha256').update(given).digest();
+	var b = Total.Crypto.createHash('sha256').update(expected).digest();
+	return Total.Crypto.timingSafeEqual(a, b);
+};
+
+// A browser sends Origin on a request of a page. It is ours when its host is the host that was asked (or the one that a reverse proxy forwards).
+FUNC.sameorigin = function(headers) {
+
+	if (!headers.origin)
+		return true;
+
+	var host;
+
+	try {
+		host = new URL(headers.origin).host;
+	} catch (e) {
+		return false;
+	}
+
+	return host === headers.host || host === headers['x-forwarded-host'];
+};
