@@ -152,6 +152,7 @@ T905yvo : Renombrar sesión
 T9jn8zg : Esta sesión no tiene worktree
 T9lvtgh : Puede pensar antes de responder
 T9tb4m0 : Permitir una vez
+T9ukspz : Copiar el código
 Tajdv69 : Totem ha terminado
 Tbsl01y : URL no válida
 Tbsmk47 : Sin sesión

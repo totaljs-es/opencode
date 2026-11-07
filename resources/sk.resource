@@ -152,6 +152,7 @@ T905yvo : Premenovať reláciu
 T9jn8zg : Táto relácia nemá worktree
 T9lvtgh : Vie premýšľať pred odpoveďou
 T9tb4m0 : Povoliť raz
+T9ukspz : Kopírovať kód
 Tajdv69 : Totem skončil
 Tbsl01y : Neplatná URL
 Tbsmk47 : Žiadna relácia

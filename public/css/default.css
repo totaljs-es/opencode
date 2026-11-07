@@ -11,6 +11,17 @@
 	--t-add: rgba(46,160,67,0.16);
 	--t-del: rgba(248,81,73,0.16);
 	--t-brand: #3F8F2A;
+	--c-comment: #6A737D;
+	--c-keyword: #CF222E;
+	--c-string: #0A3069;
+	--c-number: #0550AE;
+	--c-title: #8250DF;
+	--c-tag: #116329;
+	--c-attr: #0550AE;
+	--c-builtin: #953800;
+	--c-variable: #953800;
+	--c-add: #116329;
+	--c-del: #82071E;
 }
 
 .ui-dark {
@@ -23,6 +34,17 @@
 	--t-add: rgba(46,160,67,0.3);
 	--t-del: rgba(248,81,73,0.3);
 	--t-brand: #66B639;
+	--c-comment: #8B949E;
+	--c-keyword: #FF7B72;
+	--c-string: #A5D6FF;
+	--c-number: #79C0FF;
+	--c-title: #D2A8FF;
+	--c-tag: #7EE787;
+	--c-attr: #79C0FF;
+	--c-builtin: #FFA657;
+	--c-variable: #FFA657;
+	--c-add: #7EE787;
+	--c-del: #FFA198;
 }
 
 html, body { height: 100%; margin: 0; }
@@ -77,3 +99,21 @@ html, body { height: 100%; margin: 0; }
 .provi-vllm { --i: url(/img/providers/vllm.svg); }
 .provi-cohere { --i: url(/img/providers/cohere.svg); }
 .provi-litellm { --i: url(/img/providers/litellm.svg); }
+
+/* Code in the answers. highlight.js comes with a light theme from the CDN: these colors follow the theme of Totem (light and dark) and win over it. */
+pre code.hljs { background: transparent; color: inherit; padding: 0; }
+pre code.hljs .hljs-comment, pre code.hljs .hljs-quote, pre code.hljs .hljs-meta { color: var(--c-comment); font-style: italic; }
+pre code.hljs .hljs-keyword, pre code.hljs .hljs-selector-tag, pre code.hljs .hljs-doctag, pre code.hljs .hljs-literal, pre code.hljs .hljs-type { color: var(--c-keyword); }
+pre code.hljs .hljs-string, pre code.hljs .hljs-regexp, pre code.hljs .hljs-template-variable, pre code.hljs .hljs-symbol, pre code.hljs .hljs-bullet, pre code.hljs .hljs-link { color: var(--c-string); }
+pre code.hljs .hljs-number, pre code.hljs .hljs-attr, pre code.hljs .hljs-attribute, pre code.hljs .hljs-selector-id, pre code.hljs .hljs-selector-class, pre code.hljs .hljs-selector-attr, pre code.hljs .hljs-selector-pseudo { color: var(--c-attr); }
+pre code.hljs .hljs-title, pre code.hljs .hljs-section, pre code.hljs .hljs-class .hljs-title { color: var(--c-title); }
+pre code.hljs .hljs-tag, pre code.hljs .hljs-name { color: var(--c-tag); }
+pre code.hljs .hljs-tag .hljs-attr, pre code.hljs .hljs-tag .hljs-string { color: inherit; }
+pre code.hljs .hljs-tag .hljs-attr { color: var(--c-attr); }
+pre code.hljs .hljs-tag .hljs-string { color: var(--c-string); }
+pre code.hljs .hljs-built_in, pre code.hljs .hljs-builtin-name, pre code.hljs .hljs-variable, pre code.hljs .hljs-params, pre code.hljs .hljs-subst { color: var(--c-builtin); }
+pre code.hljs .hljs-subst { color: inherit; }
+pre code.hljs .hljs-addition { color: var(--c-add); background: var(--t-add); }
+pre code.hljs .hljs-deletion { color: var(--c-del); background: var(--t-del); }
+pre code.hljs .hljs-emphasis { font-style: italic; }
+pre code.hljs .hljs-strong { font-weight: bold; }

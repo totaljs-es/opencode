@@ -36,6 +36,11 @@
 	.CLASS .shellbox .shellrow .tbtn { flex: 0 0 auto; }
 	.CLASS .part { margin-bottom: 8px; }
 	.CLASS .part.live { white-space: pre-wrap; overflow-wrap: anywhere; }
+	.CLASS .markdown-code { position: relative; }
+	.CLASS .copycode { position: absolute; top: 6px; right: 6px; width: 28px; height: 28px; padding: 0; border: 1px solid var(--t-border); border-radius: var(--radius, 6px); background: var(--t-card); color: var(--t-muted); cursor: pointer; opacity: 0; transition: opacity 0.15s; display: flex; align-items: center; justify-content: center; }
+	.CLASS .markdown-code:hover .copycode, .CLASS .copycode:focus-visible { opacity: 0.9; }
+	.CLASS .copycode:hover { color: inherit; opacity: 1; }
+	@media (hover: none) { .CLASS .copycode { opacity: 0.8; } }
 	.CLASS .part pre { background: var(--t-soft); color: inherit; border: 1px solid var(--t-border); border-radius: var(--radius, 6px); padding: 10px 12px; overflow: auto; font-size: 12px; }
 	.CLASS .part pre code, .CLASS .part code { background: transparent; color: inherit; }
 	.CLASS .part :not(pre) > code { background: var(--t-soft2); padding: 1px 5px; border-radius: 4px; }
@@ -412,6 +417,35 @@
 				});
 
 				exports.watch('model', exports.watchmodel);
+
+				// Every code box of an answer has a button that copies its code
+				var codes = null;
+				function decorate() {
+					codes = null;
+					$('.CLASS .markdown-code').each(function() {
+						if (this.querySelector('.copycode'))
+							return;
+						var button = document.createElement('button');
+						button.type = 'button';
+						button.className = 'copycode';
+						button.title = '@(Copy the code)';
+						button.setAttribute('aria-label', '@(Copy the code)');
+						button.innerHTML = '<i class="ti ti-clone"></i>';
+						this.appendChild(button);
+					});
+				}
+
+				var root = document.querySelector('.CLASS');
+				root && new MutationObserver(function() {
+					codes || (codes = setTimeout(decorate, 50));
+				}).observe(root, { childList: true, subtree: true });
+
+				$(document).on('click', '.CLASS .copycode', function() {
+					var button = $(this);
+					SETTER('clipboard/copy', button.closest('.markdown-code').find('pre code').text());
+					button.find('i').attr('class', 'ti ti-check');
+					setTimeout(() => button.find('i').attr('class', 'ti ti-clone'), 1500);
+				});
 				SETTER(true, 'shortcuts/register', 'esc', function() {
 					if (exports.model.status === 'running')
 						exports.abort();
